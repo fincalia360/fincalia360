@@ -40,7 +40,8 @@ export type LeadSource = (typeof LEAD_SOURCES)[number];
 export const APPOINTMENT_STATUSES = ["REQUESTED", "BOOKED", "COMPLETED", "CANCELLED"] as const;
 export type AppointmentStatus = (typeof APPOINTMENT_STATUSES)[number];
 
-export const AGENCY_STATUSES = ["ACTIVE", "PAUSED"] as const;
+export const AGENCY_STATUSES = ["PROSPECT", "ACTIVE", "PAUSED", "ENDED"] as const;
+export const PARTNER_TYPES = ["INMOBILIARIA", "ABOGADO", "GESTOR", "TASADOR", "OTRO"] as const;
 export type AgencyStatus = (typeof AGENCY_STATUSES)[number];
 
 export const BUSINESS_EVENTS = [
@@ -65,6 +66,7 @@ export const BUSINESS_EVENTS = [
   "PARTNER_UPDATED",
   "REVENUE_RECORDED",
   "DATA_EXPORTED",
+  "DATA_ERASED",
   "CONTACT_DETAILS_UPDATED",
 ] as const;
 export type BusinessEventType = (typeof BUSINESS_EVENTS)[number];

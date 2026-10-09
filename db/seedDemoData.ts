@@ -1,6 +1,7 @@
 // Datos DEMO ficticios. Se usan desde prisma/seed.ts y desde "Restablecer datos demo".
 // Los leads se crean a través de los servicios reales (scoring, agente, citas,
 // asignación, eventos) para que todo el sistema sea coherente.
+import { demoToolsEnabled } from "@/lib/demo";
 import { getDictionary } from "@/lib/i18n";
 import type { ValuationFormInput } from "@/lib/validation";
 import { bookFromAgent, runScriptedConversation } from "@/services/agentService";
@@ -320,7 +321,12 @@ async function backdate(leadId: string, base: Date) {
 }
 
 export async function clearDatabase() {
+  // Segunda barrera: nunca se vacía la base de datos de la web publicada.
+  if (!demoToolsEnabled()) throw new Error("clearDatabase está desactivado en producción");
   // Las cachés de fuentes oficiales (INE, zonas tensionadas) y las referencias de mercado se conservan.
+  await prisma.revenue.deleteMany();
+  await prisma.partnerAssignment.deleteMany();
+  await prisma.serviceRequest.deleteMany();
   await prisma.study.deleteMany();
   await prisma.conversationMessage.deleteMany();
   await prisma.conversation.deleteMany();

@@ -7,11 +7,13 @@ import { PageHeader } from "@/components/admin/PageHeader";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { Badge, STATUS_TONES } from "@/components/ui/Badge";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
-import { LOCATION_LABELS, PROPERTY_LABELS, STATUS_LABELS, label } from "@/lib/labels";
+import { prisma } from "@/db/client";
+import { INTEREST_LABELS, LOCATION_LABELS, PROPERTY_LABELS, STATUS_LABELS, label } from "@/lib/labels";
+import { ASSIGNMENT_STATUS_LABELS } from "@/services/crm/contacts";
 import { formatDate, formatEUR } from "@/lib/utils";
 import { getAgency } from "@/services/agencyService";
 
-export const metadata = { title: "Inmobiliaria" };
+export const metadata = { title: "Colaborador" };
 
 export default async function AgencyPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -50,12 +52,36 @@ export default async function AgencyPage({ params }: { params: Promise<{ id: str
                 status: agency.status,
                 monthlyFee: agency.monthlyFee,
                 pricePerAppointment: agency.pricePerAppointment,
+                partnerType: agency.partnerType,
+                services: agency.services,
+                provinces: agency.provinces,
+                municipalities: agency.municipalities,
+                contactName: agency.contactName,
+                agreementTerms: agency.agreementTerms,
+                notes: agency.notes,
               }}
             />
           </CardBody>
         </Card>
+        <div className="space-y-6">
         <Card>
-          <CardHeader title="Leads recibidos" description="Últimos 20" />
+          <CardHeader title="Oportunidades asignadas" description="Solo contactos que autorizaron comunicar sus datos" />
+          <ul className="divide-y divide-sand-100">
+            {(await prisma.partnerAssignment.findMany({ where: { agencyId: agency.id }, orderBy: { createdAt: "desc" }, take: 50, include: { lead: { select: { id: true, name: true } } } })).map((a) => (
+              <li key={a.id} className="px-5 py-3 text-sm">
+                <Link href={`/admin/leads/${a.lead.id}`} className="font-medium text-ink-800 hover:text-terracotta-600">
+                  {a.lead.name}
+                </Link>
+                <span className="ml-2 text-ink-500">
+                  {a.serviceCode ? INTEREST_LABELS[a.serviceCode] : "—"} · {ASSIGNMENT_STATUS_LABELS[a.status]} · {a.createdAt.toLocaleDateString("es-ES")}
+                </span>
+                {a.result && <p className="text-xs text-ink-400">{a.result}</p>}
+              </li>
+            ))}
+          </ul>
+        </Card>
+        <Card>
+          <CardHeader title="Leads recibidos (formulario antiguo)" description="Últimos 20" />
           <ul className="divide-y divide-sand-100">
             {agency.leads.map((l) => (
               <li key={l.id} className="flex items-center justify-between gap-3 px-5 py-3 text-sm">
@@ -73,6 +99,7 @@ export default async function AgencyPage({ params }: { params: Promise<{ id: str
             {agency.leads.length === 0 && <li className="px-5 py-6 text-sm text-ink-400">Todavía no ha recibido leads.</li>}
           </ul>
         </Card>
+        </div>
       </div>
     </>
   );

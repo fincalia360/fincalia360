@@ -109,7 +109,7 @@ export async function assignLeadToAgency(leadId: string, agencyId?: string) {
 export async function listAgencies() {
   return prisma.agency.findMany({
     orderBy: { createdAt: "asc" },
-    include: { _count: { select: { leads: true, appointments: true } } },
+    include: { _count: { select: { leads: true, appointments: true, assignments: true } } },
   });
 }
 
@@ -129,6 +129,11 @@ function toData(input: AgencyInput) {
     zones: input.zones.join(","),
     languages: input.languages.join(","),
     propertyTypes: input.propertyTypes.join(","),
+    services: input.services.join(","),
+    provinces: input.provinces.join(","),
+    contactName: input.contactName || null,
+    agreementTerms: input.agreementTerms || null,
+    notes: input.notes || null,
   };
 }
 
@@ -140,7 +145,7 @@ export async function updateAgency(id: string, input: AgencyInput) {
   return prisma.agency.update({ where: { id }, data: toData(input) });
 }
 
-export async function setAgencyStatus(id: string, status: "ACTIVE" | "PAUSED") {
+export async function setAgencyStatus(id: string, status: (typeof import("@/types").AGENCY_STATUSES)[number]) {
   return prisma.agency.update({ where: { id }, data: { status } });
 }
 

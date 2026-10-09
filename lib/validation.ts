@@ -9,6 +9,7 @@ import {
   PROPERTY_TYPES,
   SITUATIONS,
   TIMELINES,
+  PARTNER_TYPES,
 } from "@/types";
 
 const optionalInt = (max: number) =>
@@ -53,7 +54,7 @@ export type ValuationFormInput = z.infer<typeof valuationSchema>;
 
 export const agencySchema = z.object({
   name: z.string().trim().min(2).max(100),
-  zones: z.array(z.string()).min(1),
+  zones: z.array(z.string()).default([]),
   email: z.string().trim().email(),
   phone: z.string().trim().min(6).max(30),
   languages: z.array(z.enum(LANGUAGES)).min(1),
@@ -61,6 +62,14 @@ export const agencySchema = z.object({
   status: z.enum(AGENCY_STATUSES),
   monthlyFee: z.coerce.number().int().min(0).max(100_000),
   pricePerAppointment: z.coerce.number().int().min(0).max(10_000),
+  // Colaborador de ámbito nacional
+  partnerType: z.enum(PARTNER_TYPES),
+  services: z.array(z.enum(["SELL", "RENT", "ADVICE"])).min(1, "Elige al menos un servicio"),
+  provinces: z.array(z.string().regex(/^\d{2}$/)).default([]),
+  municipalities: z.string().trim().max(1000).default(""),
+  contactName: z.string().trim().max(100).optional().or(z.literal("")),
+  agreementTerms: z.string().trim().max(3000).optional().or(z.literal("")),
+  notes: z.string().trim().max(3000).optional().or(z.literal("")),
 });
 
 export type AgencyInput = z.infer<typeof agencySchema>;

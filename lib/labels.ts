@@ -161,6 +161,7 @@ export const EVENT_LABELS: Record<string, string> = {
   PARTNER_UPDATED: "Resultado del colaborador",
   REVENUE_RECORDED: "Ingreso registrado",
   DATA_EXPORTED: "Datos exportados",
+  DATA_ERASED: "Datos personales suprimidos",
   CONTACT_DETAILS_UPDATED: "Datos de contacto actualizados",
   study_started: "Estudio iniciado",
   study_completed: "Estudio completado",

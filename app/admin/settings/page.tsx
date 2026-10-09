@@ -1,3 +1,4 @@
+import { demoToolsEnabled } from "@/lib/demo";
 import { RefreshCcw } from "lucide-react";
 import { resetDemoDataAction } from "@/app/admin/actions";
 import { PageHeader } from "@/components/admin/PageHeader";
@@ -108,6 +109,7 @@ export default async function SettingsPage() {
           </CardBody>
         </Card>
 
+        {demoToolsEnabled() && (
         <Card>
           <CardHeader title="Datos demo" description="Borra todo y vuelve a cargar el seed (14 leads, 4 inmobiliarias, citas, conversaciones, campañas)" />
           <CardBody>
@@ -116,9 +118,10 @@ export default async function SettingsPage() {
                 <RefreshCcw className="h-4 w-4" /> Restablecer datos demo
               </SubmitButton>
             </form>
-            <p className="mt-3 text-xs text-ink-400">Equivale a `npm run db:reset`. Útil antes de cada presentación.</p>
+            <p className="mt-3 text-xs text-ink-400">Equivale a `npm run db:reset`. Solo disponible en local: en la web publicada está desactivado.</p>
           </CardBody>
         </Card>
+        )}
       </div>
     </>
   );

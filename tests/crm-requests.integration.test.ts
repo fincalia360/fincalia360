@@ -16,6 +16,8 @@ type Mods = {
   prisma: typeof import("@/db/client").prisma;
   requests: typeof import("@/services/crm/requests");
   access: typeof import("@/services/study/access");
+  contacts: typeof import("@/services/crm/contacts");
+  metrics: typeof import("@/services/crm/metrics");
 };
 let m: Mods;
 
@@ -65,6 +67,8 @@ beforeAll(async () => {
     prisma: (await import("@/db/client")).prisma,
     requests: await import("@/services/crm/requests"),
     access: await import("@/services/study/access"),
+    contacts: await import("@/services/crm/contacts"),
+    metrics: await import("@/services/crm/metrics"),
   };
 }, 120_000);
 
@@ -163,5 +167,92 @@ describe("envío real de correo (Resend)", () => {
   it("sin configuración no envía nada e indica qué falta", async () => {
     const { sendEmail } = await import("@/services/email/emailService");
     expect(await sendEmail({ to: "x@example.com", subject: "s", text: "t" })).toEqual({ status: "NOT_CONFIGURED", missing: ["RESEND_API_KEY", "EMAIL_FROM"] });
+  });
+});
+
+describe("CRM: seguimiento, colaboradores, ingresos e indicadores", () => {
+  async function newContact(email: string, over: Record<string, unknown> = {}) {
+    const s = await newStudy();
+    const r = await m.requests.submitStudyRequest(s.id, s.token, req({ email, ...over }));
+    if (!r.ok) throw new Error(r.error);
+    return r.leadId;
+  }
+
+  it("cambia de estado, programa la próxima acción y registra comunicaciones", async () => {
+    const id = await newContact("seguimiento@example.com");
+    const follow = await m.contacts.listContacts({ followUp: "1" });
+    expect(follow.map((c) => c.id)).toContain(id); // nuevo y pendiente: requiere seguimiento
+    await m.contacts.logContact(id, "CALL", "Primera llamada: interesado en vender");
+    let lead = await m.prisma.lead.findUniqueOrThrow({ where: { id } });
+    expect(lead.status).toBe("CONTACTED");
+    expect(lead.lastContactAt).not.toBeNull();
+    const tomorrow = new Date(Date.now() + 24 * 3600 * 1000);
+    await m.contacts.setNextAction(id, "Concertar consulta", tomorrow);
+    expect((await m.contacts.listContacts({ followUp: "1" })).map((c) => c.id)).not.toContain(id); // la próxima acción aún no ha vencido
+    await m.contacts.changeStatus(id, "APPOINTMENT");
+    lead = await m.prisma.lead.findUniqueOrThrow({ where: { id } });
+    expect(lead.status).toBe("APPOINTMENT");
+    await expect(m.contacts.changeStatus(id, "INVENTADO")).rejects.toThrow(/no válido/);
+    const types = (await m.prisma.event.findMany({ where: { leadId: id } })).map((e) => e.type);
+    expect(types).toEqual(expect.arrayContaining(["CONTACT_LOGGED", "NEXT_ACTION_SET", "STAGE_ENTERED"]));
+  });
+
+  it("filtra por municipio, interés y estado", async () => {
+    const id = await newContact("filtros@example.com", { interest: "RENT" });
+    expect((await m.contacts.listContacts({ municipality: "Roses", interest: "RENT" })).map((c) => c.id)).toContain(id);
+    expect((await m.contacts.listContacts({ municipality: "Lugo" })).map((c) => c.id)).not.toContain(id);
+    expect((await m.contacts.listContacts({ status: "PENDING_CONTACT", q: "filtros@" })).map((c) => c.id)).toEqual([id]);
+  });
+
+  it("solo asigna a un colaborador si el propietario lo autorizó", async () => {
+    const partner = await m.prisma.agency.create({
+      data: { name: "Colaborador Ficticio", zones: "", email: "colab@example.com", phone: "600000000", languages: "es", propertyTypes: "APARTMENT", status: "ACTIVE", services: "SELL", provinces: "17" },
+    });
+    const sin = await newContact("sin-permiso@example.com");
+    await expect(m.contacts.assignPartner(sin, partner.id, "SELL")).rejects.toThrow(/no ha autorizado/);
+    const con = await newContact("con-permiso@example.com", { consentPartnerShare: true });
+    const a = await m.contacts.assignPartner(con, partner.id, "SELL");
+    await m.contacts.updateAssignment(a.id, "WON", "Mandato firmado (ficticio)");
+    expect((await m.prisma.partnerAssignment.findUniqueOrThrow({ where: { id: a.id } })).closedAt).not.toBeNull();
+  });
+
+  it("indicadores: sin dobles conteos y sin datos de demostración", async () => {
+    const from = new Date(Date.now() - 1);
+    const id = await newContact("metricas@example.com");
+    await m.contacts.changeStatus(id, "APPOINTMENT");
+    await m.contacts.changeStatus(id, "CONTACTED");
+    await m.contacts.changeStatus(id, "APPOINTMENT"); // vuelve a entrar: debe contar una sola vez
+    await m.contacts.changeStatus(id, "CONVERTED");
+    await m.contacts.addRevenue({ leadId: id, agencyId: null, serviceCode: "SELL", amount: 1500, date: new Date(), description: "Honorarios (ficticio)" });
+    // Contacto de demostración: no debe contar
+    const demo = await m.prisma.lead.create({ data: { name: "Demo", email: "demo@example.com", timeline: "NOW", situation: "EMPTY", isDemo: true } });
+    await m.prisma.revenue.create({ data: { leadId: demo.id, amount: 99999, date: new Date(), description: "demo" } });
+    await m.prisma.event.create({ data: { category: "BUSINESS", type: "STAGE_ENTERED", leadId: demo.id, payload: JSON.stringify({ to: "CONVERTED" }) } });
+    await m.prisma.event.create({ data: { category: "ANALYTICS", type: "study_started", sessionId: "seed-1" } });
+    await m.prisma.event.create({ data: { category: "ANALYTICS", type: "study_started", sessionId: "real-1" } });
+    await m.prisma.event.create({ data: { category: "ANALYTICS", type: "study_started", sessionId: "real-1" } });
+
+    const r = await m.metrics.getBusinessMetrics({ from, to: new Date(Date.now() + 1000) });
+    expect(r.values.consultationsScheduled).toBe(1);
+    expect(r.values.clientsWon).toBe(1);
+    expect(r.values.revenue).toBe(1500);
+    expect(r.values.studiesStarted).toBe(1); // misma sesión dos veces = 1; la sesión «seed-» no cuenta
+    expect(r.values.requestsReceived).toBeGreaterThanOrEqual(1);
+  });
+
+  it("exporta y suprime los datos personales de un contacto", async () => {
+    const id = await newContact("borrar@example.com", { phone: "+34 622 33 44 55", contactChannel: "PHONE", comments: "Comentario personal" });
+    const exported = await m.contacts.exportContactData(id);
+    expect(exported?.contact.email).toBe("borrar@example.com");
+    await m.contacts.eraseContact(id);
+    const lead = await m.prisma.lead.findUniqueOrThrow({ where: { id }, include: { notes: true, requests: true, consent: true } });
+    expect(lead.name).toBe("Contacto suprimido");
+    expect(lead.email).not.toContain("borrar");
+    expect(lead.phone).toBeNull();
+    expect(lead.notes).toHaveLength(0);
+    expect(lead.consent).toBeNull();
+    expect(lead.requests.every((r) => r.comments === null)).toBe(true);
+    const study = await m.prisma.study.findFirstOrThrow({ where: { leadId: id } });
+    expect(study.contactEmail).toBeNull();
   });
 });

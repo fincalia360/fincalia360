@@ -5,7 +5,6 @@ import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { agencySchema } from "@/lib/validation";
 import {
-  assignLeadToAgency,
   createAgency,
   deleteAgency,
   setAgencyStatus,
@@ -13,18 +12,24 @@ import {
 } from "@/services/agencyService";
 import { createAppointmentFromAdmin, updateAppointmentStatus } from "@/services/appointmentService";
 import { createDemoLead, simulateHotLead } from "@/services/demoService";
-import { addNote, qualifyLead, updateLeadStatus } from "@/services/leadService";
+import { addNote } from "@/services/leadService";
+import { demoToolsEnabled } from "@/lib/demo";
 import { saveSettings, type BusinessSettings } from "@/services/settingsService";
 import { seedDemoData } from "@/db/seedDemoData";
-import { APPOINTMENT_STATUSES, LEAD_STATUSES, type AppointmentStatus, type LeadStatus } from "@/types";
+import { APPOINTMENT_STATUSES, type AppointmentStatus } from "@/types";
 
 function refreshAdmin() {
   revalidatePath("/admin", "layout");
 }
 
-// ---- Simuladores ----
+// ---- Simuladores (solo en desarrollo local; nunca en la web publicada) ----
+function assertDemo() {
+  if (!demoToolsEnabled()) throw new Error("Herramientas de demostración desactivadas en producción");
+}
+
 export async function createDemoLeadAction() {
   await requireAdmin();
+  assertDemo();
   const lead = await createDemoLead();
   refreshAdmin();
   redirect(`/admin/leads/${lead.id}?created=demo`);
@@ -32,6 +37,7 @@ export async function createDemoLeadAction() {
 
 export async function simulateHotLeadAction() {
   await requireAdmin();
+  assertDemo();
   const lead = await simulateHotLead();
   refreshAdmin();
   redirect(`/admin/leads/${lead.id}?created=hot`);
@@ -39,30 +45,16 @@ export async function simulateHotLeadAction() {
 
 export async function resetDemoDataAction() {
   await requireAdmin();
+  assertDemo();
   await seedDemoData();
   refreshAdmin();
   redirect("/admin?reset=1");
 }
 
 // ---- Leads ----
-export async function setLeadStatusAction(leadId: string, status: string) {
-  await requireAdmin();
-  if (!(LEAD_STATUSES as readonly string[]).includes(status)) throw new Error("Estado no válido");
-  if (status === "PENDING_CONTACT") await qualifyLead(leadId, "admin");
-  else await updateLeadStatus(leadId, status as LeadStatus, { by: "admin" });
-  refreshAdmin();
-}
-
 export async function createAppointmentAction(leadId: string) {
   await requireAdmin();
   await createAppointmentFromAdmin(leadId);
-  refreshAdmin();
-}
-
-export async function assignAgencyAction(leadId: string, formData: FormData) {
-  await requireAdmin();
-  const agencyId = String(formData.get("agencyId") ?? "");
-  await assignLeadToAgency(leadId, agencyId === "auto" || !agencyId ? undefined : agencyId);
   refreshAdmin();
 }
 
@@ -93,6 +85,13 @@ function agencyFromForm(formData: FormData) {
     status: formData.get("status") ?? "ACTIVE",
     monthlyFee: formData.get("monthlyFee") || 0,
     pricePerAppointment: formData.get("pricePerAppointment") || 0,
+    partnerType: formData.get("partnerType") ?? "INMOBILIARIA",
+    services: formData.getAll("services").map(String),
+    provinces: formData.getAll("provinces").map(String),
+    municipalities: formData.get("municipalities") ?? "",
+    contactName: formData.get("contactName") ?? "",
+    agreementTerms: formData.get("agreementTerms") ?? "",
+    notes: formData.get("notes") ?? "",
   });
 }
 
@@ -102,8 +101,7 @@ export async function saveAgencyAction(agencyId: string | null, _prev: AgencyFor
   await requireAdmin();
   const parsed = agencyFromForm(formData);
   if (!parsed.success) {
-    const fields = Object.keys(parsed.error.flatten().fieldErrors).join(", ");
-    return { error: `Revisa los campos: ${fields}` };
+    return { error: parsed.error.issues[0]?.message && !parsed.error.issues[0].message.startsWith("Invalid") ? parsed.error.issues[0].message : `Revisa los campos: ${Object.keys(parsed.error.flatten().fieldErrors).join(", ")}` };
   }
   if (agencyId) await updateAgency(agencyId, parsed.data);
   else await createAgency(parsed.data);

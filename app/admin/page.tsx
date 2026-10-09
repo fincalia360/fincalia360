@@ -1,3 +1,4 @@
+import { demoToolsEnabled } from "@/lib/demo";
 import Link from "next/link";
 import { Flame, Plus } from "lucide-react";
 import { createDemoLeadAction, simulateHotLeadAction } from "@/app/admin/actions";
@@ -25,6 +26,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         title="Dashboard"
         description="Captación y cualificación de propietarios de toda España. Todas las cifras proceden de la base de datos local."
         actions={
+          demoToolsEnabled() && (
           <>
             <form action={createDemoLeadAction}>
               <SubmitButton variant="outline" size="md" pendingLabel="Creando…">
@@ -37,6 +39,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
               </SubmitButton>
             </form>
           </>
+          )
         }
       />
 

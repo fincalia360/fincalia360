@@ -1,82 +1,100 @@
 import Link from "next/link";
-import { Flame, Plus } from "lucide-react";
+import { AlertTriangle, Flame, Plus } from "lucide-react";
 import { createDemoLeadAction, simulateHotLeadAction } from "@/app/admin/actions";
 import { PageHeader } from "@/components/admin/PageHeader";
 import { SubmitButton } from "@/components/admin/SubmitButton";
-import { Badge, STATUS_TONES, TIER_TONES } from "@/components/ui/Badge";
+import { Badge, STATUS_TONES } from "@/components/ui/Badge";
 import { buttonClasses } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import {
-  INTENT_LABELS,
-  LANGUAGE_NAMES,
-  LOCATION_LABELS,
-  PROPERTY_LABELS,
-  STATUS_LABELS,
-  TIER_LABELS,
-  TIMELINE_LABELS,
-  label,
-} from "@/lib/labels";
-import { formatDate, formatEUR } from "@/lib/utils";
-import { listLeads } from "@/services/leadService";
-import { LANGUAGES, LEAD_STATUSES, SCORE_TIERS } from "@/types";
+import { formatMadrid } from "@/lib/dates";
+import { demoToolsEnabled } from "@/lib/demo";
+import { INTEREST_LABELS, LOCATION_LABELS, label } from "@/lib/labels";
+import { cn, formatDate, formatEUR } from "@/lib/utils";
+import { getStages } from "@/services/crm/catalog";
+import { countFollowUp, listContacts, type ContactFilters } from "@/services/crm/contacts";
 
-export const metadata = { title: "Leads" };
+export const metadata = { title: "Contactos" };
 
-type Search = { status?: string; tier?: string; language?: string; q?: string };
-
-export default async function LeadsPage({ searchParams }: { searchParams: Promise<Search> }) {
+export default async function LeadsPage({ searchParams }: { searchParams: Promise<ContactFilters> }) {
   const filters = await searchParams;
-  const leads = await listLeads(filters);
+  const [contacts, stages, followUp] = await Promise.all([listContacts(filters), getStages({ includeInactive: true }), countFollowUp()]);
+  const stageLabel = Object.fromEntries(stages.map((s) => [s.code, s.label]));
   const hasFilters = Object.values(filters).some(Boolean);
+  const now = new Date();
 
   return (
     <>
       <PageHeader
-        title="Leads"
-        description="Propietarios que han solicitado valoración con consentimiento de contacto."
+        title="Contactos"
+        description="Propietarios que han pedido ayuda o su informe. Un contacto por persona; cada solicitud queda en su ficha."
         actions={
-          <>
-            <form action={createDemoLeadAction}>
-              <SubmitButton variant="outline" pendingLabel="Creando…">
-                <Plus className="h-4 w-4" /> Crear lead demo
-              </SubmitButton>
-            </form>
-            <form action={simulateHotLeadAction}>
-              <SubmitButton variant="accent" pendingLabel="Simulando…">
-                <Flame className="h-4 w-4" /> Simular lead caliente
-              </SubmitButton>
-            </form>
-          </>
+          demoToolsEnabled() && (
+            <>
+              <form action={createDemoLeadAction}>
+                <SubmitButton variant="outline" pendingLabel="Creando…">
+                  <Plus className="h-4 w-4" /> Crear lead demo
+                </SubmitButton>
+              </form>
+              <form action={simulateHotLeadAction}>
+                <SubmitButton variant="outline" pendingLabel="Simulando…">
+                  <Flame className="h-4 w-4" /> Simular lead caliente
+                </SubmitButton>
+              </form>
+            </>
+          )
         }
       />
 
+      <div className="mb-4 flex flex-wrap gap-2">
+        <Link
+          href="/admin/leads"
+          className={cn("rounded-full border px-3 py-1.5 text-sm", !filters.followUp ? "border-ink-800 bg-ink-800 text-white" : "border-sand-300 text-ink-600 hover:border-ink-300")}
+        >
+          Todos
+        </Link>
+        <Link
+          href="/admin/leads?followUp=1"
+          className={cn(
+            "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm",
+            filters.followUp ? "border-red-700 bg-red-700 text-white" : "border-red-200 bg-red-50 text-red-700 hover:border-red-400",
+          )}
+        >
+          <AlertTriangle className="h-3.5 w-3.5" /> Requieren seguimiento ({followUp})
+        </Link>
+      </div>
+
       <form className="mb-4 flex flex-wrap items-end gap-2" method="get">
-        <input name="q" defaultValue={filters.q} placeholder="Buscar nombre o email" className="field h-10 w-full py-2 sm:w-56" />
+        {filters.followUp && <input type="hidden" name="followUp" value="1" />}
+        <input name="q" defaultValue={filters.q} placeholder="Nombre, email o teléfono" className="field h-10 w-full py-2 sm:w-56" />
+        <input name="municipality" defaultValue={filters.municipality} placeholder="Municipio" className="field h-10 w-full py-2 sm:w-40" />
+        <select name="interest" defaultValue={filters.interest ?? ""} className="field h-10 w-auto py-2">
+          <option value="">Cualquier interés</option>
+          {Object.entries(INTEREST_LABELS).map(([k, v]) => (
+            <option key={k} value={k}>
+              {v}
+            </option>
+          ))}
+        </select>
         <select name="status" defaultValue={filters.status ?? ""} className="field h-10 w-auto py-2">
           <option value="">Todos los estados</option>
-          {LEAD_STATUSES.map((s) => (
-            <option key={s} value={s}>{STATUS_LABELS[s]}</option>
+          {stages.map((s) => (
+            <option key={s.code} value={s.code}>
+              {s.label}
+            </option>
           ))}
         </select>
-        <select name="tier" defaultValue={filters.tier ?? ""} className="field h-10 w-auto py-2">
-          <option value="">Todos los scores</option>
-          {SCORE_TIERS.map((s) => (
-            <option key={s} value={s}>{TIER_LABELS[s]}</option>
-          ))}
-        </select>
-        <select name="language" defaultValue={filters.language ?? ""} className="field h-10 w-auto py-2">
-          <option value="">Todos los idiomas</option>
-          {LANGUAGES.map((l) => (
-            <option key={l} value={l}>{LANGUAGE_NAMES[l]}</option>
-          ))}
-        </select>
+        {demoToolsEnabled() && (
+          <label className="flex h-10 items-center gap-1.5 text-sm text-ink-500">
+            <input type="checkbox" name="demo" value="1" defaultChecked={filters.demo === "1"} /> Incluir datos demo
+          </label>
+        )}
         <button className={buttonClasses({ variant: "primary", size: "md", className: "rounded-lg" })}>Filtrar</button>
         {hasFilters && (
           <Link href="/admin/leads" className={buttonClasses({ variant: "ghost", size: "md" })}>
             Limpiar
           </Link>
         )}
-        <span className="ml-auto text-sm text-ink-400">{leads.length} leads</span>
+        <span className="ml-auto text-sm text-ink-400">{contacts.length} contactos</span>
       </form>
 
       <Card className="overflow-hidden">
@@ -84,52 +102,49 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
           <table className="table-base">
             <thead>
               <tr>
-                <th>Nombre</th>
-                <th>Ubicación</th>
-                <th>Idioma</th>
-                <th>Propiedad</th>
-                <th>Intención</th>
-                <th>Plazo</th>
-                <th className="text-right">Valor estimado</th>
-                <th className="text-right">Score</th>
+                <th>Contacto</th>
+                <th>Municipio</th>
+                <th>Interés</th>
                 <th>Estado</th>
-                <th>Fecha</th>
+                <th>Última solicitud</th>
+                <th>Último contacto</th>
                 <th>Próxima acción</th>
-                <th>Inmobiliaria</th>
+                <th className="text-right">Valor estimado</th>
               </tr>
             </thead>
             <tbody>
-              {leads.map((lead) => (
-                <tr key={lead.id} className="hover:bg-sand-50">
-                  <td>
-                    <Link href={`/admin/leads/${lead.id}`} className="font-medium text-ink-800 hover:text-terracotta-600">
-                      {lead.name}
-                    </Link>
-                  </td>
-                  <td>{label(LOCATION_LABELS, lead.property?.location)}</td>
-                  <td className="uppercase text-ink-500">{lead.language}</td>
-                  <td>{label(PROPERTY_LABELS, lead.property?.type)}</td>
-                  <td>{label(INTENT_LABELS, lead.intent)}</td>
-                  <td className="text-ink-500">{label(TIMELINE_LABELS, lead.timeline)}</td>
-                  <td className="text-right tabular-nums">{formatEUR(lead.estimatedValue)}</td>
-                  <td className="text-right">
-                    <span className="mr-2 font-semibold tabular-nums">{lead.score}</span>
-                    <Badge tone={TIER_TONES[lead.scoreTier]}>{label(TIER_LABELS, lead.scoreTier)}</Badge>
-                  </td>
-                  <td>
-                    <Badge tone={STATUS_TONES[lead.status]}>{label(STATUS_LABELS, lead.status)}</Badge>
-                  </td>
-                  <td className="tabular-nums text-ink-500">{formatDate(lead.createdAt)}</td>
-                  <td className="max-w-[220px] truncate text-ink-600" title={lead.nextAction ?? ""}>
-                    {lead.nextAction ?? "—"}
-                  </td>
-                  <td className="text-ink-500">{lead.agency?.name ?? "—"}</td>
-                </tr>
-              ))}
-              {leads.length === 0 && (
+              {contacts.map((c) => {
+                const overdue = c.nextActionAt != null && c.nextActionAt <= now && !["CONVERTED", "LOST"].includes(c.status);
+                const municipality = c.studies[0]?.municipalityName ?? c.property?.locationOther ?? label(LOCATION_LABELS, c.property?.location);
+                return (
+                  <tr key={c.id} className="hover:bg-sand-50">
+                    <td>
+                      <Link href={`/admin/leads/${c.id}`} className="font-medium text-ink-800 hover:text-terracotta-600">
+                        {c.name}
+                      </Link>
+                      <span className="block text-xs text-ink-400">{c.email}</span>
+                      {c.isDemo && <span className="text-[10px] font-semibold uppercase text-amber-700">Demo</span>}
+                    </td>
+                    <td>{municipality}</td>
+                    <td>{c.primaryInterest ? INTEREST_LABELS[c.primaryInterest] : "—"}</td>
+                    <td>
+                      <Badge tone={STATUS_TONES[c.status] ?? "neutral"}>{stageLabel[c.status] ?? c.status}</Badge>
+                    </td>
+                    <td className="tabular-nums text-ink-500">{formatDate(c.requests[0]?.createdAt ?? c.createdAt)}</td>
+                    <td className="tabular-nums text-ink-500">{c.lastContactAt ? formatDate(c.lastContactAt) : "—"}</td>
+                    <td className={cn("max-w-[260px] whitespace-normal", overdue ? "font-medium text-red-700" : "text-ink-600")}>
+                      {overdue && <AlertTriangle className="mr-1 inline h-3.5 w-3.5" />}
+                      {c.nextAction ?? "—"}
+                      {c.nextActionAt && <span className="block text-xs">{formatMadrid(c.nextActionAt)}</span>}
+                    </td>
+                    <td className="text-right tabular-nums">{formatEUR(c.estimatedValue)}</td>
+                  </tr>
+                );
+              })}
+              {contacts.length === 0 && (
                 <tr>
-                  <td colSpan={12} className="py-10 text-center text-ink-400">
-                    No hay leads con estos filtros.
+                  <td colSpan={8} className="py-10 text-center text-ink-400">
+                    {hasFilters ? "No hay contactos con estos filtros." : "Todavía no hay contactos: aparecerán cuando un propietario pida ayuda o su informe desde su estudio."}
                   </td>
                 </tr>
               )}

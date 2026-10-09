@@ -1,13 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Building2, CalendarPlus, CheckCircle2, MessageCircle, Trophy, XCircle } from "lucide-react";
-import {
-  addNoteAction,
-  assignAgencyAction,
-  createAppointmentAction,
-  setLeadStatusAction,
-} from "@/app/admin/actions";
+import { ArrowLeft, CalendarPlus, MessageCircle } from "lucide-react";
+import { addNoteAction, createAppointmentAction } from "@/app/admin/actions";
 import { SubmitButton } from "@/components/admin/SubmitButton";
+import { ContactCrmPanel } from "@/components/admin/crm/ContactCrmPanel";
 import { Timeline } from "@/components/admin/Timeline";
 import { Badge, DemoBadge, STATUS_TONES, TIER_TONES } from "@/components/ui/Badge";
 import { buttonClasses } from "@/components/ui/Button";
@@ -29,7 +25,6 @@ import {
   label,
 } from "@/lib/labels";
 import { formatDateTime, formatEUR, parseJSON } from "@/lib/utils";
-import { listAgencies } from "@/services/agencyService";
 import { getLeadDetail } from "@/services/leadService";
 import { TIER_THRESHOLDS } from "@/services/scoringService";
 import type { ExtractedData, Language, ScoreItem } from "@/types";
@@ -49,10 +44,10 @@ function yesNo(v: boolean | null | undefined) {
   return v === true ? "Sí" : v === false ? "No" : "—";
 }
 
-export default async function LeadDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ created?: string }> }) {
+export default async function LeadDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ created?: string; erased?: string }> }) {
   const { id } = await params;
-  const { created } = await searchParams;
-  const [lead, agencies] = await Promise.all([getLeadDetail(id), listAgencies()]);
+  const { created, erased } = await searchParams;
+  const lead = await getLeadDetail(id);
   if (!lead) notFound();
 
   const breakdown = parseJSON<ScoreItem[]>(lead.scoreBreakdown, []);
@@ -64,7 +59,7 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
   return (
     <>
       <Link href="/admin/leads" className="mb-4 inline-flex items-center gap-1.5 text-sm text-ink-500 hover:text-ink-800">
-        <ArrowLeft className="h-4 w-4" /> Leads
+        <ArrowLeft className="h-4 w-4" /> Contactos
       </Link>
 
       {created && (
@@ -99,13 +94,6 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
           <Link href={`/agent/${lead.id}`} className={buttonClasses({ variant: "outline" })}>
             <MessageCircle className="h-4 w-4" /> Conversación con agente
           </Link>
-          {!["QUALIFIED", "APPOINTMENT", "CONVERTED"].includes(lead.status) && (
-            <form action={setLeadStatusAction.bind(null, lead.id, "QUALIFIED")}>
-              <SubmitButton variant="outline">
-                <CheckCircle2 className="h-4 w-4" /> Marcar como cualificado
-              </SubmitButton>
-            </form>
-          )}
           {!isClosed && (
             <form action={createAppointmentAction.bind(null, lead.id)}>
               <SubmitButton variant="outline">
@@ -113,53 +101,15 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
               </SubmitButton>
             </form>
           )}
-          {lead.status !== "CONVERTED" && (
-            <form action={setLeadStatusAction.bind(null, lead.id, "CONVERTED")}>
-              <SubmitButton variant="primary">
-                <Trophy className="h-4 w-4" /> Marcar como convertido
-              </SubmitButton>
-            </form>
-          )}
-          {lead.status !== "LOST" && (
-            <form action={setLeadStatusAction.bind(null, lead.id, "LOST")}>
-              <SubmitButton variant="danger">
-                <XCircle className="h-4 w-4" /> Descartar
-              </SubmitButton>
-            </form>
-          )}
         </div>
       </div>
 
-      {/* Asignación */}
-      <Card className="mb-6">
-        <CardBody className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-sand-100 text-ink-600">
-              <Building2 className="h-5 w-5" />
-            </span>
-            <div>
-              <p className="text-sm text-ink-500">
-                Asignado a: <span className="font-semibold text-ink-800">{lead.agency?.name ?? "Sin asignar"}</span>
-              </p>
-              <p className="text-xs text-ink-400">
-                {lead.assignedAt ? `Desde ${formatDateTime(lead.assignedAt)} · ${lead.agency?.email}` : "Se asigna automáticamente al reservar una cita (zona, tipo, idioma y estado)."}
-              </p>
-            </div>
-          </div>
-          <form action={assignAgencyAction.bind(null, lead.id)} className="flex flex-wrap items-center gap-2">
-            <select name="agencyId" defaultValue="auto" className="field h-9 w-auto py-1.5 text-sm">
-              <option value="auto">Automático (assignLeadToAgency)</option>
-              {agencies.map((a) => (
-                <option key={a.id} value={a.id} disabled={a.status !== "ACTIVE"}>
-                  {a.name}
-                  {a.status !== "ACTIVE" ? " (pausada)" : ""}
-                </option>
-              ))}
-            </select>
-            <SubmitButton variant="outline" size="sm">Asignar</SubmitButton>
-          </form>
-        </CardBody>
-      </Card>
+      {erased && (
+        <div className="mb-5 rounded-xl border border-sand-200 bg-sand-50 px-4 py-3 text-sm text-ink-600">Datos personales suprimidos. Solo se conservan registros anónimos.</div>
+      )}
+      <div className="mb-6">
+        <ContactCrmPanel leadId={lead.id} />
+      </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.5fr_1fr]">
         <div className="space-y-6">
@@ -247,7 +197,7 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
           </Card>
 
           <Card>
-            <CardHeader title="Historial" description="Eventos y notificaciones simuladas" />
+            <CardHeader title="Historial de actividad" description="Cambios de estado, comunicaciones, correos y notas" />
             <CardBody>
               <Timeline events={lead.events} />
             </CardBody>

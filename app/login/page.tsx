@@ -10,7 +10,7 @@ import { headers } from "next/headers";
 export const metadata: Metadata = { title: "Acceso al panel", robots: { index: false, follow: false } };
 
 function safeNext(value: string | undefined) {
-  return value && value.startsWith("/admin") && !value.startsWith("//") ? value : "/admin";
+  return value && value.startsWith("/admin") && !value.startsWith("//") ? value : "/admin/negocio";
 }
 
 async function login(formData: FormData) {
