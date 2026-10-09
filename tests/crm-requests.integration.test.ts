@@ -186,6 +186,8 @@ describe("CRM: seguimiento, colaboradores, ingresos e indicadores", () => {
     let lead = await m.prisma.lead.findUniqueOrThrow({ where: { id } });
     expect(lead.status).toBe("CONTACTED");
     expect(lead.lastContactAt).not.toBeNull();
+    expect(lead.nextActionAt).toBeNull(); // la acción pendiente («contactar») queda realizada
+    expect((await m.contacts.listContacts({ followUp: "1" })).map((c) => c.id)).not.toContain(id);
     const tomorrow = new Date(Date.now() + 24 * 3600 * 1000);
     await m.contacts.setNextAction(id, "Concertar consulta", tomorrow);
     expect((await m.contacts.listContacts({ followUp: "1" })).map((c) => c.id)).not.toContain(id); // la próxima acción aún no ha vencido

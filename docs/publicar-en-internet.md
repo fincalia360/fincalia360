@@ -54,6 +54,18 @@ La base de datos se crea **vacía** en el disco del servidor (sin los datos de d
 
 ---
 
+## Paso 4 · Correo (Resend)
+
+Para que la web envíe la confirmación al propietario, el informe por email y el aviso al equipo:
+
+1. Crea una cuenta en <https://resend.com> (gratis hasta unos 3.000 correos al mes).
+2. **Domains → Add domain** con tu dominio y añade en tu registrador los registros DNS que te indique (SPF/DKIM). Sin dominio verificado solo podrías enviarte correos a ti mismo.
+3. **API Keys → Create** y copia la clave.
+4. En Render → **Environment**: `RESEND_API_KEY` (la clave), `EMAIL_FROM` (`FINCALIA360 <hola@tudominio.es>`) y `TEAM_NOTIFICATION_EMAIL` (tu correo).
+5. Comprueba en el panel → **Negocio** que ya no aparece el aviso «El correo no está configurado».
+
+Los correos son de servicio (confirmaciones e informe solicitado). La plataforma **no envía publicidad automática**.
+
 ## Qué está preparado
 
 - Las páginas internas (panel, solicitudes antiguas, asistente) exigen el inicio de sesión del equipo.

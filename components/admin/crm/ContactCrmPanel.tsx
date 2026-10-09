@@ -44,7 +44,7 @@ export async function ContactCrmPanel({ leadId }: { leadId: string }) {
         <CardHeader title="Estado y seguimiento" description="Cambia el estado, programa la próxima acción y registra las comunicaciones." />
         <CardBody className="space-y-6">
           <div className="grid gap-6 lg:grid-cols-2">
-            <ActionForm action={changeStatusAction.bind(null, leadId)} submitLabel="Cambiar estado" okLabel="Estado actualizado" resetOnSuccess={false}>
+            <ActionForm key={`st-${lead.status}`} action={changeStatusAction.bind(null, leadId)} submitLabel="Cambiar estado" okLabel="Estado actualizado" resetOnSuccess={false}>
               <label className="block text-sm font-medium text-ink-700">
                 Estado comercial
                 <select name="status" defaultValue={lead.status} className={`${small} mt-1`}>
@@ -69,7 +69,7 @@ export async function ContactCrmPanel({ leadId }: { leadId: string }) {
           </div>
 
           <div className="grid gap-6 border-t border-sand-100 pt-5 lg:grid-cols-2">
-            <ActionForm action={setNextActionAction.bind(null, leadId)} submitLabel="Programar" okLabel="Próxima acción guardada">
+            <ActionForm key={`na-${lead.nextAction}-${lead.nextActionAt?.toISOString()}`} action={setNextActionAction.bind(null, leadId)} submitLabel="Programar" okLabel="Próxima acción guardada" resetOnSuccess={false}>
               <p className="text-sm font-semibold text-ink-800">Próxima acción</p>
               <input name="action" required maxLength={200} placeholder="Ej.: Llamar para concertar la consulta" defaultValue={lead.nextAction ?? ""} className={small} />
               <label className="block text-xs text-ink-500">
@@ -215,7 +215,7 @@ export async function ContactCrmPanel({ leadId }: { leadId: string }) {
             Información comercial: <strong>{consent?.consentMarketing ? "autorizada" : "no autorizada"}</strong> · Comunicar datos a colaboradores:{" "}
             <strong>{lead.partnerShareConsent ? "autorizado" : "no autorizado"}</strong>
           </p>
-          <ActionForm action={updatePreferencesAction.bind(null, leadId)} submitLabel="Guardar preferencias" okLabel="Preferencias guardadas" resetOnSuccess={false}>
+          <ActionForm key={`pr-${lead.preferredContact}-${lead.contactWindow}-${lead.partnerShareConsent}-${consent?.consentMarketing}`} action={updatePreferencesAction.bind(null, leadId)} submitLabel="Guardar preferencias" okLabel="Preferencias guardadas" resetOnSuccess={false}>
             <div className="grid gap-2 sm:grid-cols-2">
               <select name="preferredContact" defaultValue={lead.preferredContact ?? "EMAIL"} className={small}>
                 <option value="EMAIL">Email</option>

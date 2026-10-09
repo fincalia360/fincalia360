@@ -26,8 +26,13 @@ services:
         value: "false"
       - key: AI_PROVIDER
         value: demo
-      - key: NOTIFICATION_PROVIDER
-        value: demo
+      # Correo (Resend). Sin estas variables no se envía ningún correo (no se simula).
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+      - key: TEAM_NOTIFICATION_EMAIL
+        sync: false
       - key: ADMIN_USER
         sync: false
       - key: ADMIN_PASSWORD

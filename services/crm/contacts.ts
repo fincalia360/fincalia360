@@ -95,7 +95,9 @@ export async function setNextAction(leadId: string, action: string, dueAt: Date 
 /** Registra una comunicación hecha a mano (llamada, email, reunión…). */
 export async function logContact(leadId: string, channel: keyof typeof CONTACT_CHANNELS, summary: string, at = new Date()) {
   const lead = await prisma.lead.findUniqueOrThrow({ where: { id: leadId } });
-  await prisma.lead.update({ where: { id: leadId }, data: { lastContactAt: at } });
+  // La acción pendiente ya vencida se da por realizada: el contacto sale de «requiere seguimiento»
+  const done = lead.nextActionAt != null && lead.nextActionAt <= at;
+  await prisma.lead.update({ where: { id: leadId }, data: { lastContactAt: at, ...(done ? { nextActionAt: null } : {}) } });
   await emitBusinessEvent("CONTACT_LOGGED", { leadId, createdAt: at, payload: { channel, channelLabel: CONTACT_CHANNELS[channel], summary: summary.slice(0, 500) } });
   // Primera gestión realizada: el contacto pasa a «Contactado» si aún estaba por contactar
   if (["NEW", "PENDING_CONTACT", "STUDY_DONE"].includes(lead.status)) await updateLeadStatus(leadId, "CONTACTED", { by: "admin" });

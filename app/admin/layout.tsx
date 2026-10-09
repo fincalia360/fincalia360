@@ -1,3 +1,4 @@
+import { demoToolsEnabled } from "@/lib/demo";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ExternalLink } from "lucide-react";
@@ -17,7 +18,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     <div className="min-h-screen bg-sand-50 lg:flex">
       <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col bg-ink-900 px-4 py-5 lg:flex">
         <Link href="/admin" className="px-2">
-          <Logo tagline="CRM · Demo" light />
+          <Logo tagline={demoToolsEnabled() ? "CRM · Demo local" : "CRM"} light />
         </Link>
         <div className="mt-8 flex-1">
           <AdminSidebarNav />
@@ -45,7 +46,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       <div className="sticky top-0 z-20 bg-ink-900 lg:hidden">
         <div className="flex h-14 items-center justify-between px-4">
           <Link href="/admin">
-            <Logo tagline="CRM · Demo" light className="scale-90 origin-left" />
+            <Logo tagline={demoToolsEnabled() ? "CRM · Demo local" : "CRM"} light className="scale-90 origin-left" />
           </Link>
           <Link href="/" className="text-xs text-sand-300">Landing ↗</Link>
         </div>
