@@ -5,40 +5,41 @@ import type { Dictionary } from "@/lib/i18n";
 import type { Language } from "@/types";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 
+const NAV = [
+  ["Servicios", "/#servicios"],
+  ["Cómo funciona", "/#como-funciona"],
+  ["Transparencia", "/#transparencia"],
+  ["Preguntas frecuentes", "/#preguntas"],
+] as const;
+
+/**
+ * Cabecera de FINCALIA360. `showNav = false` se usa en las páginas de resultado de las
+ * solicitudes antiguas, que siguen siendo multilingües (muestran el selector de idioma).
+ */
 export function SiteHeader({ dict, lang, basePath = "/", showNav = true }: { dict: Dictionary; lang: Language; basePath?: string; showNav?: boolean }) {
+  void dict;
   return (
     <header className="sticky top-0 z-30 border-b border-sand-200 bg-white/95 backdrop-blur">
-      <div className="container-page flex h-16 items-center justify-between gap-4">
-        <Link href={`/?lang=${lang}`} aria-label="FINCALIA360" className="shrink-0">
+      <div className="container-page flex h-16 items-center justify-between gap-4 sm:h-[72px]">
+        <Link href="/" aria-label="FINCALIA360 · inicio" className="shrink-0">
           <Logo />
         </Link>
-        {showNav && (
-          <nav className="hidden items-center gap-6 whitespace-nowrap text-sm text-ink-500 xl:flex">
-            <a href={`/?lang=${lang}#como-funciona`} className="hover:text-ink-800">{dict.nav.how}</a>
-            <a href={`/?lang=${lang}#zonas`} className="hover:text-ink-800">{dict.nav.zones}</a>
-            <a href={`/?lang=${lang}#extranjero`} className="hover:text-ink-800">{dict.nav.abroad}</a>
-            <Link href="/estudio" className="font-medium text-terracotta-600 hover:text-terracotta-700">{dict.nav.study}</Link>
-          </nav>
-        )}
-        <div className="flex min-w-0 items-center gap-3">
-          <Link href="/estudio" className="text-right text-[12px] font-medium leading-tight text-terracotta-600 sm:hidden">
-            {dict.nav.study}
-          </Link>
-          <div className="hidden sm:block">
-            <LanguageSwitcher current={lang} basePath={basePath} />
-          </div>
-          {showNav && (
-            <ButtonLink href={`/valorar?lang=${lang}`} size="sm" className="hidden md:inline-flex">
-              {dict.nav.cta}
+        {showNav ? (
+          <>
+            <nav aria-label="Principal" className="hidden items-center gap-7 whitespace-nowrap text-[14.5px] font-medium text-ink-500 lg:flex">
+              {NAV.map(([label, href]) => (
+                <a key={href} href={href} className="hover:text-ink-800">
+                  {label}
+                </a>
+              ))}
+            </nav>
+            <ButtonLink href="/estudio" variant="accent" size="md" className="shrink-0">
+              Analizar mi vivienda
             </ButtonLink>
-          )}
-        </div>
-      </div>
-      <div className="container-page pb-2 sm:hidden">
-        <LanguageSwitcher current={lang} basePath={basePath} />
-      </div>
-      <div className="container-page hidden pb-2 sm:block xl:hidden">
-        <Link href="/estudio" className="text-[13px] font-medium text-terracotta-600">{dict.nav.study} →</Link>
+          </>
+        ) : (
+          <LanguageSwitcher current={lang} basePath={basePath} />
+        )}
       </div>
     </header>
   );

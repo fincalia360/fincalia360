@@ -32,6 +32,15 @@ export async function middleware(request: NextRequest) {
     return res;
   }
 
+  // El formulario antiguo solo cubría 7 municipios de la Costa Brava con precios de ejemplo:
+  // la captación nacional se hace con el estudio. Las páginas de resultado existentes se mantienen.
+  if (pathname === "/valorar") {
+    const url = request.nextUrl.clone();
+    url.pathname = "/estudio";
+    url.search = "";
+    return NextResponse.redirect(url);
+  }
+
   const response = NextResponse.next();
   const lang = searchParams.get("lang");
   if (lang && LANGS.includes(lang)) {

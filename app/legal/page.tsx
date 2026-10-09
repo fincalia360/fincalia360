@@ -14,7 +14,7 @@ export default async function LegalNoticePage({ searchParams }: { searchParams: 
       <p>[Razón social, NIF, domicilio, datos registrales y email de contacto — PENDIENTE].</p>
       <h2>Objeto</h2>
       <p>
-        Este sitio permite a propietarios de viviendas en la Costa Brava solicitar una valoración orientativa y, si lo desean, ser
+        Este sitio permite a propietarios de viviendas de toda España obtener un estudio orientativo (valor estimado, alquiler legal y comparativa de escenarios), solicitar una valoración orientativa y, si lo desean, ser
         puestos en contacto con un especialista o inmobiliaria local.
       </p>
       <h2>Valoraciones orientativas</h2>

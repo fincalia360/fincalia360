@@ -23,7 +23,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     <>
       <PageHeader
         title="Dashboard"
-        description="Captación y cualificación de propietarios · Roses, Empuriabrava y Costa Brava. Todas las cifras proceden de la base de datos local."
+        description="Captación y cualificación de propietarios de toda España. Todas las cifras proceden de la base de datos local."
         actions={
           <>
             <form action={createDemoLeadAction}>

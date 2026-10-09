@@ -83,8 +83,8 @@ type Form = {
 };
 
 const INITIAL: Form = {
-  ccaaCode: "09",
-  provinceCode: "17",
+  ccaaCode: "",
+  provinceCode: "",
   municipalityCode: "",
   municipalityName: "",
   ineValueId: null,
@@ -153,12 +153,19 @@ export function StudyWizard() {
     setErrors((e) => ({ ...e, [key]: "" }));
   };
 
-  const provinces = useMemo(() => PROVINCES.filter((p) => p.ccaa === form.ccaaCode), [form.ccaaCode]);
+  const provinces = useMemo(
+    () => (form.ccaaCode ? PROVINCES.filter((p) => p.ccaa === form.ccaaCode) : [...PROVINCES].sort((a, b) => a.name.localeCompare(b.name, "es"))),
+    [form.ccaaCode],
+  );
 
   // Municipios oficiales del INE para la provincia elegida
   useEffect(() => {
     let cancelled = false;
     setMunicipalities(null);
+    if (!form.provinceCode) {
+      setMuniStatus("idle");
+      return;
+    }
     setMuniStatus("loading");
     fetch(`/api/estudio/municipios?provincia=${form.provinceCode}`)
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error())))
@@ -213,6 +220,7 @@ export function StudyWizard() {
   function validate(s: number) {
     const e: Record<string, string> = {};
     if (s === 0) {
+      if (!form.provinceCode) e.provinceCode = "Selecciona la provincia (o escribe el código postal)";
       if (!form.municipalityName.trim()) e.municipalityName = "Selecciona o escribe el municipio";
       if (!/^\d{5}$/.test(form.postalCode)) e.postalCode = "Código postal de 5 cifras";
       else if (!postalCodeMatchesProvince(form.postalCode, form.provinceCode)) e.postalCode = "Este código postal no pertenece a la provincia seleccionada";
@@ -348,10 +356,26 @@ export function StudyWizard() {
         <div className="space-y-5">
           <h2 className="font-serif text-3xl font-medium text-ink-800">¿Dónde está la vivienda?</h2>
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="País" htmlFor="country">
-              <select id="country" className="field" value="ES" disabled>
-                <option value="ES">España</option>
-              </select>
+            <Field label="Código postal" htmlFor="cp" error={errors.postalCode} hint="Rellena automáticamente la provincia y la comunidad.">
+              <input
+                id="cp"
+                inputMode="numeric"
+                maxLength={5}
+                autoComplete="postal-code"
+                className="field"
+                value={form.postalCode}
+                onChange={(e) => {
+                  const cp = e.target.value.replace(/\D/g, "");
+                  // Las dos primeras cifras del código postal identifican la provincia
+                  const prov = cp.length >= 2 ? PROVINCES.find((p) => p.code === cp.slice(0, 2)) : undefined;
+                  setForm((f) =>
+                    prov && prov.code !== f.provinceCode
+                      ? { ...f, postalCode: cp, provinceCode: prov.code, ccaaCode: prov.ccaa, municipalityCode: "", municipalityName: "", ineValueId: null }
+                      : { ...f, postalCode: cp },
+                  );
+                  setErrors((er) => ({ ...er, postalCode: "", provinceCode: "" }));
+                }}
+              />
             </Field>
             <Field label="Comunidad autónoma" htmlFor="ccaa">
               <select
@@ -360,10 +384,13 @@ export function StudyWizard() {
                 value={form.ccaaCode}
                 onChange={(e) => {
                   const ccaa = e.target.value;
-                  const first = PROVINCES.find((p) => p.ccaa === ccaa)!;
-                  setForm((f) => ({ ...f, ccaaCode: ccaa, provinceCode: first.code, municipalityCode: "", municipalityName: "", ineValueId: null }));
+                  const inCcaa = PROVINCES.filter((p) => p.ccaa === ccaa);
+                  // Si la comunidad solo tiene una provincia, se selecciona directamente
+                  const provinceCode = inCcaa.length === 1 ? inCcaa[0].code : "";
+                  setForm((f) => ({ ...f, ccaaCode: ccaa, provinceCode, municipalityCode: "", municipalityName: "", ineValueId: null }));
                 }}
               >
+                <option value="">Selecciona…</option>
                 {CCAA.map((c) => (
                   <option key={c.code} value={c.code}>
                     {c.name}
@@ -371,13 +398,18 @@ export function StudyWizard() {
                 ))}
               </select>
             </Field>
-            <Field label="Provincia" htmlFor="province">
+            <Field label="Provincia" htmlFor="province" error={errors.provinceCode}>
               <select
                 id="province"
                 className="field"
                 value={form.provinceCode}
-                onChange={(e) => setForm((f) => ({ ...f, provinceCode: e.target.value, municipalityCode: "", municipalityName: "", ineValueId: null }))}
+                onChange={(e) => {
+                  const prov = PROVINCES.find((p) => p.code === e.target.value);
+                  setForm((f) => ({ ...f, provinceCode: e.target.value, ccaaCode: prov?.ccaa ?? f.ccaaCode, municipalityCode: "", municipalityName: "", ineValueId: null }));
+                  setErrors((er) => ({ ...er, provinceCode: "" }));
+                }}
               >
+                <option value="">Selecciona…</option>
                 {provinces.map((p) => (
                   <option key={p.code} value={p.code}>
                     {p.name}
@@ -391,7 +423,9 @@ export function StudyWizard() {
               error={errors.municipalityName}
               hint={muniStatus === "loading" ? "Cargando municipios oficiales del INE…" : muniStatus === "error" ? "No se pudo cargar la lista del INE: escribe el nombre." : "Lista oficial del INE."}
             >
-              {municipalities && muniStatus === "idle" ? (
+              {!form.provinceCode ? (
+                <input id="municipality" className="field" disabled value="" readOnly placeholder="Elige antes la provincia o escribe el código postal" />
+              ) : municipalities && muniStatus === "idle" ? (
                 <select
                   id="municipality"
                   className="field"
@@ -412,9 +446,6 @@ export function StudyWizard() {
               ) : (
                 <input id="municipality" className="field" value={form.municipalityName} onChange={(e) => set("municipalityName", e.target.value)} placeholder="Municipio" />
               )}
-            </Field>
-            <Field label="Código postal" htmlFor="cp" error={errors.postalCode}>
-              <input id="cp" inputMode="numeric" maxLength={5} className="field" value={form.postalCode} onChange={(e) => set("postalCode", e.target.value.replace(/\D/g, ""))} />
             </Field>
             <Field label="Dirección" htmlFor="address" optional hint="Solo la usa el especialista si solicitas una valoración.">
               <input id="address" className="field" value={form.address} onChange={(e) => set("address", e.target.value)} autoComplete="street-address" />
