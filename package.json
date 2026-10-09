@@ -2,7 +2,7 @@
   "name": "captacion-costa-brava",
   "version": "0.1.0",
   "private": true,
-  "description": "MVP de captación y cualificación de propietarios que quieren vender en la Costa Brava (Tramontana demo).",
+  "description": "MVP de captación y cualificación de propietarios que quieren vender en la Costa Brava (FINCALIA360).",
   "scripts": {
     "predev": "node scripts/ensure-db.mjs",
     "dev": "next dev",

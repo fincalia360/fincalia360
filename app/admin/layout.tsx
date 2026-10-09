@@ -7,7 +7,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { logoutAction } from "@/app/admin/studyActions";
 
-export const metadata: Metadata = { title: { default: "CRM", template: "%s · CRM Tramontana" } };
+export const metadata: Metadata = { title: { default: "CRM", template: "%s · CRM FINCALIA360" } };
 export const dynamic = "force-dynamic";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {

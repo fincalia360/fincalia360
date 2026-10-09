@@ -136,7 +136,7 @@ export async function createLead(input: ValuationFormInput, options: CreateLeadO
     payload: { score: score.score, tier: score.tier, source: lead.source },
     notification: {
       audience: "internal",
-      to: "equipo@tramontana.demo",
+      to: "equipo@fincalia360.example",
       subject: `Nuevo lead ${score.tier}: ${lead.name} · ${PROPERTY_LABELS[input.type]} en ${LOCATION_LABELS[input.location]}`,
       body: `Score ${score.score}. Plazo: ${input.timeline}. Valor estimado ${valuation.min}-${valuation.max} €.`,
     },

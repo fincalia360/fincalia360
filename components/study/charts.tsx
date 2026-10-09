@@ -65,7 +65,7 @@ export function LineChart({ series, height = 120 }: { series: Series; height?: n
       <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full" role="img" aria-label={`${series.label}: de ${fmt(values[0])} a ${fmt(values[values.length - 1])} ${series.unit}`}>
         <path d={d} fill="none" stroke="#1E364D" strokeWidth="2" strokeLinejoin="round" />
         {pts.map((p, i) => (
-          <circle key={p.period} cx={x(i)} cy={y(p.value)} r={i === pts.length - 1 ? 3.5 : 2} fill={i === pts.length - 1 ? "#B5562F" : "#1E364D"}>
+          <circle key={p.period} cx={x(i)} cy={y(p.value)} r={i === pts.length - 1 ? 3.5 : 2} fill={i === pts.length - 1 ? "#238477" : "#213851"}>
             <title>{`${p.period}: ${fmt(p.value)} ${series.unit}`}</title>
           </circle>
         ))}

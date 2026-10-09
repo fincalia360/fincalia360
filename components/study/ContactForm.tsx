@@ -84,7 +84,7 @@ export function ContactForm({ studyId, alreadyRequested }: { studyId: string; al
         </p>
         <label className="mt-3 flex cursor-pointer gap-3 text-ink-700">
           <input type="checkbox" className="mt-0.5 h-5 w-5 shrink-0 accent-ink-800" checked={form.consentContact} onChange={(e) => set("consentContact", e.target.checked)} />
-          <span>Acepto que Tramontana y, en su caso, una inmobiliaria colaboradora de la zona me contacten para realizar la valoración profesional que solicito. (Necesario para atender la solicitud)</span>
+          <span>Acepto que FINCALIA360 y, en su caso, una inmobiliaria colaboradora de la zona me contacten para realizar la valoración profesional que solicito. (Necesario para atender la solicitud)</span>
         </label>
         {errors.consentContact && <p className="mt-1 pl-8 text-xs text-red-600">{errors.consentContact}</p>}
         <label className="mt-2 flex cursor-pointer gap-3 text-ink-700">

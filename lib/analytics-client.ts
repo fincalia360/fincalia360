@@ -2,7 +2,7 @@
 
 import type { AnalyticsEventType } from "@/types";
 
-const KEY = "tramontana_session";
+const KEY = "fincalia360_session";
 
 export function getSessionId(): string {
   try {

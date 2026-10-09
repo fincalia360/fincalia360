@@ -2,7 +2,7 @@ import type { Dictionary } from "../types";
 
 const it: Dictionary = {
   meta: {
-    title: "Tramontana · Valuta la tua casa in Costa Brava",
+    title: "FINCALIA360 · Valuta la tua casa in Costa Brava",
     description: "Ottieni una prima valutazione della tua casa a Roses, Empuriabrava e in Costa Brava e scopri le tue opzioni per vendere.",
   },
   brand: { tagline: "Proprietari · Costa Brava" },
@@ -90,7 +90,7 @@ const it: Dictionary = {
     language: "Lingua preferita",
     preferredContact: "Come preferisci essere contattato?",
     consentContact:
-      "Accetto che Tramontana e, se del caso, un'agenzia immobiliare partner della zona mi contattino per parlare della valutazione e della possibile vendita della mia casa. (Obbligatorio)",
+      "Accetto che FINCALIA360 e, se del caso, un'agenzia immobiliare partner della zona mi contattino per parlare della valutazione e della possibile vendita della mia casa. (Obbligatorio)",
     consentMarketing: "Desidero ricevere occasionalmente informazioni sul mercato immobiliare della Costa Brava. (Facoltativo)",
     privacyNote: "Puoi revocare il consenso in qualsiasi momento. Maggiori informazioni nella",
     privacyLink: "informativa sulla privacy",
@@ -163,8 +163,8 @@ const it: Dictionary = {
   },
   agent: {
     greeting:
-      "Ciao {name}, sono Marina, l'assistente virtuale di Tramontana. Ho ricevuto la tua richiesta di valutazione ({property}). Vuoi che ti aiuti a capire quali opzioni hai per vendere?",
-    greetingGeneric: "Ciao {name}, sono Marina, l'assistente virtuale di Tramontana. Vuoi che ti aiuti a capire quali opzioni hai per vendere la tua casa?",
+      "Ciao {name}, sono Marina, l'assistente virtuale di FINCALIA360. Ho ricevuto la tua richiesta di valutazione ({property}). Vuoi che ti aiuti a capire quali opzioni hai per vendere?",
+    greetingGeneric: "Ciao {name}, sono Marina, l'assistente virtuale di FINCALIA360. Vuoi che ti aiuti a capire quali opzioni hai per vendere la tua casa?",
     acks: ["Perfetto.", "Capito.", "Grazie."],
     askLocation: "In quale zona si trova l'immobile?",
     askType: "Che tipo di immobile è?",

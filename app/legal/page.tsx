@@ -25,7 +25,7 @@ export default async function LegalNoticePage({ searchParams }: { searchParams: 
       <h2>Intermediación</h2>
       <p>[Descripción de la relación con las inmobiliarias colaboradoras y, en su caso, de la remuneración — PENDIENTE].</p>
       <h2>Propiedad intelectual</h2>
-      <p>[PENDIENTE]. &quot;Tramontana&quot; es una marca ficticia utilizada únicamente para esta demostración.</p>
+      <p>[PENDIENTE]. FINCALIA360 es el nombre comercial de la plataforma.</p>
       <h2>Legislación aplicable</h2>
       <p>[PENDIENTE — revisar con asesoría jurídica].</p>
     </LegalPage>

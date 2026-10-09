@@ -2,7 +2,7 @@ import type { Dictionary } from "../types";
 
 const fr: Dictionary = {
   meta: {
-    title: "Tramontana · Estimez votre bien sur la Costa Brava",
+    title: "FINCALIA360 · Estimez votre bien sur la Costa Brava",
     description: "Obtenez une première estimation de votre bien à Roses, Empuriabrava et sur la Costa Brava et découvrez vos options pour vendre.",
   },
   brand: { tagline: "Propriétaires · Costa Brava" },
@@ -90,7 +90,7 @@ const fr: Dictionary = {
     language: "Langue préférée",
     preferredContact: "Comment préférez-vous être contacté ?",
     consentContact:
-      "J'accepte que Tramontana et, le cas échéant, une agence immobilière partenaire du secteur me contactent pour parler de l'estimation et de la vente éventuelle de mon bien. (Obligatoire)",
+      "J'accepte que FINCALIA360 et, le cas échéant, une agence immobilière partenaire du secteur me contactent pour parler de l'estimation et de la vente éventuelle de mon bien. (Obligatoire)",
     consentMarketing: "Je souhaite recevoir occasionnellement des informations sur le marché immobilier de la Costa Brava. (Facultatif)",
     privacyNote: "Vous pouvez retirer votre consentement à tout moment. Plus d'informations dans notre",
     privacyLink: "politique de confidentialité",
@@ -163,8 +163,8 @@ const fr: Dictionary = {
   },
   agent: {
     greeting:
-      "Bonjour {name}, je suis Marina, l'assistante virtuelle de Tramontana. J'ai bien reçu votre demande d'estimation ({property}). Voulez-vous que je vous aide à voir quelles options s'offrent à vous pour vendre ?",
-    greetingGeneric: "Bonjour {name}, je suis Marina, l'assistante virtuelle de Tramontana. Voulez-vous que je vous aide à voir vos options pour vendre votre bien ?",
+      "Bonjour {name}, je suis Marina, l'assistante virtuelle de FINCALIA360. J'ai bien reçu votre demande d'estimation ({property}). Voulez-vous que je vous aide à voir quelles options s'offrent à vous pour vendre ?",
+    greetingGeneric: "Bonjour {name}, je suis Marina, l'assistante virtuelle de FINCALIA360. Voulez-vous que je vous aide à voir vos options pour vendre votre bien ?",
     acks: ["Parfait.", "Entendu.", "Merci."],
     askLocation: "Dans quel secteur se trouve le bien ?",
     askType: "De quel type de bien s'agit-il ?",

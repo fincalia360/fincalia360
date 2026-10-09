@@ -2,7 +2,7 @@ import type { Dictionary } from "../types";
 
 const pt: Dictionary = {
   meta: {
-    title: "Tramontana · Avalie a sua casa na Costa Brava",
+    title: "FINCALIA360 · Avalie a sua casa na Costa Brava",
     description: "Obtenha uma avaliação inicial da sua casa em Roses, Empuriabrava e na Costa Brava e descubra as suas opções para vender.",
   },
   brand: { tagline: "Proprietários · Costa Brava" },
@@ -90,7 +90,7 @@ const pt: Dictionary = {
     language: "Língua preferida",
     preferredContact: "Como prefere ser contactado?",
     consentContact:
-      "Aceito que a Tramontana e, se for o caso, uma imobiliária parceira da zona me contactem para falar da avaliação e da possível venda da minha casa. (Obrigatório)",
+      "Aceito que a FINCALIA360 e, se for o caso, uma imobiliária parceira da zona me contactem para falar da avaliação e da possível venda da minha casa. (Obrigatório)",
     consentMarketing: "Quero receber ocasionalmente informação sobre o mercado imobiliário da Costa Brava. (Opcional)",
     privacyNote: "Pode retirar o seu consentimento a qualquer momento. Mais informação na",
     privacyLink: "política de privacidade",
@@ -163,8 +163,8 @@ const pt: Dictionary = {
   },
   agent: {
     greeting:
-      "Olá {name}, sou a Marina, a assistente virtual da Tramontana. Recebi o seu pedido de avaliação ({property}). Quer que o ajude a ver que opções tem para vender?",
-    greetingGeneric: "Olá {name}, sou a Marina, a assistente virtual da Tramontana. Quer que o ajude a ver que opções tem para vender a sua casa?",
+      "Olá {name}, sou a Marina, a assistente virtual da FINCALIA360. Recebi o seu pedido de avaliação ({property}). Quer que o ajude a ver que opções tem para vender?",
+    greetingGeneric: "Olá {name}, sou a Marina, a assistente virtual da FINCALIA360. Quer que o ajude a ver que opções tem para vender a sua casa?",
     acks: ["Perfeito.", "Entendido.", "Obrigada."],
     askLocation: "Em que zona fica o imóvel?",
     askType: "Que tipo de imóvel é?",

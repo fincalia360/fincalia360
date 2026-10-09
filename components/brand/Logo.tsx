@@ -1,29 +1,28 @@
 import { cn } from "@/lib/utils";
 
-/** Marca ficticia de demostración ("Tramontana", el viento del Empordà). */
+/**
+ * Logotipo de FINCALIA360. Imágenes extraídas de la lámina de marca facilitada,
+ * sin redibujar (public/brand). `light` = versión para fondos oscuros.
+ */
 export function LogoMark({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 32 32" aria-hidden="true" className={cn("h-8 w-8", className)}>
-      <circle cx="16" cy="16" r="15" fill="none" stroke="currentColor" strokeWidth="1.2" opacity="0.35" />
-      <path d="M6 18.5c3.2-2.6 6.4-2.6 9.6 0s6.4 2.6 9.6 0" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-      <path d="M8.5 13.5c2.5-2 5-2 7.5 0s5 2 7.5 0" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" opacity="0.6" />
-      <path d="M16 3.5 17.4 9 16 8.2 14.6 9Z" fill="#B5562F" />
-    </svg>
-  );
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src="/brand/fincalia360-symbol.png" alt="" aria-hidden="true" className={cn("h-8 w-auto", className)} />;
 }
 
 export function Logo({ tagline, className, light }: { tagline?: string; className?: string; light?: boolean }) {
   return (
-    <span className={cn("inline-flex items-center gap-2.5", light ? "text-white" : "text-ink-800", className)}>
-      <LogoMark />
-      <span className="flex flex-col leading-none">
-        <span className="font-serif text-[22px] font-semibold tracking-tight">Tramontana</span>
-        {tagline && (
-          <span className={cn("mt-0.5 text-[9.5px] font-medium uppercase tracking-[0.2em]", light ? "text-sand-300" : "text-ink-400")}>
-            {tagline}
-          </span>
-        )}
-      </span>
+    <span className={cn("inline-flex flex-col items-start leading-none", className)}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={light ? "/brand/fincalia360-logo-white.png" : "/brand/fincalia360-logo.png"}
+        alt="FINCALIA360"
+        width={light ? 296 : 810}
+        height={light ? 83 : 187}
+        className="h-8 w-auto sm:h-9"
+      />
+      {tagline && (
+        <span className={cn("mt-1 text-[9.5px] font-medium uppercase tracking-[0.2em]", light ? "text-ink-200" : "text-ink-400")}>{tagline}</span>
+      )}
     </span>
   );
 }

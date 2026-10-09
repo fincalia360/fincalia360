@@ -7,10 +7,10 @@ import { LanguageSwitcher } from "./LanguageSwitcher";
 
 export function SiteHeader({ dict, lang, basePath = "/", showNav = true }: { dict: Dictionary; lang: Language; basePath?: string; showNav?: boolean }) {
   return (
-    <header className="sticky top-0 z-30 border-b border-sand-200/70 bg-sand-50/90 backdrop-blur">
+    <header className="sticky top-0 z-30 border-b border-sand-200 bg-white/95 backdrop-blur">
       <div className="container-page flex h-16 items-center justify-between gap-4">
-        <Link href={`/?lang=${lang}`} aria-label="Tramontana" className="shrink-0">
-          <Logo tagline={dict.brand.tagline} />
+        <Link href={`/?lang=${lang}`} aria-label="FINCALIA360" className="shrink-0">
+          <Logo />
         </Link>
         {showNav && (
           <nav className="hidden items-center gap-6 whitespace-nowrap text-sm text-ink-500 xl:flex">

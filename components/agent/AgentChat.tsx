@@ -77,7 +77,7 @@ export function AgentChat({ initialView, dict }: { initialView: ConversationView
         <header className="flex items-center gap-3 bg-[#1F3A33] px-4 py-3 text-white">
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-sand-100 font-serif text-lg font-semibold text-ink-800">M</span>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-[15px] font-semibold">Marina · Tramontana</p>
+            <p className="truncate text-[15px] font-semibold">Marina · FINCALIA360</p>
             <p className="text-xs text-white/70">{typing ? ui.typing : ui.online}</p>
           </div>
           <button type="button" onClick={reset} title="Reiniciar conversación (demo)" className="rounded-full p-2 text-white/70 hover:bg-white/10 hover:text-white">

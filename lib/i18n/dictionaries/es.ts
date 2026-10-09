@@ -1,6 +1,6 @@
 const es = {
   meta: {
-    title: "Tramontana · Valora tu vivienda en la Costa Brava",
+    title: "FINCALIA360 · Valora tu vivienda en la Costa Brava",
     description: "Obtén una valoración inicial de tu vivienda en Roses, Empuriabrava y la Costa Brava y descubre tus opciones para vender.",
   },
   brand: { tagline: "Propietarios · Costa Brava" },
@@ -88,7 +88,7 @@ const es = {
     language: "Idioma preferido",
     preferredContact: "¿Cómo prefieres que te contactemos?",
     consentContact:
-      "Acepto que Tramontana y, en su caso, una inmobiliaria colaboradora de la zona me contacten para hablar de la valoración y de la posible venta de mi vivienda. (Obligatorio)",
+      "Acepto que FINCALIA360 y, en su caso, una inmobiliaria colaboradora de la zona me contacten para hablar de la valoración y de la posible venta de mi vivienda. (Obligatorio)",
     consentMarketing: "Quiero recibir ocasionalmente información sobre el mercado inmobiliario de la Costa Brava. (Opcional)",
     privacyNote: "Puedes retirar tu consentimiento en cualquier momento. Más información en la",
     privacyLink: "política de privacidad",
@@ -161,8 +161,8 @@ const es = {
   },
   agent: {
     greeting:
-      "Hola {name}, soy Marina, la asistente virtual de Tramontana. He recibido tu solicitud de valoración ({property}). ¿Quieres que te ayude a ver qué opciones tienes para vender?",
-    greetingGeneric: "Hola {name}, soy Marina, la asistente virtual de Tramontana. ¿Quieres que te ayude a ver qué opciones tienes para vender tu vivienda?",
+      "Hola {name}, soy Marina, la asistente virtual de FINCALIA360. He recibido tu solicitud de valoración ({property}). ¿Quieres que te ayude a ver qué opciones tienes para vender?",
+    greetingGeneric: "Hola {name}, soy Marina, la asistente virtual de FINCALIA360. ¿Quieres que te ayude a ver qué opciones tienes para vender tu vivienda?",
     acks: ["Perfecto.", "Entendido.", "Gracias."],
     askLocation: "¿En qué zona está la vivienda?",
     askType: "¿Qué tipo de propiedad es?",

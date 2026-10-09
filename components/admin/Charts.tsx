@@ -52,7 +52,7 @@ export function Funnel({ steps }: { steps: Array<{ label: string; value: number;
             <div className="h-2.5 overflow-hidden rounded-full bg-sand-100">
               <div
                 className="h-full rounded-full"
-                style={{ width: `${Math.max(2, (s.value / max) * 100)}%`, background: i === steps.length - 1 ? "#B5562F" : "#1E364D", opacity: 1 - i * 0.12 }}
+                style={{ width: `${Math.max(2, (s.value / max) * 100)}%`, background: i === steps.length - 1 ? "#238477" : "#213851", opacity: 1 - i * 0.12 }}
               />
             </div>
           </li>

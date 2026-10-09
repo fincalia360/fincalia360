@@ -1,6 +1,8 @@
 // Informe PDF del estudio (pdf-lib, sin servicios externos).
 // Todas las cifras proceden de buildStudyReport(): las mismas que muestra la web.
-import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
+import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFImage, type PDFPage } from "pdf-lib";
 import { fmtDate, fmtEur, fmtPct } from "../format";
 import { getCcaa, getProvince } from "../geo";
 import { RENT_SOURCE_LABELS, buildStudyReport, type StudyReport } from "../reportModel";
@@ -20,12 +22,13 @@ import {
   type StudySnapshot,
 } from "../types";
 
-const INK = rgb(0.075, 0.16, 0.24);
-const MUTED = rgb(0.37, 0.48, 0.58);
-const ACCENT = rgb(0.71, 0.34, 0.18);
+// Identidad FINCALIA360: azul marino #142B45, verde petróleo #238477, blanco roto #F7F8F5
+const INK = rgb(0.078, 0.169, 0.271);
+const MUTED = rgb(0.357, 0.42, 0.486);
+const ACCENT = rgb(0.137, 0.518, 0.467);
 const WARN = rgb(0.6, 0.38, 0.05);
-const LINE = rgb(0.86, 0.82, 0.74);
-const SAND = rgb(0.965, 0.95, 0.92);
+const LINE = rgb(0.89, 0.902, 0.882);
+const SAND = rgb(0.937, 0.945, 0.925);
 const WHITE = rgb(1, 1, 1);
 const A4 = { w: 595.28, h: 841.89 };
 const M = 48;
@@ -191,23 +194,36 @@ function taxRow(w: Writer, t: TaxLine) {
   );
 }
 
-function writeSummaryPage(w: Writer, r: StudyReport, input: StudyInput, studyId: string, generatedAt: Date) {
+/** Logotipo para fondo oscuro (public/brand). Si no se puede leer, se usa el nombre en texto. */
+async function loadLogo(doc: PDFDocument): Promise<PDFImage | null> {
+  try {
+    return await doc.embedPng(await readFile(path.join(process.cwd(), "public", "brand", "fincalia360-logo-white.png")));
+  } catch {
+    return null;
+  }
+}
+
+function writeSummaryPage(w: Writer, r: StudyReport, input: StudyInput, studyId: string, generatedAt: Date, logo: PDFImage | null) {
   const p = w.page;
   p.drawRectangle({ x: 0, y: A4.h - 118, width: A4.w, height: 118, color: INK });
-  p.drawText("Tramontana", { x: M, y: A4.h - 46, size: 18, font: w.bold, color: WHITE });
-  p.drawText(cleanPdfText("Estudio gratuito: ¿te conviene vender o alquilar tu vivienda?"), { x: M, y: A4.h - 72, size: 13, font: w.font, color: rgb(0.96, 0.95, 0.92) });
+  if (logo) {
+    const h = 34;
+    p.drawImage(logo, { x: M, y: A4.h - 56, width: (logo.width / logo.height) * h, height: h });
+  } else p.drawText("FINCALIA360", { x: M, y: A4.h - 46, size: 18, font: w.bold, color: WHITE });
+  p.drawRectangle({ x: 0, y: A4.h - 118, width: A4.w, height: 3, color: ACCENT });
+  p.drawText(cleanPdfText("Estudio gratuito: ¿te conviene vender o alquilar tu vivienda?"), { x: M, y: A4.h - 76, size: 13, font: w.font, color: rgb(0.969, 0.973, 0.961) });
   p.drawText(
     cleanPdfText(
       `${PROPERTY_KIND_LABELS[input.property.kind]} · ${input.property.sqm} m² · ${input.location.municipalityName} (${input.location.postalCode}) · ${generatedAt.toLocaleDateString("es-ES", { day: "numeric", month: "long", year: "numeric" })} · Ref. ${studyId.slice(-8)}`,
     ),
-    { x: M, y: A4.h - 96, size: 9, font: w.font, color: rgb(0.85, 0.82, 0.75) },
+    { x: M, y: A4.h - 98, size: 9, font: w.font, color: rgb(0.78, 0.82, 0.86) },
   );
   w.y = A4.h - 134;
 
   // Conclusión (o falta de ella)
   const verdictColor = r.conclusive ? INK : WARN;
   const vh = w.height(r.headline, 10, w.bold, CONTENT_W - 20) + 22;
-  p.drawRectangle({ x: M, y: w.y - vh, width: CONTENT_W, height: vh, color: r.conclusive ? rgb(0.93, 0.95, 0.97) : rgb(0.99, 0.95, 0.88) });
+  p.drawRectangle({ x: M, y: w.y - vh, width: CONTENT_W, height: vh, color: r.conclusive ? rgb(0.918, 0.961, 0.953) : rgb(0.99, 0.95, 0.88) });
   p.drawText(r.conclusive ? "RESULTADO CON LAS HIPÓTESIS ACTUALES" : "RESULTADO NO CONCLUYENTE", { x: M + 10, y: w.y - 13, size: 7.5, font: w.bold, color: MUTED });
   let yy = w.y - 27;
   for (const l of w.wrap(r.headline, 10, w.bold, CONTENT_W - 20)) {
@@ -356,15 +372,15 @@ export async function renderStudyPdf(params: {
   const a = report.assumptions;
   const generatedAt = params.generatedAt ?? new Date();
   const doc = await PDFDocument.create();
-  doc.setTitle("Estudio vender o alquilar - Tramontana");
-  doc.setAuthor("Tramontana (demo)");
+  doc.setTitle("Estudio vender o alquilar - FINCALIA360");
+  doc.setAuthor("FINCALIA360");
   doc.setCreationDate(generatedAt);
   const font = await doc.embedFont(StandardFonts.Helvetica);
   const bold = await doc.embedFont(StandardFonts.HelveticaBold);
   const w = new Writer(doc, font, bold);
 
   // ---------------- Página 1: resumen ----------------
-  writeSummaryPage(w, report, input, params.studyId, generatedAt);
+  writeSummaryPage(w, report, input, params.studyId, generatedAt, await loadLogo(doc));
 
   // ---------------- Detalle ----------------
   w.newPage();

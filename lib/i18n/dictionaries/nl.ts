@@ -2,7 +2,7 @@ import type { Dictionary } from "../types";
 
 const nl: Dictionary = {
   meta: {
-    title: "Tramontana · Laat uw woning aan de Costa Brava waarderen",
+    title: "FINCALIA360 · Laat uw woning aan de Costa Brava waarderen",
     description: "Ontvang een eerste waardebepaling van uw woning in Roses, Empuriabrava en aan de Costa Brava en ontdek uw verkoopmogelijkheden.",
   },
   brand: { tagline: "Eigenaren · Costa Brava" },
@@ -90,7 +90,7 @@ const nl: Dictionary = {
     language: "Voorkeurstaal",
     preferredContact: "Hoe mogen we contact met u opnemen?",
     consentContact:
-      "Ik ga ermee akkoord dat Tramontana en, indien van toepassing, een partnermakelaar uit de regio contact met mij opnemen over de waardering en de mogelijke verkoop van mijn woning. (Verplicht)",
+      "Ik ga ermee akkoord dat FINCALIA360 en, indien van toepassing, een partnermakelaar uit de regio contact met mij opnemen over de waardering en de mogelijke verkoop van mijn woning. (Verplicht)",
     consentMarketing: "Ik ontvang graag af en toe informatie over de woningmarkt aan de Costa Brava. (Optioneel)",
     privacyNote: "U kunt uw toestemming op elk moment intrekken. Meer informatie in ons",
     privacyLink: "privacybeleid",
@@ -163,8 +163,8 @@ const nl: Dictionary = {
   },
   agent: {
     greeting:
-      "Hallo {name}, ik ben Marina, de virtuele assistent van Tramontana. Ik heb uw aanvraag voor een waardebepaling ontvangen ({property}). Zal ik u helpen uw verkoopmogelijkheden te bekijken?",
-    greetingGeneric: "Hallo {name}, ik ben Marina, de virtuele assistent van Tramontana. Zal ik u helpen de mogelijkheden voor de verkoop van uw woning te bekijken?",
+      "Hallo {name}, ik ben Marina, de virtuele assistent van FINCALIA360. Ik heb uw aanvraag voor een waardebepaling ontvangen ({property}). Zal ik u helpen uw verkoopmogelijkheden te bekijken?",
+    greetingGeneric: "Hallo {name}, ik ben Marina, de virtuele assistent van FINCALIA360. Zal ik u helpen de mogelijkheden voor de verkoop van uw woning te bekijken?",
     acks: ["Prima.", "Begrepen.", "Dank u."],
     askLocation: "In welk gebied ligt de woning?",
     askType: "Om wat voor woning gaat het?",

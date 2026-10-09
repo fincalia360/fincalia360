@@ -2,7 +2,7 @@ import type { Dictionary } from "../types";
 
 const en: Dictionary = {
   meta: {
-    title: "Tramontana · Value your home on the Costa Brava",
+    title: "FINCALIA360 · Value your home on the Costa Brava",
     description: "Get an initial valuation of your property in Roses, Empuriabrava and the Costa Brava and discover your options to sell.",
   },
   brand: { tagline: "Homeowners · Costa Brava" },
@@ -90,7 +90,7 @@ const en: Dictionary = {
     language: "Preferred language",
     preferredContact: "How would you like us to contact you?",
     consentContact:
-      "I agree that Tramontana and, where appropriate, a partner estate agency in the area may contact me to discuss the valuation and the possible sale of my property. (Required)",
+      "I agree that FINCALIA360 and, where appropriate, a partner estate agency in the area may contact me to discuss the valuation and the possible sale of my property. (Required)",
     consentMarketing: "I would like to occasionally receive information about the Costa Brava property market. (Optional)",
     privacyNote: "You can withdraw your consent at any time. More information in our",
     privacyLink: "privacy policy",
@@ -163,8 +163,8 @@ const en: Dictionary = {
   },
   agent: {
     greeting:
-      "Hi {name}, I'm Marina, Tramontana's virtual assistant. I've received your valuation request ({property}). Would you like me to help you look at your options for selling?",
-    greetingGeneric: "Hi {name}, I'm Marina, Tramontana's virtual assistant. Would you like me to help you look at your options for selling your home?",
+      "Hi {name}, I'm Marina, FINCALIA360's virtual assistant. I've received your valuation request ({property}). Would you like me to help you look at your options for selling?",
+    greetingGeneric: "Hi {name}, I'm Marina, FINCALIA360's virtual assistant. Would you like me to help you look at your options for selling your home?",
     acks: ["Perfect.", "Understood.", "Thanks."],
     askLocation: "Which area is the property in?",
     askType: "What type of property is it?",

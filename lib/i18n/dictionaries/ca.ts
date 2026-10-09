@@ -2,7 +2,7 @@ import type { Dictionary } from "../types";
 
 const ca: Dictionary = {
   meta: {
-    title: "Tramontana · Valora el teu habitatge a la Costa Brava",
+    title: "FINCALIA360 · Valora el teu habitatge a la Costa Brava",
     description: "Obtén una valoració inicial del teu habitatge a Roses, Empuriabrava i la Costa Brava i descobreix les teves opcions per vendre.",
   },
   brand: { tagline: "Propietaris · Costa Brava" },
@@ -90,7 +90,7 @@ const ca: Dictionary = {
     language: "Idioma preferit",
     preferredContact: "Com prefereixes que et contactem?",
     consentContact:
-      "Accepto que Tramontana i, si escau, una immobiliària col·laboradora de la zona em contactin per parlar de la valoració i de la possible venda del meu habitatge. (Obligatori)",
+      "Accepto que FINCALIA360 i, si escau, una immobiliària col·laboradora de la zona em contactin per parlar de la valoració i de la possible venda del meu habitatge. (Obligatori)",
     consentMarketing: "Vull rebre ocasionalment informació sobre el mercat immobiliari de la Costa Brava. (Opcional)",
     privacyNote: "Pots retirar el teu consentiment en qualsevol moment. Més informació a la",
     privacyLink: "política de privacitat",
@@ -163,8 +163,8 @@ const ca: Dictionary = {
   },
   agent: {
     greeting:
-      "Hola {name}, soc la Marina, l'assistent virtual de Tramontana. He rebut la teva sol·licitud de valoració ({property}). Vols que t'ajudi a veure quines opcions tens per vendre?",
-    greetingGeneric: "Hola {name}, soc la Marina, l'assistent virtual de Tramontana. Vols que t'ajudi a veure quines opcions tens per vendre el teu habitatge?",
+      "Hola {name}, soc la Marina, l'assistent virtual de FINCALIA360. He rebut la teva sol·licitud de valoració ({property}). Vols que t'ajudi a veure quines opcions tens per vendre?",
+    greetingGeneric: "Hola {name}, soc la Marina, l'assistent virtual de FINCALIA360. Vols que t'ajudi a veure quines opcions tens per vendre el teu habitatge?",
     acks: ["Perfecte.", "Entesos.", "Gràcies."],
     askLocation: "En quina zona és l'habitatge?",
     askType: "Quin tipus de propietat és?",

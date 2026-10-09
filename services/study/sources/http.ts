@@ -2,7 +2,7 @@
 // Si la fuente falla, se usa la última copia guardada marcada como "STALE".
 import { prisma } from "@/db/client";
 
-const UA = "Mozilla/5.0 (compatible; TramontanaEstudio/0.1; +https://example.com)";
+const UA = "Mozilla/5.0 (compatible; Fincalia360Estudio/0.1; +https://example.com)";
 
 export interface CachedResult<T> {
   data: T;

@@ -33,7 +33,7 @@ import {
 
 export const STUDY_CONSENT_VERSION = "estudio-v0.1-2026-10";
 export const STUDY_CONSENT_CONTACT_TEXT =
-  "Acepto que Tramontana y, en su caso, una inmobiliaria colaboradora de la zona me contacten para realizar la valoración profesional que solicito y hablar de mi vivienda.";
+  "Acepto que FINCALIA360 y, en su caso, una inmobiliaria colaboradora de la zona me contacten para realizar la valoración profesional que solicito y hablar de mi vivienda.";
 export const STUDY_CONSENT_MARKETING_TEXT =
   "Quiero recibir ocasionalmente información comercial y del mercado inmobiliario. (Opcional)";
 
