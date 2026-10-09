@@ -22,6 +22,8 @@ import {
   type PropertyKind,
   type TaxResidence,
 } from "@/services/study/types";
+import type { CatastroProperty } from "@/services/study/sources/catastro";
+import { CatastroFinder } from "./CatastroFinder";
 import { ChoiceGroup, Field, NumberInput, Toggle } from "./fields";
 
 interface Municipality {
@@ -136,6 +138,37 @@ const INITIAL: Form = {
 const STEPS = ["Ubicación", "Características", "Situación económica", "Tu situación"];
 const num = (v: string) => (v.trim() === "" ? null : Number(v.replace(",", ".")));
 
+const FORAL: Record<string, string> = { "01": "Álava", "20": "Gipuzkoa", "31": "Navarra", "48": "Bizkaia" };
+
+function CatastroSummary({ p }: { p: CatastroProperty }) {
+  const floor = p.floor && /^-?\d+$/.test(p.floor) ? (Number(p.floor) === 0 ? "planta baja" : `planta ${Number(p.floor)}`) : p.floor ? `planta ${p.floor}` : null;
+  return (
+    <div className="rounded-lg border border-terracotta-100 bg-white p-3 text-sm">
+      <p className="font-semibold text-terracotta-700">Vivienda identificada en el Catastro</p>
+      <p className="mt-1 text-ink-700">{p.address}</p>
+      <ul className="mt-2 grid gap-1 text-[13px] text-ink-600 sm:grid-cols-2">
+        <li>Referencia catastral: <span className="font-mono">{p.cadastralRef}</span></li>
+        <li>Uso: {p.use}{p.typology ? ` · ${p.typology.toLowerCase()}` : ""}</li>
+        {p.builtSqm != null && (
+          <li>
+            Superficie construida: {p.builtSqm} m²
+            {p.breakdown.length > 1 ? ` (${p.breakdown.map((b) => `${b.label.toLowerCase()} ${b.sqm} m²`).join(", ")})` : ""}
+          </li>
+        )}
+        {p.yearBuilt != null && <li>Año de construcción: {p.yearBuilt}</li>}
+        {(floor || p.door) && <li>Ubicación: {[p.stair ? `escalera ${p.stair}` : null, floor, p.door ? `puerta ${p.door}` : null].filter(Boolean).join(", ")}</li>}
+      </ul>
+      {p.use !== "Residencial" && <p className="mt-2 text-amber-700">Atención: el uso catastral no es residencial.</p>}
+      <p className="mt-2 text-xs text-ink-400">
+        Datos públicos del Catastro consultados hoy. El Catastro no publica habitaciones, baños, ascensor ni estado de la vivienda: los indicas tú en el paso siguiente.{" "}
+        <a href={`https://www1.sedecatastro.gob.es/Cartografia/mapa.aspx?refcat=${p.cadastralRef.slice(0, 14)}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 underline">
+          Ver en el mapa del Catastro <ExternalLink className="h-3 w-3" />
+        </a>
+      </p>
+    </div>
+  );
+}
+
 export function StudyWizard() {
   const router = useRouter();
   const [step, setStep] = useState(0);
@@ -143,7 +176,7 @@ export function StudyWizard() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [municipalities, setMunicipalities] = useState<Municipality[] | null>(null);
   const [muniStatus, setMuniStatus] = useState<"idle" | "loading" | "error">("idle");
-  const [catastro, setCatastro] = useState<{ status: "idle" | "loading" | "ok" | "error"; message?: string; address?: string; use?: string; mapUrl?: string }>({ status: "idle" });
+  const [catastro, setCatastro] = useState<{ status: "idle" | "loading" | "ok" | "error"; message?: string; property?: CatastroProperty }>({ status: "idle" });
   const [submitting, setSubmitting] = useState(false);
   const topRef = useRef<HTMLDivElement>(null);
   const firstRender = useRef(true);
@@ -188,6 +221,23 @@ export function StudyWizard() {
     topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [step]);
 
+  /** Rellena el formulario con la ficha del Catastro (solo datos que el Catastro publica). */
+  function applyCatastro(p: CatastroProperty) {
+    const floor = p.floor && /^-?\d+$/.test(p.floor) ? String(Number(p.floor)) : null;
+    setForm((f) => ({
+      ...f,
+      cadastralRef: p.cadastralRef,
+      sqm: p.builtSqm ? String(Math.round(p.builtSqm)) : f.sqm,
+      yearBuilt: p.yearBuilt ? String(p.yearBuilt) : f.yearBuilt,
+      floor: floor ?? f.floor,
+      kind: f.kind ?? p.kindHint,
+      postalCode: f.postalCode || p.postalCode || "",
+      address: p.address,
+    }));
+    setErrors((er) => ({ ...er, sqm: "", kind: "" }));
+    setCatastro({ status: "ok", property: p });
+  }
+
   async function lookupCatastro() {
     const rc = form.cadastralRef.trim().toUpperCase();
     if (!/^[0-9A-Z]{14}([0-9A-Z]{6})?$/.test(rc)) {
@@ -199,19 +249,7 @@ export function StudyWizard() {
       const res = await fetch(`/api/estudio/catastro?rc=${encodeURIComponent(rc)}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      setForm((f) => ({
-        ...f,
-        cadastralRef: data.cadastralRef,
-        sqm: data.builtSqm ? String(Math.round(data.builtSqm)) : f.sqm,
-        yearBuilt: data.yearBuilt ? String(data.yearBuilt) : f.yearBuilt,
-        postalCode: f.postalCode || data.postalCode || "",
-      }));
-      setCatastro({
-        status: "ok",
-        address: data.address,
-        use: data.use,
-        mapUrl: `https://www1.sedecatastro.gob.es/Cartografia/mapa.aspx?refcat=${data.cadastralRef.slice(0, 14)}`,
-      });
+      applyCatastro(data as CatastroProperty);
     } catch (error) {
       setCatastro({ status: "error", message: (error as Error).message || "No se pudo consultar el Catastro." });
     }
@@ -452,12 +490,27 @@ export function StudyWizard() {
             </Field>
           </div>
 
-          <div className="rounded-xl border border-sand-200 bg-sand-50 p-4">
+          <div className="space-y-4 rounded-xl border border-sand-200 bg-sand-50 p-4">
+            <div>
+              <p className="text-sm font-semibold text-ink-800">Encuentra tu vivienda en el Catastro</p>
+              <p className="mt-0.5 text-xs text-ink-500">
+                Busca por dirección y elige tu piso: completamos la referencia catastral, la superficie, el año y la planta con los datos públicos del Catastro.
+              </p>
+            </div>
+            {!form.municipalityCode ? (
+              <p className="text-sm text-ink-500">Elige primero el municipio para buscar la dirección.</p>
+            ) : FORAL[form.provinceCode] ? (
+              <p className="text-sm text-amber-700">
+                {FORAL[form.provinceCode]} tiene catastro foral propio y su servicio no está conectado: introduce la referencia catastral si la tienes, o los datos a mano.
+              </p>
+            ) : (
+              <CatastroFinder municipalityCode={form.municipalityCode} onIdentified={applyCatastro} />
+            )}
             <Field
-              label="Referencia catastral"
+              label="¿Ya tienes la referencia catastral?"
               htmlFor="rc"
               optional
-              hint="Aparece en el recibo del IBI. Con ella completamos superficie y año de construcción desde el Catastro (datos públicos no protegidos)."
+              hint="Aparece en el recibo del IBI (20 caracteres). También puedes introducirla directamente."
             >
               <div className="flex gap-2">
                 <input id="rc" className="field uppercase" maxLength={20} value={form.cadastralRef} onChange={(e) => set("cadastralRef", e.target.value.toUpperCase().replace(/\s/g, ""))} />
@@ -467,15 +520,7 @@ export function StudyWizard() {
                 </Button>
               </div>
             </Field>
-            {catastro.status === "ok" && (
-              <p className="mt-2 text-sm text-pine-600">
-                {catastro.address} · uso {catastro.use}.{" "}
-                <a href={catastro.mapUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 underline">
-                  Ver en el mapa del Catastro <ExternalLink className="h-3 w-3" />
-                </a>
-                {catastro.use && catastro.use !== "Residencial" && <span className="block text-amber-700">Atención: el uso catastral no es residencial.</span>}
-              </p>
-            )}
+            {catastro.status === "ok" && catastro.property && <CatastroSummary p={catastro.property} />}
             {catastro.status === "error" && <p className="mt-2 text-sm text-red-600">{catastro.message}</p>}
           </div>
         </div>
