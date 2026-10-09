@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { EVENT_LABELS } from "@/lib/labels";
+import { EVENT_LABELS, STATUS_LABELS } from "@/lib/labels";
+import type { LeadStatus } from "@/types";
 import { formatDateTime, parseJSON } from "@/lib/utils";
 
 const DOT: Record<string, string> = {
@@ -25,6 +26,13 @@ function describe(type: string, payload: Record<string, unknown>) {
   if (type === "LEAD_ASSIGNED" && payload.agencyName) parts.push(String(payload.agencyName));
   if (type === "APPOINTMENT_BOOKED" && payload.scheduledAt) parts.push(formatDateTime(String(payload.scheduledAt)));
   if (type === "STATUS_CHANGED") parts.push(`${payload.from} → ${payload.to}`);
+  if (type === "STAGE_ENTERED") parts.push(`${STATUS_LABELS[payload.from as LeadStatus] ?? payload.from ?? "—"} → ${STATUS_LABELS[payload.to as LeadStatus] ?? payload.to}`);
+  if (type === "CONTACT_LOGGED") parts.push(`${payload.channelLabel ?? ""}${payload.summary ? `: “${payload.summary}”` : ""}`);
+  if (type === "NEXT_ACTION_SET") parts.push(`${payload.action ?? ""}${payload.dueLabel ? ` · ${payload.dueLabel}` : ""}`);
+  if (type === "REQUEST_RECEIVED") parts.push(`${payload.interestLabel ?? ""}${payload.studyId ? " · desde el estudio" : ""}`);
+  if (["EMAIL_SENT", "EMAIL_FAILED", "EMAIL_NOT_CONFIGURED"].includes(type)) parts.push(`${payload.subject ?? ""}${payload.to ? ` → ${payload.to}` : ""}${payload.error ? ` (${payload.error})` : ""}`);
+  if (["PARTNER_ASSIGNED", "PARTNER_UPDATED"].includes(type)) parts.push(`${payload.partnerName ?? ""}${payload.statusLabel ? ` · ${payload.statusLabel}` : ""}`);
+  if (type === "REVENUE_RECORDED") parts.push(`${payload.amount} € · ${payload.description ?? ""}`);
   if (type === "LEAD_LOST" && payload.reason) parts.push(String(payload.reason));
   if (type === "NOTE_ADDED" && payload.preview) parts.push(`“${payload.preview}”`);
   const n = payload.notification as { audience?: string; to?: string; channel?: string } | undefined;

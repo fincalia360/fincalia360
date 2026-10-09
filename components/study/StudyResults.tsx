@@ -6,8 +6,8 @@ import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
 import { fmtEur } from "@/services/study/format";
 import { RENT_SOURCE_LABELS, buildStudyReport } from "@/services/study/reportModel";
-import { CONFIDENCE_LABELS, HORIZONS, RENT_CHOICES, type AssumptionMeta, type Estimate, type StudyAssumptions, type StudyInput, type StudySnapshot } from "@/services/study/types";
-import { ContactForm } from "./ContactForm";
+import { CONFIDENCE_LABELS, HORIZONS, PROPERTY_KIND_LABELS, RENT_CHOICES, type AssumptionMeta, type Estimate, type StudyAssumptions, type StudyInput, type StudySnapshot } from "@/services/study/types";
+import { NextStepPanel, type PublicService } from "./NextStepPanel";
 import { OriginBadge, eur, pct } from "./charts";
 import { RiskPanel } from "./RiskPanel";
 import { AssumptionsEditor, ScenarioComparison } from "./SimulatorPanel";
@@ -21,7 +21,7 @@ const SECTIONS = [
   ["impuestos", "Impuestos"],
   ["zona", "Zona"],
   ["fuentes", "Fuentes"],
-  ["valoracion", "Valoración profesional"],
+  ["valoracion", "Siguiente paso"],
 ] as const;
 
 function EstimateCard({ title, estimate, unit, extra, hideEmpty }: { title: string; estimate: Estimate | null; unit?: string; extra?: React.ReactNode; hideEmpty?: boolean }) {
@@ -83,8 +83,9 @@ export function StudyResults({
   initialAssumptions,
   defaultAssumptions,
   meta,
-  valuationRequested,
   ccaaName,
+  services,
+  emailConfigured,
 }: {
   studyId: string;
   input: StudyInput;
@@ -92,8 +93,9 @@ export function StudyResults({
   initialAssumptions: StudyAssumptions;
   defaultAssumptions: StudyAssumptions;
   meta: Record<keyof StudyAssumptions, AssumptionMeta>;
-  valuationRequested: boolean;
   ccaaName: string;
+  services: PublicService[];
+  emailConfigured: boolean;
 }) {
   const [a, setA] = useState<StudyAssumptions>(initialAssumptions);
   const [horizon, setHorizon] = useState<number>(input.owner.horizon);
@@ -500,20 +502,17 @@ export function StudyResults({
         </div>
       </section>
 
-      {/* CAPTACIÓN */}
+      {/* SIGUIENTE PASO (captación voluntaria; todos los resultados ya se han mostrado) */}
       <section id="valoracion" className="scroll-mt-32">
-        <div className="rounded-3xl border border-sand-200 bg-white p-6 shadow-soft sm:p-10">
-          <h2 className="max-w-2xl font-serif text-3xl font-medium text-ink-800 sm:text-4xl">
-            Descubre cuánto dinero podrías obtener por tu vivienda y compara esa cantidad con lo que podrías ganar manteniéndola en alquiler
-          </h2>
-          <p className="mt-3 max-w-2xl text-ink-500">
-            Un especialista local revisa tu estudio, visita la vivienda y afina el precio de venta y el alquiler de mercado. Gratis y sin compromiso. El estudio y el informe PDF son
-            tuyos tanto si lo solicitas como si no.
-          </p>
-          <div className="mt-6">
-            <ContactForm studyId={studyId} alreadyRequested={valuationRequested} />
-          </div>
-        </div>
+        <NextStepPanel
+          studyId={studyId}
+          property={{ municipality: input.location.municipalityName, kind: PROPERTY_KIND_LABELS[input.property.kind], sqm: input.property.sqm }}
+          services={services}
+          emailConfigured={emailConfigured}
+          onDownload={downloadPdf}
+          downloading={pdfStatus === "loading"}
+        />
+        {pdfStatus === "error" && <p className="mt-3 text-sm text-red-600">No se pudo generar el PDF. Inténtalo de nuevo.</p>}
       </section>
     </div>
   );

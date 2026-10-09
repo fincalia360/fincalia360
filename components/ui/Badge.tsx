@@ -23,9 +23,12 @@ export function Badge({ tone = "neutral", className, children }: { tone?: BadgeT
 
 export const STATUS_TONES: Record<string, BadgeTone> = {
   NEW: "blue",
-  CONTACTED: "violet",
+  STUDY_DONE: "ink",
+  PENDING_CONTACT: "amber",
   QUALIFIED: "amber",
+  CONTACTED: "violet",
   APPOINTMENT: "terracotta",
+  PROPOSAL_SENT: "violet",
   CONVERTED: "green",
   LOST: "neutral",
 };

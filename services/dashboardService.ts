@@ -29,7 +29,7 @@ export async function getDashboardData() {
   ] = await Promise.all([
     prisma.lead.count(),
     prisma.lead.count({ where: { status: "NEW" } }),
-    prisma.lead.count({ where: { OR: [{ qualifiedAt: { not: null } }, { status: { in: ["QUALIFIED", "APPOINTMENT", "CONVERTED"] } }] } }),
+    prisma.lead.count({ where: { OR: [{ qualifiedAt: { not: null } }, { status: { in: ["PENDING_CONTACT", "CONTACTED", "APPOINTMENT", "PROPOSAL_SENT", "CONVERTED"] } }] } }),
     prisma.lead.count({ where: { scoreTier: "HOT", status: { not: "LOST" } } }),
     prisma.appointment.count({ where: { status: { in: ACTIVE_APPOINTMENT } } }),
     prisma.lead.count({ where: { appointments: { some: { status: { in: ACTIVE_APPOINTMENT } } } } }),

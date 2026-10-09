@@ -84,13 +84,30 @@ export const CONTACT_LABELS: Record<ContactChannel, string> = {
   EMAIL: "Email",
 };
 
+/** Etiquetas por defecto (se pueden cambiar en el panel: tabla PipelineStage). */
 export const STATUS_LABELS: Record<LeadStatus, string> = {
-  NEW: "Nuevo",
+  NEW: "Nuevo contacto",
+  STUDY_DONE: "Estudio completado",
+  PENDING_CONTACT: "Pendiente de contactar",
   CONTACTED: "Contactado",
-  QUALIFIED: "Cualificado",
-  APPOINTMENT: "Cita",
-  CONVERTED: "Convertido",
-  LOST: "Perdido",
+  APPOINTMENT: "Consulta concertada",
+  PROPOSAL_SENT: "Propuesta enviada",
+  CONVERTED: "Cliente conseguido",
+  LOST: "No interesado",
+};
+
+export const INTEREST_LABELS: Record<string, string> = {
+  SELL: "Vender",
+  RENT: "Alquilar",
+  ADVICE: "Asesoramiento",
+  REPORT_ONLY: "Solo informe",
+};
+
+export const CONTACT_WINDOW_LABELS: Record<string, string> = {
+  MORNING: "Mañanas (9-14 h)",
+  AFTERNOON: "Tardes (16-20 h)",
+  EVENING: "A última hora (20-21 h)",
+  ANY: "Cualquier hora",
 };
 
 export const TIER_LABELS: Record<ScoreTier, string> = {
@@ -133,6 +150,23 @@ export const EVENT_LABELS: Record<string, string> = {
   STATUS_CHANGED: "Cambio de estado",
   CONTACT_REQUESTED: "Pide que le contacten",
   NOTE_ADDED: "Nota añadida",
+  REQUEST_RECEIVED: "Solicitud recibida",
+  STAGE_ENTERED: "Cambio de estado",
+  CONTACT_LOGGED: "Comunicación registrada",
+  NEXT_ACTION_SET: "Próxima acción programada",
+  EMAIL_SENT: "Correo enviado",
+  EMAIL_FAILED: "Error al enviar correo",
+  EMAIL_NOT_CONFIGURED: "Correo no enviado (sin configurar)",
+  PARTNER_ASSIGNED: "Asignado a colaborador",
+  PARTNER_UPDATED: "Resultado del colaborador",
+  REVENUE_RECORDED: "Ingreso registrado",
+  DATA_EXPORTED: "Datos exportados",
+  CONTACT_DETAILS_UPDATED: "Datos de contacto actualizados",
+  study_started: "Estudio iniciado",
+  study_completed: "Estudio completado",
+  report_generated: "Informe generado",
+  final_screen_view: "Ve la pantalla final",
+  request_form_started: "Abre el formulario de solicitud",
   landing_view: "Visita a la landing",
   valuation_started: "Valoración iniciada",
   valuation_completed: "Valoración completada",

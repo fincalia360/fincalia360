@@ -1,7 +1,7 @@
 // Ciclo de vida del lead: creación, scoring, estados, notas y preferencias.
 import { prisma } from "@/db/client";
 import { getDictionary } from "@/lib/i18n";
-import { LOCATION_LABELS, PROPERTY_LABELS, STATUS_LABELS } from "@/lib/labels";
+import { LOCATION_LABELS, PROPERTY_LABELS } from "@/lib/labels";
 import type { ValuationFormInput } from "@/lib/validation";
 import type { ContactChannel, Language, LeadSource, LeadStatus, ScoreTier, Timeline } from "@/types";
 import { trackEvent } from "./analyticsService";
@@ -31,7 +31,7 @@ export function computeNextAction(lead: {
   timeline?: string;
   hasSuggestedAppointment?: boolean;
 }): string {
-  if (lead.hasSuggestedAppointment && ["NEW", "CONTACTED", "QUALIFIED"].includes(lead.status)) {
+  if (lead.hasSuggestedAppointment && ["NEW", "CONTACTED", "PENDING_CONTACT"].includes(lead.status)) {
     return "Confirmar la cita sugerida con el propietario";
   }
   switch (lead.status as LeadStatus) {
@@ -40,16 +40,22 @@ export function computeNextAction(lead: {
       if (lead.appointmentInterest) return "Llamar y proponer cita";
       if (lead.timeline === "INFO_ONLY") return "Nurturing: enviar informe de mercado";
       return "Iniciar conversación con el agente";
+    case "STUDY_DONE":
+      return "Sin acción comercial: solo ha pedido su informe";
+    case "PENDING_CONTACT":
+      return "Contactar con el propietario";
     case "CONTACTED":
-      return "Completar cualificación";
-    case "QUALIFIED":
-      return "Proponer cita con especialista";
+      return "Concertar una consulta";
     case "APPOINTMENT":
-      return "Preparar cita y briefing a la inmobiliaria";
+      return "Preparar la consulta";
+    case "PROPOSAL_SENT":
+      return "Hacer seguimiento de la propuesta";
     case "CONVERTED":
-      return "Seguimiento del mandato con la inmobiliaria";
+      return "Seguimiento del servicio";
     case "LOST":
       return "—";
+    default:
+      return "Revisar el contacto";
   }
 }
 
@@ -202,7 +208,7 @@ export async function refreshScore(leadId: string) {
 
 export async function updateLeadStatus(
   leadId: string,
-  status: LeadStatus,
+  status: LeadStatus | (string & {}),
   options: { by?: "admin" | "agent" | "system"; reason?: string; createdAt?: Date } = {},
 ) {
   const lead = await prisma.lead.findUniqueOrThrow({ where: { id: leadId }, include: { agency: true } });
@@ -213,7 +219,7 @@ export async function updateLeadStatus(
     status,
     nextAction: computeNextAction({ status, scoreTier: lead.scoreTier, appointmentInterest: lead.appointmentInterest }),
   };
-  if (status === "QUALIFIED" && !lead.qualifiedAt) data.qualifiedAt = now;
+  if (status === "PENDING_CONTACT" && !lead.qualifiedAt) data.qualifiedAt = now;
   if (status === "CONVERTED") {
     data.convertedAt = now;
     if (!lead.qualifiedAt) data.qualifiedAt = now;
@@ -222,7 +228,9 @@ export async function updateLeadStatus(
   const updated = await prisma.lead.update({ where: { id: leadId }, data });
 
   const by = options.by ?? "admin";
-  if (status === "QUALIFIED") {
+  // Registro con códigos (base de los indicadores: cada contacto cuenta una vez por estado alcanzado)
+  await emitBusinessEvent("STAGE_ENTERED", { leadId, createdAt: now, payload: { by, from: lead.status, to: status } });
+  if (status === "PENDING_CONTACT") {
     await emitBusinessEvent("LEAD_QUALIFIED", {
       leadId,
       createdAt: now,
@@ -244,20 +252,14 @@ export async function updateLeadStatus(
     });
   } else if (status === "LOST") {
     await emitBusinessEvent("LEAD_LOST", { leadId, createdAt: now, payload: { by, reason: data.lostReason } });
-  } else {
-    await emitBusinessEvent("STATUS_CHANGED", {
-      leadId,
-      createdAt: now,
-      payload: { by, from: STATUS_LABELS[lead.status as LeadStatus], to: STATUS_LABELS[status] },
-    });
   }
   return updated;
 }
 
-/** Cualifica sólo si el lead está en una fase anterior (no "baja" de APPOINTMENT a QUALIFIED). */
+/** Cualifica (pendiente de contactar) solo si el lead está en una fase anterior (no «baja» de una consulta concertada). */
 export async function qualifyLead(leadId: string, by: "admin" | "agent" = "admin") {
   const lead = await prisma.lead.findUniqueOrThrow({ where: { id: leadId } });
-  if (["NEW", "CONTACTED", "LOST"].includes(lead.status)) return updateLeadStatus(leadId, "QUALIFIED", { by });
+  if (["NEW", "STUDY_DONE", "CONTACTED", "LOST"].includes(lead.status)) return updateLeadStatus(leadId, "PENDING_CONTACT", { by });
   if (!lead.qualifiedAt) await prisma.lead.update({ where: { id: leadId }, data: { qualifiedAt: new Date() } });
   return lead;
 }

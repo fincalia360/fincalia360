@@ -9,6 +9,6 @@ export class DemoNotificationProvider implements NotificationProvider {
 
   async send(message: NotificationMessage): Promise<NotificationResult> {
     console.info(`[demo-notification] (${message.audience}) ${message.to ?? ""} -> ${message.subject}`);
-    return { delivered: false, channel: "demo", info: "Simulado: no se ha enviado ningún mensaje real" };
+    return { delivered: false, channel: "ninguno", info: "No enviado: el correo no está configurado (solo queda registrado en el panel)" };
   }
 }

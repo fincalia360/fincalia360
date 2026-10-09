@@ -1,14 +1,16 @@
+import { sendEmail } from "@/services/email/emailService";
 import type { NotificationMessage, NotificationProvider, NotificationResult } from "./types";
 
-/**
- * TODO: integrate email provider (Resend, SendGrid, Amazon SES, SMTP…).
- * Ver docs/integrations.md. No se usa en el MVP.
- */
+/** Notificaciones por correo real (Resend). Los avisos internos van a TEAM_NOTIFICATION_EMAIL. */
 export class EmailNotificationProvider implements NotificationProvider {
   readonly name = "email";
 
   async send(message: NotificationMessage): Promise<NotificationResult> {
-    void message;
-    throw new Error("EmailNotificationProvider no está configurado (TODO: integrate email provider)");
+    const to = message.to ?? (message.audience === "internal" ? process.env.TEAM_NOTIFICATION_EMAIL : undefined);
+    if (!to) return { delivered: false, channel: "email", info: "Sin destinatario configurado (TEAM_NOTIFICATION_EMAIL)" };
+    const result = await sendEmail({ to, subject: message.subject, text: message.body });
+    if (result.status === "SENT") return { delivered: true, channel: "email", info: `Enviado (${result.id})` };
+    if (result.status === "NOT_CONFIGURED") return { delivered: false, channel: "email", info: `Correo no configurado: falta ${result.missing.join(", ")}` };
+    return { delivered: false, channel: "email", info: `Error al enviar: ${result.error}` };
   }
 }

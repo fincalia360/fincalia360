@@ -4,10 +4,7 @@
 // solicita una valoración profesional.
 import { z } from "zod";
 import { prisma } from "@/db/client";
-import { addNote, createLead } from "@/services/leadService";
-import { emitBusinessEvent } from "@/services/notificationService";
-import type { ValuationFormInput } from "@/lib/validation";
-import type { Location, PropertyType, Situation, Timeline } from "@/types";
+import { trackEvent } from "@/services/analyticsService";
 import { buildDefaultAssumptions, normalizeAssumptions } from "./assumptions";
 import { exampleFor } from "./exampleData";
 import { getCcaa, ineToCommonName, normalizeName } from "./geo";
@@ -32,12 +29,6 @@ import {
   type StudySnapshot,
   type ZoneData,
 } from "./types";
-
-export const STUDY_CONSENT_VERSION = "estudio-v1-2026-10";
-export const STUDY_CONSENT_CONTACT_TEXT =
-  "Acepto que FINCALIA360 y, en su caso, una inmobiliaria colaboradora de la zona me contacten para realizar la valoración profesional que solicito y hablar de mi vivienda.";
-export const STUDY_CONSENT_MARKETING_TEXT =
-  "Quiero recibir ocasionalmente información comercial y del mercado inmobiliario. (Opcional)";
 
 async function safe<T>(label: string, fn: () => Promise<T>, sources: SourceRef[], fallbackSource: SourceRef): Promise<T | null> {
   try {
@@ -251,6 +242,7 @@ export async function createStudy(rawInput: unknown) {
       tensionedStatus: snapshot.tensioned.status,
     },
   });
+  await trackEvent("study_completed", { payload: { studyId: study.id } });
   return { id: study.id, token };
 }
 
@@ -298,121 +290,3 @@ export async function saveAssumptions(id: string, token: string | undefined, raw
   return next as unknown as StudyAssumptions;
 }
 
-// ---------------------------------------------------------------------------
-// Captación: solicitud de valoración profesional → CRM existente (Lead)
-// ---------------------------------------------------------------------------
-export const contactSchema = z.object({
-  name: z.string().trim().min(2).max(80),
-  email: z.string().trim().email().max(120),
-  phone: z
-    .string()
-    .trim()
-    .max(30)
-    .regex(/^[+()\d\s.-]*$/, "Teléfono no válido")
-    .optional()
-    .or(z.literal("")),
-  preferredContact: z.enum(["PHONE", "WHATSAPP", "EMAIL"]),
-  comments: z.string().trim().max(1000).optional().or(z.literal("")),
-  consentContact: z.literal(true, { errorMap: () => ({ message: "Necesitamos tu consentimiento para contactarte" }) }),
-  consentMarketing: z.boolean().default(false),
-});
-
-export type StudyContact = z.infer<typeof contactSchema>;
-
-const LOCATION_BY_INE: Record<string, Location> = { "17152": "ROSES", "17032": "CADAQUES", "17092": "LLANCA", "17066": "FIGUERES", "17047": "CASTELLO" };
-
-/** Traduce el estudio al formato de lead del CRM existente (función pura, testeada). */
-export function studyToLeadInput(input: StudyInput, contact: StudyContact): ValuationFormInput {
-  let location: Location = (input.location.municipalityCode && LOCATION_BY_INE[input.location.municipalityCode]) || "OTHER";
-  if (location === "CASTELLO" && input.location.postalCode === "17487") location = "EMPURIABRAVA";
-  const type: PropertyType = input.property.kind === "VILLA" ? "VILLA" : ["CASA_ADOSADA", "CASA_INDEPENDIENTE"].includes(input.property.kind) ? "HOUSE" : "APARTMENT";
-  const goal = input.owner.goal;
-  const timeline: Timeline = goal === "SELL_SOON" ? (input.owner.horizon <= 1 ? "M1_3" : "M3_6") : goal === "UNSURE" ? "M6_12" : "LATER";
-  const situationMap: Record<StudyInput["property"]["currentUse"], Situation> = {
-    EMPTY: "EMPTY",
-    OWNER_PRIMARY: "PRIMARY",
-    SECOND_HOME: "SECOND_HOME",
-    RENTED: "RENTED",
-    TOURIST: "TOURIST",
-    OTHER: "SECOND_HOME",
-  };
-  return {
-    location,
-    locationOther: location === "OTHER" ? input.location.municipalityName : undefined,
-    type,
-    timeline,
-    situation: situationMap[input.property.currentUse],
-    sqm: input.property.sqm,
-    bedrooms: input.property.bedrooms,
-    bathrooms: input.property.bathrooms,
-    terrace: input.property.outdoor !== "NONE",
-    pool: false,
-    parking: input.property.parking,
-    condition: input.property.condition,
-    name: contact.name,
-    email: contact.email,
-    phone: contact.phone || "",
-    language: "es",
-    preferredContact: contact.preferredContact,
-    consentContact: true,
-    consentMarketing: contact.consentMarketing,
-  };
-}
-
-export async function requestProfessionalValuation(id: string, token: string | undefined, rawContact: unknown) {
-  const study = await prisma.study.findUnique({ where: { id } });
-  if (!study || !verifyToken(token, study.tokenHash)) return { ok: false as const, status: 404 };
-  const contact = contactSchema.parse(rawContact);
-  const { input, snapshot } = parseStudy(study);
-  const now = new Date();
-
-  const consentText = [STUDY_CONSENT_CONTACT_TEXT, contact.consentMarketing ? STUDY_CONSENT_MARKETING_TEXT : null].filter(Boolean).join(" | ");
-  let leadId = study.leadId;
-  if (!leadId) {
-    const lead = await createLead(studyToLeadInput(input, contact), { source: "STUDY", consentText });
-    leadId = lead.id;
-    const sale = snapshot.sale && snapshot.sale.origin !== "EXAMPLE" ? snapshot.sale : null;
-    await prisma.lead.update({
-      where: { id: lead.id },
-      data: {
-        appointmentInterest: true,
-        nextAction: "Contactar para valoración profesional (solicitada desde el estudio)",
-        ...(sale ? { valuationSource: "STUDY", estimatedValue: sale.value, estimatedValueMin: sale.low, estimatedValueMax: sale.high } : {}),
-      },
-    });
-    const summary = [
-      `Solicitud de valoración desde el estudio vender/alquilar (/admin/studies/${id}).`,
-      `${input.location.municipalityName} (${input.location.postalCode}) · ${input.property.sqm} m².`,
-      snapshot.sale ? `Venta estimada ${snapshot.sale.value.toLocaleString("es-ES")} € (${snapshot.sale.origin}, confianza ${snapshot.sale.confidence}).` : "Sin estimación de venta.",
-      snapshot.rent ? `Alquiler estimado ${snapshot.rent.value.toLocaleString("es-ES")} €/mes (${snapshot.rent.origin}).` : "",
-      contact.comments ? `Comentarios: ${contact.comments}` : "",
-    ]
-      .filter(Boolean)
-      .join(" ");
-    await addNote(lead.id, summary);
-    await emitBusinessEvent("CONTACT_REQUESTED", {
-      leadId: lead.id,
-      payload: { studyId: id, channel: contact.preferredContact },
-      notification: { audience: "internal", subject: `Valoración solicitada: ${contact.name} (${input.location.municipalityName})`, body: summary },
-    });
-  }
-
-  await prisma.study.update({
-    where: { id },
-    data: {
-      valuationRequested: true,
-      contactName: contact.name,
-      contactEmail: contact.email,
-      contactPhone: contact.phone || null,
-      preferredContact: contact.preferredContact,
-      comments: contact.comments || null,
-      consentContact: true,
-      consentMarketing: contact.consentMarketing,
-      consentTimestamp: now,
-      consentVersion: STUDY_CONSENT_VERSION,
-      contactRequestedAt: now,
-      leadId,
-    },
-  });
-  return { ok: true as const, leadId };
-}

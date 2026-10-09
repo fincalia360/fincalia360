@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { track } from "@/lib/analytics-client";
 import { ArrowLeft, ArrowRight, ExternalLink, Info, Loader2, Search } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
@@ -180,6 +181,14 @@ export function StudyWizard() {
   const [submitting, setSubmitting] = useState(false);
   const topRef = useRef<HTMLDivElement>(null);
   const firstRender = useRef(true);
+
+  const started = useRef(false);
+  // Embudo: «estudio iniciado» la primera vez que el propietario rellena algo (estadística propia, anónima)
+  useEffect(() => {
+    if (started.current || JSON.stringify(form) === JSON.stringify(INITIAL)) return;
+    started.current = true;
+    track("study_started");
+  }, [form]);
 
   const set = <K extends keyof Form>(key: K, value: Form[K]) => {
     setForm((f) => ({ ...f, [key]: value }));

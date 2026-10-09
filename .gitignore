@@ -8,3 +8,6 @@ next-env.d.ts
 prisma/*.db
 prisma/*.db-journal
 npm-debug.log*
+
+# Copias de seguridad locales de la base de datos
+backups/

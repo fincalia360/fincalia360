@@ -48,7 +48,7 @@ export async function resetDemoDataAction() {
 export async function setLeadStatusAction(leadId: string, status: string) {
   await requireAdmin();
   if (!(LEAD_STATUSES as readonly string[]).includes(status)) throw new Error("Estado no válido");
-  if (status === "QUALIFIED") await qualifyLead(leadId, "admin");
+  if (status === "PENDING_CONTACT") await qualifyLead(leadId, "admin");
   else await updateLeadStatus(leadId, status as LeadStatus, { by: "admin" });
   refreshAdmin();
 }

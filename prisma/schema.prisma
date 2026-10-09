@@ -21,7 +21,7 @@ model Lead {
   language            String    @default("es") // es | ca | en | fr | de | nl | it | pt
   preferredContact    String? // PHONE | WHATSAPP | EMAIL
   source              String    @default("WEB_FORM") // WEB_FORM | GOOGLE_ADS | META_ADS | SEO | PARTNERS | DEMO
-  status              String    @default("NEW") // NEW | CONTACTED | QUALIFIED | APPOINTMENT | CONVERTED | LOST
+  status              String    @default("NEW") // código de PipelineStage: NEW | STUDY_DONE | PENDING_CONTACT | CONTACTED | APPOINTMENT | PROPOSAL_SENT | CONVERTED | LOST (+ personalizados)
   timeline            String // NOW | M1_3 | M3_6 | M6_12 | LATER | INFO_ONLY
   situation           String // PRIMARY | SECOND_HOME | TOURIST | RENTED | INHERITED | EMPTY
   intent              String    @default("LOW") // HIGH | MEDIUM | LOW
@@ -46,6 +46,14 @@ model Lead {
   assignedAt          DateTime?
   // Origen de la valoración guardada: DEMO_MODEL (formulario) o STUDY (estudio vender/alquilar)
   valuationSource     String    @default("DEMO_MODEL")
+  // CRM comercial
+  emailNormalized     String? // email en minúsculas, para evitar contactos duplicados
+  phoneNormalized     String? // últimas 9 cifras del teléfono
+  primaryInterest     String? // SELL | RENT | ADVICE | REPORT_ONLY
+  contactWindow       String? // franja preferida: MORNING | AFTERNOON | EVENING | ANY
+  lastContactAt       DateTime?
+  nextActionAt        DateTime?
+  partnerShareConsent Boolean   @default(false) // consentimiento para comunicar sus datos a un colaborador
 
   property      Property?
   consent       Consent?
@@ -54,9 +62,15 @@ model Lead {
   events        Event[]
   notes         Note[]
   studies       Study[]
+  requests      ServiceRequest[]
+  assignments   PartnerAssignment[]
+  revenues      Revenue[]
 
   @@index([status])
   @@index([createdAt])
+  @@index([emailNormalized])
+  @@index([phoneNormalized])
+  @@index([nextActionAt])
 }
 
 model Property {
@@ -96,12 +110,22 @@ model Agency {
   phone               String
   languages           String // CSV de idiomas
   propertyTypes       String // CSV de PropertyType
-  status              String   @default("ACTIVE") // ACTIVE | PAUSED
+  status              String   @default("ACTIVE") // PROSPECT | ACTIVE | PAUSED | ENDED
   monthlyFee          Int      @default(0)
   pricePerAppointment Int      @default(0)
+  // Colaborador (inmobiliaria u otro profesional) de ámbito nacional
+  partnerType         String   @default("INMOBILIARIA") // INMOBILIARIA | ABOGADO | GESTOR | TASADOR | OTRO
+  services            String   @default("") // CSV: SELL | RENT | ADVICE
+  provinces           String   @default("") // CSV de códigos INE de provincia
+  municipalities      String   @default("") // texto libre (municipios concretos)
+  contactName         String?
+  agreementTerms      String? // condiciones comerciales acordadas (texto)
+  notes               String?
 
   leads        Lead[]
   appointments Appointment[]
+  assignments  PartnerAssignment[]
+  revenues     Revenue[]
 }
 
 model Appointment {
@@ -193,9 +217,9 @@ model Setting {
 // ---------------------------------------------------------------------------
 
 model Study {
-  id                 String    @id @default(cuid())
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+  id                 String           @id @default(cuid())
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
   // Hash del token de acceso (cookie httpOnly). El id solo no da acceso al estudio.
   tokenHash          String
   input              String // JSON StudyInput (datos aportados por el propietario)
@@ -213,8 +237,8 @@ model Study {
   confidence         String // HIGH | MEDIUM | LOW | VERY_LOW | NONE
   tensionedStatus    String // DECLARED | PARTIAL | EXPIRED | NOT_FOUND | UNKNOWN
   // Captación comercial (solo si el propietario lo solicita)
-  valuationRequested Boolean   @default(false)
-  commercialStatus   String    @default("NEW") // NEW | CONTACTED | VALUATION_SCHEDULED | VALUATION_DONE | NOT_INTERESTED
+  valuationRequested Boolean          @default(false)
+  commercialStatus   String           @default("NEW") // NEW | CONTACTED | VALUATION_SCHEDULED | VALUATION_DONE | NOT_INTERESTED
   contactName        String?
   contactEmail       String?
   contactPhone       String?
@@ -226,7 +250,8 @@ model Study {
   consentVersion     String?
   contactRequestedAt DateTime?
   leadId             String?
-  lead               Lead?     @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  lead               Lead?            @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  requests           ServiceRequest[]
 
   @@index([createdAt])
   @@index([valuationRequested])
@@ -270,4 +295,89 @@ model MarketReference {
   sourceName       String
   sourceUrl        String?
   notes            String?
+}
+
+// ---------------------------------------------------------------------------
+// CRM comercial
+// ---------------------------------------------------------------------------
+
+// Estados comerciales configurables. Los códigos de los 8 iniciales son fijos (se usan en los
+// indicadores); la etiqueta, el orden y la visibilidad se pueden cambiar y se pueden añadir otros.
+model PipelineStage {
+  code   String  @id
+  label  String
+  order  Int
+  kind   String  @default("OPEN") // OPEN | WON | LOST
+  active Boolean @default(true)
+  system Boolean @default(false) // los iniciales no se pueden borrar
+}
+
+// Solicitud de un propietario (un contacto puede tener varias). Guarda los consentimientos de cada envío.
+model ServiceRequest {
+  id                  String   @id @default(cuid())
+  createdAt           DateTime @default(now())
+  leadId              String
+  lead                Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  studyId             String?
+  study               Study?   @relation(fields: [studyId], references: [id], onDelete: SetNull)
+  interest            String // SELL | RENT | ADVICE | REPORT_ONLY
+  serviceCode         String?
+  contactChannel      String? // PHONE | WHATSAPP | EMAIL
+  contactWindow       String? // MORNING | AFTERNOON | EVENING | ANY
+  comments            String?
+  consentContact      Boolean
+  consentPartnerShare Boolean  @default(false)
+  consentMarketing    Boolean  @default(false)
+  consentVersion      String
+  consentText         String
+  source              String   @default("STUDY_FINAL") // STUDY_FINAL | ADMIN
+
+  @@index([createdAt])
+  @@index([leadId])
+}
+
+// Servicios ofrecidos. Sin precios inventados: priceType "TBD" hasta que se definan.
+model Service {
+  code        String  @id // SELL | RENT | ADVICE
+  name        String
+  summary     String
+  scope       String // alcance del servicio
+  conditions  String  @default("")
+  priceType   String  @default("TBD") // TBD | FREE | FIXED | QUOTE | COMMISSION
+  priceAmount Int? // euros (FIXED) o porcentaje x100 (COMMISSION)
+  priceNote   String?
+  active      Boolean @default(true)
+  order       Int     @default(0)
+}
+
+// Oportunidad asignada a un colaborador (solo con consentimiento para comunicar datos).
+model PartnerAssignment {
+  id          String    @id @default(cuid())
+  createdAt   DateTime  @default(now())
+  leadId      String
+  lead        Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  agencyId    String
+  agency      Agency    @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  serviceCode String?
+  status      String    @default("ASSIGNED") // ASSIGNED | ACCEPTED | REJECTED | WON | LOST
+  result      String?
+  closedAt    DateTime?
+
+  @@index([agencyId])
+}
+
+// Ingresos reales registrados a mano (nunca simulados).
+model Revenue {
+  id          String   @id @default(cuid())
+  createdAt   DateTime @default(now())
+  date        DateTime
+  amount      Int // euros
+  serviceCode String?
+  leadId      String?
+  lead        Lead?    @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  agencyId    String?
+  agency      Agency?  @relation(fields: [agencyId], references: [id], onDelete: SetNull)
+  description String
+
+  @@index([date])
 }

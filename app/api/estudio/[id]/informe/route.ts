@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { z } from "zod";
 import { cookieName } from "@/services/study/access";
+import { trackEvent } from "@/services/analyticsService";
 import { renderStudyPdf } from "@/services/study/report/pdf";
 import { getStudyForOwner, saveAssumptions } from "@/services/study/studyService";
 import { HORIZONS } from "@/services/study/types";
@@ -31,6 +32,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
   const study = await getStudyForOwner(id, token);
   if (!study) return NextResponse.json({ error: "Estudio no encontrado" }, { status: 404 });
+  await trackEvent("report_generated", { payload: { studyId: id, channel: "download" }, leadId: study.leadId ?? null });
   const bytes = await renderStudyPdf({ studyId: id, input: study.input, snapshot: study.snapshot, assumptions: study.assumptions, horizon: parsed.data.horizon });
   return new NextResponse(Buffer.from(bytes), {
     headers: {

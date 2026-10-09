@@ -27,6 +27,26 @@ if (url.startsWith("file:")) {
   }
 }
 
+/** Migraciones de datos idempotentes (no borran nada). */
+async function migrateData() {
+  try {
+    const { PrismaClient } = await import("@prisma/client");
+    const prisma = new PrismaClient();
+    // Estados comerciales v2: «Cualificado» pasa a «Pendiente de contactar»
+    const { count } = await prisma.lead.updateMany({ where: { status: "QUALIFIED" }, data: { status: "PENDING_CONTACT" } });
+    if (count) console.log(`[setup] ${count} contactos pasan de «Cualificado» a «Pendiente de contactar».`);
+    // Email y teléfono normalizados para evitar duplicados
+    const pending = await prisma.lead.findMany({ where: { emailNormalized: null }, select: { id: true, email: true, phone: true } });
+    for (const l of pending) {
+      const digits = (l.phone ?? "").replace(/\D/g, "");
+      await prisma.lead.update({ where: { id: l.id }, data: { emailNormalized: l.email.trim().toLowerCase(), phoneNormalized: digits.length >= 9 ? digits.slice(-9) : null } });
+    }
+    await prisma.$disconnect();
+  } catch (error) {
+    console.error("[setup] No se pudo completar la migración de datos:", error.message);
+  }
+}
+
 /** Política de conservación: estudios sin solicitud de contacto se eliminan a los 12 meses. */
 async function purgeExpiredStudies() {
   try {
@@ -45,6 +65,7 @@ try {
   run("npx prisma db push --skip-generate");
   if (production) console.log("[setup] Producción: no se cargan datos de demostración.");
   else run("npx tsx prisma/seed.ts --if-empty");
+  await migrateData();
   await purgeExpiredStudies();
 } catch {
   console.error("[setup] Error preparando la base de datos. Prueba: npx prisma generate && npm run db:reset");

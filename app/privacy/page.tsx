@@ -4,7 +4,7 @@ import { L, LegalPage } from "@/components/landing/LegalPage";
 import { getDictionary } from "@/lib/i18n";
 import { getRequestLanguage } from "@/lib/i18n/server";
 import { legalValue } from "@/lib/legal";
-import { STUDY_CONSENT_VERSION } from "@/services/study/studyService";
+import { REQUEST_CONSENT_VERSION } from "@/services/crm/requests";
 
 export const metadata: Metadata = { title: "Política de privacidad" };
 
@@ -16,7 +16,7 @@ export default async function PrivacyPage({ searchParams }: { searchParams: Prom
     <LegalPage dict={dict} lang={lang} basePath="/privacy" title="Política de privacidad">
       <p>
         Explicamos qué datos tratamos cuando usas FINCALIA360, para qué y durante cuánto tiempo, conforme al Reglamento (UE) 2016/679 (RGPD) y a la
-        Ley Orgánica 3/2018 (LOPDGDD). Versión de los textos de consentimiento: <code>{STUDY_CONSENT_VERSION}</code>.
+        Ley Orgánica 3/2018 (LOPDGDD). Versión de los textos de consentimiento: <code>{REQUEST_CONSENT_VERSION}</code>.
       </p>
 
       <h2>1. Responsable del tratamiento</h2>

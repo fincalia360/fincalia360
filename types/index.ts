@@ -24,7 +24,8 @@ export type ContactChannel = (typeof CONTACT_CHANNELS)[number];
 export const MOTIVATIONS = ["RELOCATION", "INHERITANCE", "LIQUIDITY", "UNUSED", "LIFE_CHANGE", "UPGRADE", "OTHER"] as const;
 export type Motivation = (typeof MOTIVATIONS)[number];
 
-export const LEAD_STATUSES = ["NEW", "CONTACTED", "QUALIFIED", "APPOINTMENT", "CONVERTED", "LOST"] as const;
+// Estados comerciales iniciales (códigos fijos; etiqueta, orden y estados extra se configuran en PipelineStage).
+export const LEAD_STATUSES = ["NEW", "STUDY_DONE", "PENDING_CONTACT", "CONTACTED", "APPOINTMENT", "PROPOSAL_SENT", "CONVERTED", "LOST"] as const;
 export type LeadStatus = (typeof LEAD_STATUSES)[number];
 
 export const SCORE_TIERS = ["LOW", "MEDIUM", "HIGH", "HOT"] as const;
@@ -52,6 +53,19 @@ export const BUSINESS_EVENTS = [
   "STATUS_CHANGED",
   "CONTACT_REQUESTED",
   "NOTE_ADDED",
+  // CRM comercial
+  "REQUEST_RECEIVED",
+  "STAGE_ENTERED",
+  "CONTACT_LOGGED",
+  "NEXT_ACTION_SET",
+  "EMAIL_SENT",
+  "EMAIL_FAILED",
+  "EMAIL_NOT_CONFIGURED",
+  "PARTNER_ASSIGNED",
+  "PARTNER_UPDATED",
+  "REVENUE_RECORDED",
+  "DATA_EXPORTED",
+  "CONTACT_DETAILS_UPDATED",
 ] as const;
 export type BusinessEventType = (typeof BUSINESS_EVENTS)[number];
 
@@ -64,6 +78,12 @@ export const ANALYTICS_EVENTS = [
   "lead_qualified",
   "appointment_started",
   "appointment_booked",
+  // Embudo del estudio
+  "study_started",
+  "study_completed",
+  "report_generated",
+  "final_screen_view",
+  "request_form_started",
 ] as const;
 export type AnalyticsEventType = (typeof ANALYTICS_EVENTS)[number];
 

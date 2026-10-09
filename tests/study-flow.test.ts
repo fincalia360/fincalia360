@@ -6,7 +6,7 @@ import { buildDefaultAssumptions } from "@/services/study/assumptions";
 import { csvCell } from "@/services/study/adminStudyService";
 import { ineToCommonName, postalCodeMatchesProvince, sameTokens } from "@/services/study/geo";
 import { checkTensionedArea, findMunicipalityInText, parseSpanishDate, parseTensionedAreasHtml } from "@/services/study/sources/tensionedAreas";
-import { contactSchema, studyToLeadInput } from "@/services/study/studyService";
+import { normalizePhone, requestSchema } from "@/services/crm/requests";
 import { studyInputSchema } from "@/services/study/types";
 import { checkCredentials, signSession, verifySession } from "@/lib/session";
 import { makeInput } from "./study-fixtures";
@@ -80,21 +80,26 @@ describe("validación del formulario y geografía", () => {
 });
 
 describe("captación y CRM", () => {
-  const contact = contactSchema.parse({ name: "Ana Prueba", email: "ana@example.com", phone: "", preferredContact: "EMAIL", comments: "", consentContact: true });
+  const base = { interest: "SELL", name: "Ana Prueba", email: "ANA@Example.com", consentContact: true };
 
-  it("el consentimiento de contacto es obligatorio y el comercial opcional", () => {
-    expect(() => contactSchema.parse({ name: "Ana", email: "ana@example.com", preferredContact: "EMAIL", consentContact: false })).toThrow();
-    expect(contact.consentMarketing).toBe(false);
+  it("solo la autorización para atender la solicitud es obligatoria; las demás, opcionales y desmarcadas", () => {
+    const ok = requestSchema.parse(base);
+    expect(ok.consentPartnerShare).toBe(false);
+    expect(ok.consentMarketing).toBe(false);
+    expect(ok.email).toBe("ana@example.com");
+    expect(requestSchema.safeParse({ ...base, consentContact: false }).success).toBe(false);
   });
 
-  it("traduce el estudio al lead del CRM existente", () => {
-    const lead = studyToLeadInput(makeInput({ location: { municipalityCode: "17047", municipalityName: "Castelló d'Empúries", postalCode: "17487" }, property: { kind: "VILLA" } }), contact);
-    expect(lead.location).toBe("EMPURIABRAVA");
-    expect(lead.type).toBe("VILLA");
-    expect(lead.consentContact).toBe(true);
-    const other = studyToLeadInput(makeInput({ location: { municipalityCode: "08019", municipalityName: "Barcelona", provinceCode: "08", ccaaCode: "09", postalCode: "08001" } }), contact);
-    expect(other.location).toBe("OTHER");
-    expect(other.locationOther).toBe("Barcelona");
+  it("pide teléfono solo si se elige llamada o WhatsApp", () => {
+    expect(requestSchema.safeParse({ ...base, contactChannel: "PHONE" }).success).toBe(false);
+    expect(requestSchema.safeParse({ ...base, contactChannel: "PHONE", phone: "+34 600 11 22 33" }).success).toBe(true);
+    expect(requestSchema.safeParse({ ...base, contactChannel: "EMAIL" }).success).toBe(true);
+  });
+
+  it("normaliza teléfonos para detectar duplicados", () => {
+    expect(normalizePhone("+34 600 11 22 33")).toBe("600112233");
+    expect(normalizePhone("600-112-233")).toBe("600112233");
+    expect(normalizePhone("123")).toBeNull();
   });
 
   it("CSV protegido contra inyección de fórmulas", () => {

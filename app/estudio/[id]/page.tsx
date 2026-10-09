@@ -10,6 +10,8 @@ import { getDictionary } from "@/lib/i18n";
 import { buildDefaultAssumptions } from "@/services/study/assumptions";
 import { cookieName } from "@/services/study/access";
 import { getCcaa, getProvince } from "@/services/study/geo";
+import { getServices, priceText } from "@/services/crm/catalog";
+import { emailConfig } from "@/services/email/emailService";
 import { getStudyForOwner } from "@/services/study/studyService";
 import { PROPERTY_KIND_LABELS } from "@/services/study/types";
 
@@ -55,7 +57,8 @@ export default async function StudyResultPage({ params }: { params: Promise<{ id
               initialAssumptions={study.assumptions}
               defaultAssumptions={buildDefaultAssumptions(study.input).values}
               meta={buildDefaultAssumptions(study.input).meta}
-              valuationRequested={Boolean(study.valuationRequested)}
+              services={(await getServices({ onlyActive: true })).map((sv) => ({ code: sv.code, name: sv.name, summary: sv.summary, scope: sv.scope, price: priceText(sv) }))}
+              emailConfigured={emailConfig().configured}
               ccaaName={getCcaa(study.input.location.ccaaCode)?.name ?? ""}
             />
           </>
