@@ -94,6 +94,19 @@ export function NextStepPanel({
     return () => io.disconnect();
   }, [studyId]);
 
+  // El asistente del chat puede abrir directamente una opción
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const i = (e as CustomEvent<string>).detail as Interest;
+      if (!OPTIONS.some((o) => o.interest === i)) return;
+      choose(i);
+      panelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    };
+    window.addEventListener("fincalia:next-step", handler);
+    return () => window.removeEventListener("fincalia:next-step", handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const service = interest ? services.find((s) => s.code === interest) : undefined;
   const reportOnly = interest === "REPORT_ONLY";
   const needsPhone = form.contactChannel !== "EMAIL";

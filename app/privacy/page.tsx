@@ -85,7 +85,10 @@ export default async function PrivacyPage({ searchParams }: { searchParams: Prom
           <strong>Seguridad y mejora del servicio</strong> con estadísticas agregadas: interés legítimo (art. 6.1.f).
         </li>
       </ul>
-      <p>No tomamos decisiones automatizadas con efectos jurídicos sobre ti: los estudios son orientativos y la decisión es siempre tuya.</p>
+      <p>
+        No tomamos decisiones automatizadas con efectos jurídicos sobre ti: los estudios son orientativos y la decisión es siempre tuya. El asistente
+        virtual es un sistema automático de inteligencia artificial que puede equivocarse; las cifras de referencia son las de tu estudio.
+      </p>
 
       <h2>4. Destinatarios</h2>
       <ul>
@@ -94,6 +97,11 @@ export default async function PrivacyPage({ searchParams }: { searchParams: Prom
         </li>
         <li>
           Si solicitas una valoración profesional y así lo aceptas, el especialista o la inmobiliaria colaboradora de tu zona que la realice.
+        </li>
+        <li>
+          Si usas el asistente virtual de tu estudio: Anthropic PBC (proveedor del modelo de inteligencia artificial Claude), como encargado del
+          tratamiento, recibe tus mensajes y los datos de tu estudio para generar la respuesta. FINCALIA360 no guarda el contenido de esas
+          conversaciones. No escribas datos personales en el chat.
         </li>
         <li>Administraciones públicas cuando exista una obligación legal.</li>
       </ul>

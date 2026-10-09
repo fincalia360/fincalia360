@@ -12,6 +12,7 @@ import { cookieName } from "@/services/study/access";
 import { getCcaa, getProvince } from "@/services/study/geo";
 import { getServices, priceText } from "@/services/crm/catalog";
 import { emailConfig } from "@/services/email/emailService";
+import { claudeConfigured } from "@/services/ai/claudeClient";
 import { getStudyForOwner } from "@/services/study/studyService";
 import { PROPERTY_KIND_LABELS } from "@/services/study/types";
 
@@ -59,6 +60,7 @@ export default async function StudyResultPage({ params }: { params: Promise<{ id
               meta={buildDefaultAssumptions(study.input).meta}
               services={(await getServices({ onlyActive: true })).map((sv) => ({ code: sv.code, name: sv.name, summary: sv.summary, scope: sv.scope, price: priceText(sv) }))}
               emailConfigured={emailConfig().configured}
+              chatEnabled={claudeConfigured()}
               ccaaName={getCcaa(study.input.location.ccaaCode)?.name ?? ""}
             />
           </>

@@ -86,6 +86,7 @@ export const ANALYTICS_EVENTS = [
   "report_generated",
   "final_screen_view",
   "request_form_started",
+  "chat_message",
 ] as const;
 export type AnalyticsEventType = (typeof ANALYTICS_EVENTS)[number];
 

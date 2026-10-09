@@ -26,6 +26,13 @@ services:
         value: "false"
       - key: AI_PROVIDER
         value: demo
+      # Asistente virtual del estudio (Claude). Sin clave, el chat no se muestra.
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: ANTHROPIC_MODEL
+        value: claude-haiku-5-5
+      - key: CHAT_DAILY_MESSAGE_LIMIT
+        value: "500"
       # Correo (Resend). Sin estas variables no se envía ningún correo (no se simula).
       - key: RESEND_API_KEY
         sync: false

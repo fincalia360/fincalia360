@@ -258,3 +258,48 @@ describe("CRM: seguimiento, colaboradores, ingresos e indicadores", () => {
     expect(study.contactEmail).toBeNull();
   });
 });
+
+describe("asistente virtual del estudio (Claude)", () => {
+  it("convierte las propuestas del asistente en botones y quita las etiquetas del texto", async () => {
+    const { extractActions } = await import("@/services/study/chatAssistant");
+    const r = extractActions("Con tus cifras, vender hoy te deja 280.000 € netos.\n[[ACCION:SELL]]");
+    expect(r.actions).toEqual(["SELL"]);
+    expect(r.text).not.toContain("[[");
+  });
+
+  it("envía a Claude las reglas y SOLO los datos de ese estudio; exige el código de acceso", async () => {
+    const s = await newStudy();
+    const { answerStudyChat } = await import("@/services/study/chatAssistant");
+    expect(await answerStudyChat(s.id, "otro-codigo", { messages: [{ role: "user", content: "Hola" }] })).toMatchObject({ ok: false, status: 404 });
+
+    process.env.ANTHROPIC_API_KEY = "sk-ant-ficticia";
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ content: [{ type: "text", text: "Hello! Selling today would leave you about 300.000 €.\n[[ACCION:SELL]]" }], usage: { input_tokens: 900, output_tokens: 40 } }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const r = await answerStudyChat(s.id, s.token, { messages: [{ role: "user", content: "Should I sell my flat?" }] });
+    vi.unstubAllGlobals();
+    delete process.env.ANTHROPIC_API_KEY;
+
+    expect(r).toMatchObject({ ok: true, actions: ["SELL"] });
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe("https://api.anthropic.com/v1/messages");
+    expect((init.headers as Record<string, string>)["x-api-key"]).toBe("sk-ant-ficticia");
+    const body = JSON.parse(String(init.body));
+    expect(body.system).toMatch(/idioma en que te escribe/);
+    expect(body.system).toMatch(/No inventes precios/);
+    expect(body.system).toMatch(/Sin presión/);
+    expect(body.system).toContain("300.000 €"); // valoración de ESTE estudio
+    expect(body.system).toContain("Roses");
+    expect(body.messages).toEqual([{ role: "user", content: "Should I sell my flat?" }]);
+    // No se guarda la conversación: solo un evento anónimo de uso
+    const ev = await m.prisma.event.findFirst({ where: { type: "chat_message" }, orderBy: { createdAt: "desc" } });
+    expect(ev?.payload).not.toContain("Should I sell");
+  });
+
+  it("respeta el límite diario de mensajes (control de coste)", async () => {
+    const s = await newStudy();
+    process.env.CHAT_DAILY_MESSAGE_LIMIT = "0";
+    const { answerStudyChat } = await import("@/services/study/chatAssistant");
+    expect(await answerStudyChat(s.id, s.token, { messages: [{ role: "user", content: "Hola" }] })).toMatchObject({ ok: false, status: 503 });
+    delete process.env.CHAT_DAILY_MESSAGE_LIMIT;
+  });
+});

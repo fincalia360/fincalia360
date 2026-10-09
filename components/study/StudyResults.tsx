@@ -8,6 +8,7 @@ import { fmtEur } from "@/services/study/format";
 import { RENT_SOURCE_LABELS, buildStudyReport } from "@/services/study/reportModel";
 import { CONFIDENCE_LABELS, HORIZONS, PROPERTY_KIND_LABELS, RENT_CHOICES, type AssumptionMeta, type Estimate, type StudyAssumptions, type StudyInput, type StudySnapshot } from "@/services/study/types";
 import { NextStepPanel, type PublicService } from "./NextStepPanel";
+import { StudyChat } from "./StudyChat";
 import { OriginBadge, eur, pct } from "./charts";
 import { RiskPanel } from "./RiskPanel";
 import { AssumptionsEditor, ScenarioComparison } from "./SimulatorPanel";
@@ -86,6 +87,7 @@ export function StudyResults({
   ccaaName,
   services,
   emailConfigured,
+  chatEnabled,
 }: {
   studyId: string;
   input: StudyInput;
@@ -96,6 +98,7 @@ export function StudyResults({
   ccaaName: string;
   services: PublicService[];
   emailConfigured: boolean;
+  chatEnabled: boolean;
 }) {
   const [a, setA] = useState<StudyAssumptions>(initialAssumptions);
   const [horizon, setHorizon] = useState<number>(input.owner.horizon);
@@ -514,6 +517,7 @@ export function StudyResults({
         />
         {pdfStatus === "error" && <p className="mt-3 text-sm text-red-600">No se pudo generar el PDF. Inténtalo de nuevo.</p>}
       </section>
+      {chatEnabled && <StudyChat studyId={studyId} />}
     </div>
   );
 }

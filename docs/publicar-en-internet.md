@@ -66,6 +66,15 @@ Para que la web envíe la confirmación al propietario, el informe por email y e
 
 Los correos son de servicio (confirmaciones e informe solicitado). La plataforma **no envía publicidad automática**.
 
+## Paso 5 · Asistente virtual (Claude)
+
+1. Crea una cuenta en <https://console.anthropic.com>, añade un método de pago y fija un **límite de gasto mensual** (Settings → Limits).
+2. **API Keys → Create Key** y cópiala.
+3. En Render → **Environment**: `ANTHROPIC_API_KEY` = la clave. Opcional: `CHAT_DAILY_MESSAGE_LIMIT` (por defecto 500 mensajes al día).
+4. El chat aparece en los resultados de cada estudio. Sin clave, simplemente no se muestra.
+
+Coste orientativo: con el modelo rápido (Haiku), unos céntimos de euro por conversación; consulta los precios vigentes en anthropic.com/pricing.
+
 ## Qué está preparado
 
 - Las páginas internas (panel, solicitudes antiguas, asistente) exigen el inicio de sesión del equipo.

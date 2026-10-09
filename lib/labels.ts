@@ -168,6 +168,7 @@ export const EVENT_LABELS: Record<string, string> = {
   report_generated: "Informe generado",
   final_screen_view: "Ve la pantalla final",
   request_form_started: "Abre el formulario de solicitud",
+  chat_message: "Mensaje al asistente virtual",
   landing_view: "Visita a la landing",
   valuation_started: "Valoración iniciada",
   valuation_completed: "Valoración completada",
