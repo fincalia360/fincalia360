@@ -1,0 +1,273 @@
+// Modelo de datos del MVP de captación de propietarios (Costa Brava).
+// SQLite en local. Los "enums" se guardan como String y se tipan en /types
+// para poder migrar a PostgreSQL sin fricción.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Lead {
+  id                  String    @id @default(cuid())
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  name                String
+  email               String
+  phone               String?
+  language            String    @default("es") // es | ca | en | fr | de | nl | it | pt
+  preferredContact    String? // PHONE | WHATSAPP | EMAIL
+  source              String    @default("WEB_FORM") // WEB_FORM | GOOGLE_ADS | META_ADS | SEO | PARTNERS | DEMO
+  status              String    @default("NEW") // NEW | CONTACTED | QUALIFIED | APPOINTMENT | CONVERTED | LOST
+  timeline            String // NOW | M1_3 | M3_6 | M6_12 | LATER | INFO_ONLY
+  situation           String // PRIMARY | SECOND_HOME | TOURIST | RENTED | INHERITED | EMPTY
+  intent              String    @default("LOW") // HIGH | MEDIUM | LOW
+  motivation          String? // RELOCATION | INHERITANCE | LIQUIDITY | UNUSED | LIFE_CHANGE | UPGRADE | OTHER
+  motivationText      String?
+  urgency             String? // HIGH | NORMAL | LOW
+  agencyInterest      Boolean?
+  appointmentInterest Boolean   @default(false)
+  estimatedValue      Int?
+  estimatedValueMin   Int?
+  estimatedValueMax   Int?
+  score               Int       @default(0)
+  scoreTier           String    @default("LOW") // LOW | MEDIUM | HIGH | HOT
+  scoreBreakdown      String    @default("[]") // JSON ScoreItem[]
+  nextAction          String?
+  qualifiedAt         DateTime?
+  convertedAt         DateTime?
+  lostReason          String?
+  isDemo              Boolean   @default(false)
+  agencyId            String?
+  agency              Agency?   @relation(fields: [agencyId], references: [id], onDelete: SetNull)
+  assignedAt          DateTime?
+  // Origen de la valoración guardada: DEMO_MODEL (formulario) o STUDY (estudio vender/alquilar)
+  valuationSource     String    @default("DEMO_MODEL")
+
+  property      Property?
+  consent       Consent?
+  appointments  Appointment[]
+  conversations Conversation[]
+  events        Event[]
+  notes         Note[]
+  studies       Study[]
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+model Property {
+  id            String  @id @default(cuid())
+  leadId        String  @unique
+  lead          Lead    @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  location      String // ROSES | EMPURIABRAVA | CADAQUES | LLANCA | CASTELLO | FIGUERES | OTHER
+  locationOther String?
+  type          String // APARTMENT | HOUSE | VILLA | LAND | COMMERCIAL | OTHER
+  sqm           Int?
+  bedrooms      Int?
+  bathrooms     Int?
+  terrace       Boolean @default(false)
+  pool          Boolean @default(false)
+  parking       Boolean @default(false)
+  condition     String? // NEW | GOOD | TO_REFORM
+}
+
+model Consent {
+  id               String   @id @default(cuid())
+  leadId           String   @unique
+  lead             Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  consentContact   Boolean
+  consentMarketing Boolean
+  consentTimestamp DateTime
+  consentVersion   String
+  consentText      String // Texto exacto aceptado (en el idioma mostrado)
+  language         String
+}
+
+model Agency {
+  id                  String   @id @default(cuid())
+  createdAt           DateTime @default(now())
+  name                String
+  zones               String // CSV de Location
+  email               String
+  phone               String
+  languages           String // CSV de idiomas
+  propertyTypes       String // CSV de PropertyType
+  status              String   @default("ACTIVE") // ACTIVE | PAUSED
+  monthlyFee          Int      @default(0)
+  pricePerAppointment Int      @default(0)
+
+  leads        Lead[]
+  appointments Appointment[]
+}
+
+model Appointment {
+  id          String   @id @default(cuid())
+  createdAt   DateTime @default(now())
+  leadId      String
+  lead        Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  agencyId    String?
+  agency      Agency?  @relation(fields: [agencyId], references: [id], onDelete: SetNull)
+  scheduledAt DateTime
+  channel     String   @default("PHONE") // PHONE | VIDEO | VISIT
+  status      String   @default("BOOKED") // REQUESTED | BOOKED | COMPLETED | CANCELLED
+  source      String   @default("WEB_FORM") // WEB_FORM | AGENT | ADMIN | SIMULATION
+  notes       String?
+
+  @@index([scheduledAt])
+}
+
+model Conversation {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  leadId    String
+  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  channel   String   @default("WEB_CHAT") // WEB_CHAT | WHATSAPP_DEMO
+  provider  String   @default("demo")
+  state     String   @default("{}") // JSON ConversationState
+  status    String   @default("ACTIVE") // ACTIVE | COMPLETED
+  extracted String   @default("{}") // JSON ExtractedData
+
+  messages ConversationMessage[]
+}
+
+model ConversationMessage {
+  id             String       @id @default(cuid())
+  createdAt      DateTime     @default(now())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role           String // agent | lead | system
+  content        String
+  meta           String? // JSON (quick replies, acción, etc.)
+}
+
+// Eventos de negocio (timeline/notificaciones) y de analítica (funnel).
+model Event {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  type      String // LEAD_CREATED... (BUSINESS) | landing_view... (ANALYTICS)
+  category  String // BUSINESS | ANALYTICS
+  leadId    String?
+  lead      Lead?    @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  sessionId String?
+  payload   String? // JSON
+
+  @@index([category, type, createdAt])
+}
+
+// Métricas de campaña. En el MVP son SIEMPRE datos de simulación (isDemo).
+model Campaign {
+  id           String  @id @default(cuid())
+  channel      String // GOOGLE_ADS | META_ADS | SEO | PARTNERS
+  name         String
+  periodLabel  String
+  impressions  Int
+  clicks       Int
+  leads        Int
+  spend        Int // euros
+  appointments Int
+  isDemo       Boolean @default(true)
+}
+
+model Note {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  leadId    String
+  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  author    String   @default("Admin demo")
+  content   String
+}
+
+// Hipótesis de negocio configurables (CPL, conversiones...).
+model Setting {
+  key   String @id
+  value String
+}
+
+// ---------------------------------------------------------------------------
+// Estudio «¿Te conviene vender o alquilar tu vivienda?»
+// ---------------------------------------------------------------------------
+
+model Study {
+  id                 String    @id @default(cuid())
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  // Hash del token de acceso (cookie httpOnly). El id solo no da acceso al estudio.
+  tokenHash          String
+  input              String // JSON StudyInput (datos aportados por el propietario)
+  assumptions        String // JSON hipótesis del simulador (última versión guardada)
+  result             String // JSON StudySnapshot (valoración, zona, fuentes)
+  ccaaCode           String
+  provinceCode       String
+  municipalityCode   String?
+  municipalityName   String
+  postalCode         String
+  propertyType       String
+  sqm                Int
+  saleEstimate       Int?
+  rentEstimate       Int?
+  confidence         String // HIGH | MEDIUM | LOW | VERY_LOW | NONE
+  tensionedStatus    String // DECLARED | PARTIAL | EXPIRED | NOT_FOUND | UNKNOWN
+  // Captación comercial (solo si el propietario lo solicita)
+  valuationRequested Boolean   @default(false)
+  commercialStatus   String    @default("NEW") // NEW | CONTACTED | VALUATION_SCHEDULED | VALUATION_DONE | NOT_INTERESTED
+  contactName        String?
+  contactEmail       String?
+  contactPhone       String?
+  preferredContact   String?
+  comments           String?
+  consentContact     Boolean?
+  consentMarketing   Boolean?
+  consentTimestamp   DateTime?
+  consentVersion     String?
+  contactRequestedAt DateTime?
+  leadId             String?
+  lead               Lead?     @relation(fields: [leadId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([valuationRequested])
+}
+
+// Declaraciones oficiales de zonas de mercado residencial tensionado (Ley 12/2023),
+// importadas de la página del Ministerio de Vivienda y Agenda Urbana.
+model TensionedAreaDeclaration {
+  id                 String    @id @default(cuid())
+  importedAt         DateTime  @default(now())
+  ccaa               String
+  municipalitiesText String
+  validFrom          DateTime?
+  validTo            DateTime?
+  resolution         String
+  bulletin           String?
+  sourceUrl          String
+}
+
+// Caché de respuestas de fuentes oficiales (INE, Catastro…), con fecha de consulta.
+model OfficialDataCache {
+  key       String   @id
+  payload   String
+  source    String
+  fetchedAt DateTime @default(now())
+}
+
+// Referencias de mercado cargadas por el equipo con su fuente (p. ej. estadística notarial
+// con licencia, valor tasado del Ministerio…). Nunca se inventan.
+model MarketReference {
+  id               String   @id @default(cuid())
+  createdAt        DateTime @default(now())
+  municipalityCode String
+  municipalityName String
+  kind             String // SALE_M2 | RENT_M2
+  dataType         String // OFFICIAL | CLOSED_TRANSACTIONS | ASKING_PRICES | APPRAISAL
+  value            Float
+  low              Float?
+  high             Float?
+  period           String // p. ej. "2025-T4"
+  sourceName       String
+  sourceUrl        String?
+  notes            String?
+}

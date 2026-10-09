@@ -1,0 +1,9 @@
+{
+  "source": "Sistema Estatal de Referencia del Precio del Alquiler de Vivienda (SERPAVI), Ministerio de Vivienda y Agenda Urbana",
+  "sourceUrl": "https://www.mivau.gob.es/vivienda/alquila-bien-es-tu-derecho/serpavi",
+  "file": "serpavi.xlsx",
+  "importedAt": "2026-10-09",
+  "notes": "Rentas declaradas (Modelo 100) de vivienda habitual en alquiler. VC = vivienda colectiva, VU = unifamiliar. Valores €/m² mensuales.",
+  "provincias": 52,
+  "municipios": 3473
+}
