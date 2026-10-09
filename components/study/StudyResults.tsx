@@ -88,6 +88,7 @@ export function StudyResults({
   services,
   emailConfigured,
   chatEnabled,
+  chatDemo = false,
 }: {
   studyId: string;
   input: StudyInput;
@@ -99,6 +100,7 @@ export function StudyResults({
   services: PublicService[];
   emailConfigured: boolean;
   chatEnabled: boolean;
+  chatDemo?: boolean;
 }) {
   const [a, setA] = useState<StudyAssumptions>(initialAssumptions);
   const [horizon, setHorizon] = useState<number>(input.owner.horizon);
@@ -517,7 +519,7 @@ export function StudyResults({
         />
         {pdfStatus === "error" && <p className="mt-3 text-sm text-red-600">No se pudo generar el PDF. Inténtalo de nuevo.</p>}
       </section>
-      {chatEnabled && <StudyChat studyId={studyId} />}
+      {chatEnabled && <StudyChat studyId={studyId} demo={chatDemo} />}
     </div>
   );
 }

@@ -22,7 +22,7 @@ export function openNextStep(interest: string) {
   window.dispatchEvent(new CustomEvent("fincalia:next-step", { detail: interest }));
 }
 
-export function StudyChat({ studyId }: { studyId: string }) {
+export function StudyChat({ studyId, demo = false }: { studyId: string; demo?: boolean }) {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [text, setText] = useState("");
@@ -89,6 +89,12 @@ export function StudyChat({ studyId }: { studyId: string }) {
             </button>
           </div>
 
+          {demo && (
+            <p className="bg-amber-100 px-4 py-2 text-[12px] font-medium text-amber-900">
+              Modo demostración: respuestas de ejemplo con las cifras de tu estudio, no generadas por la IA. Con la clave de Anthropic, el asistente
+              responderá libremente.
+            </p>
+          )}
           <div ref={listRef} className="flex-1 space-y-3 overflow-y-auto bg-sand-50 px-4 py-4" aria-live="polite">
             <Bubble role="assistant" content={GREETING} />
             {messages.length === 0 && (
