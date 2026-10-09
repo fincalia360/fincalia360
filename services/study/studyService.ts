@@ -16,6 +16,8 @@ import { getComparablesProvider } from "./sources/idealista";
 import { getPopulation, getPriceIndexCcaa, getRentIndex, getTouristDwellingsPct, listMunicipalities } from "./sources/ine";
 import { getSerpaviMunicipality, latestSerpaviYear } from "./sources/serpavi";
 import { checkTensionedArea, getDeclarations } from "./sources/tensionedAreas";
+import { getNewContractRent } from "./sources/incasol";
+import { getValorTasado } from "./sources/valorTasado";
 import { estimateRent, estimateSale, type MarketRef } from "./valuation";
 import {
   NEW_CONTRACT_CONDITIONS,
@@ -114,7 +116,39 @@ export async function buildSnapshot(input: StudyInput): Promise<StudySnapshot> {
     rentComparables = (await safe("Comparables alquiler", () => provider.findComparables({ ...query, operation: "rent" }), sources, { name: provider.name, status: "ERROR" })) ?? [];
   }
 
-  const ctx = { serpavi, rentIndex, priceIndexCcaa, marketRefs, exampleData: exampleFor(municipalityCode), saleComparables, rentComparables, comparablesSource: provider.name };
+  // Valor tasado medio oficial (municipio de más de 25.000 hab. o, si no, provincia)
+  const valorTasado = getValorTasado({ provinceCode: loc.provinceCode, municipalityName: loc.municipalityName, yearBuilt: input.property.yearBuilt ?? null });
+  sources.push(
+    valorTasado
+      ? {
+          name: valorTasado.meta.source,
+          url: valorTasado.scope === "MUNICIPIO" ? valorTasado.meta.sourceUrlMunicipios : valorTasado.meta.sourceUrlProvincias,
+          period: valorTasado.quarter,
+          retrievedAt: valorTasado.meta.importedAt,
+          status: "OK",
+          note: valorTasado.scope === "MUNICIPIO" ? `Dato del municipio (${valorTasado.name})` : `Media provincial (${valorTasado.name}): el municipio no tiene dato propio`,
+        }
+      : { name: "Ministerio de Vivienda · valor tasado", status: "NOT_AVAILABLE", note: "Sin datos importados." },
+  );
+
+  // Renta de contratos nuevos (Cataluña): dato oficial abierto de la Generalitat
+  const newContractRent = municipalityCode
+    ? await safe("Contratos nuevos (Incasòl)", () => getNewContractRent(municipalityCode!), sources, { name: "Generalitat de Catalunya · Incasòl", status: "ERROR" })
+    : null;
+  if (newContractRent) sources.push({ ...newContractRent.source, period: newContractRent.period, status: "OK", note: `${newContractRent.contracts} contratos nuevos` });
+
+  const ctx = {
+    serpavi,
+    newContractRent,
+    rentIndex,
+    priceIndexCcaa,
+    marketRefs,
+    exampleData: exampleFor(municipalityCode),
+    saleComparables,
+    rentComparables,
+    comparablesSource: provider.name,
+    valorTasado,
+  };
   const saleEstimates = estimateSale(input, ctx);
   const rentEstimates = estimateRent(input, ctx);
 

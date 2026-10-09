@@ -91,7 +91,7 @@ export function buildStudyReport(input: StudyInput, snapshot: StudySnapshot, raw
         ? "Valor de venta introducido por el propietario."
         : estimate!.origin === "EXAMPLE"
           ? "Valor de EJEMPLO (modo demostración): no permite conclusiones."
-          : `Estimación ${estimate!.source.name}${estimate!.source.period ? ` (${estimate!.source.period})` : ""}.`;
+          : `Estimación a partir de ${estimate!.source.name}${estimate!.source.period ? ` (${estimate!.source.period})` : ""}. No es una tasación de la vivienda.`;
 
   // ---------------- Alquiler ----------------
   const { statistical, market } = legacyRent(snapshot);
@@ -183,7 +183,12 @@ export function buildStudyReport(input: StudyInput, snapshot: StudySnapshot, raw
   // ---------------- Conclusiones ----------------
   const blockers: string[] = [];
   if (used == null) blockers.push("no hay una valoración de venta fiable");
-  else if (!reliable) blockers.push("la valoración de venta no es fiable (dato de ejemplo o confianza muy baja)");
+  else if (!reliable)
+    blockers.push(
+      estimate?.origin === "EXAMPLE"
+        ? "la valoración de venta es un dato de ejemplo"
+        : "la valoración de venta es solo orientativa (media de la provincia, sin dato del municipio ni de la vivienda)",
+    );
   if (usedRent == null) blockers.push("no hay una renta utilizable");
   if (main.sellNow?.breakdown.gainTax.status === "NOT_COMPUTABLE") blockers.push("no se puede calcular el impuesto de la venta (falta el precio de compra)");
   const conclusive = blockers.length === 0;

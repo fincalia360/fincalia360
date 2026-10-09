@@ -10,6 +10,8 @@
 //   La renta actual del propietario se muestra aparte (es un dato real de SU contrato).
 import { serpaviTypology, type Confidence, type Estimate, type Series, type SourceRef, type StudyInput } from "./types";
 import type { SerpaviMeta, SerpaviMunicipality } from "./sources/serpavi";
+import type { NewContractRent } from "./sources/incasol";
+import type { ValorTasadoResult } from "./sources/valorTasado";
 import { latestSerpaviYear } from "./sources/serpavi";
 import type { ComparableListing } from "./sources/idealista";
 
@@ -36,6 +38,10 @@ export interface ValuationContext {
   saleComparables?: ComparableListing[];
   rentComparables?: ComparableListing[];
   comparablesSource?: string;
+  /** Valor tasado medio (€/m²) del Ministerio de Vivienda para el municipio o la provincia. */
+  valorTasado?: ValorTasadoResult | null;
+  /** Renta media de contratos nuevos del municipio (Cataluña, Incasòl). */
+  newContractRent?: NewContractRent | null;
   today?: Date;
 }
 
@@ -200,7 +206,41 @@ export function estimateSale(input: StudyInput, ctx: ValuationContext): Estimate
     }
   }
 
-  // 4) EJEMPLO (desarrollo/demostración)
+  // 4) Valor tasado medio oficial (€/m²) del municipio o, si no se publica, de la provincia
+  if (ctx.valorTasado) {
+    const vt = ctx.valorTasado;
+    const adjustments = characteristicAdjustments(input, "sale");
+    const municipal = vt.scope === "MUNICIPIO";
+    const basisLabel = vt.basis === "HASTA_5" ? "viviendas de hasta 5 años" : vt.basis === "MAS_5" ? "viviendas de más de 5 años" : "todas las antigüedades";
+    out.push(
+      makeEstimate({
+        value: applyAdjustments(vt.value * sqm, adjustments),
+        sqm,
+        confidence: municipal ? "LOW" : "VERY_LOW",
+        origin: "MODEL",
+        method: `Valor tasado medio ${municipal ? `de ${vt.name}` : `de la provincia de ${vt.name}`} (${vt.quarter.replace("-", " ")}, ${basisLabel}): ${vt.value.toLocaleString("es-ES")} €/m² × ${sqm} m²${adjustments.length ? ", con ajustes por características" : ""}.`,
+        source: {
+          name: vt.meta.source,
+          url: municipal ? vt.meta.sourceUrlMunicipios : vt.meta.sourceUrlProvincias,
+          period: vt.quarter,
+          retrievedAt: vt.meta.importedAt,
+          status: "OK",
+          note: [vt.appraisals ? `${vt.appraisals.toLocaleString("es-ES")} tasaciones en el trimestre` : null, vt.yearOnYearPct != null ? `variación interanual ${vt.yearOnYearPct.toLocaleString("es-ES")} %` : null]
+            .filter(Boolean)
+            .join(" · ") || undefined,
+        },
+        adjustments,
+        limitations: [
+          "Es la media de las tasaciones hipotecarias del " + (municipal ? "municipio" : "conjunto de la provincia") + ", no una tasación de esta vivienda: no recoge la calle, las vistas, las calidades ni el estado real.",
+          ...(municipal ? [] : ["El Ministerio solo publica datos por municipio para los de más de 25.000 habitantes: se usa la media provincial, que puede diferir mucho del precio de tu localidad."]),
+          "Para una cifra fiable, indica el precio y año de compra, una tasación o el valor de referencia del Catastro, o solicita una valoración profesional.",
+        ],
+        step: 1000,
+      }),
+    );
+  }
+
+  // 5) EJEMPLO (desarrollo/demostración)
   if (ctx.exampleData) {
     const adjustments = characteristicAdjustments(input, "sale");
     out.push(
@@ -292,6 +332,52 @@ export function estimateRent(input: StudyInput, ctx: ValuationContext): { statis
         step: 10,
       }),
     );
+  }
+
+  // Contratos nuevos registrados (Cataluña · Incasòl): renta real firmada, no de anuncio.
+  // La media es por contrato (sin superficie): se adapta a esta vivienda con el perfil €/m² de SERPAVI.
+  const nc = ctx.newContractRent;
+  if (nc) {
+    const adjustments = characteristicAdjustments(input, "rent");
+    const latest = ctx.serpavi ? latestSerpaviYear(ctx.serpavi.municipality, typology) : null;
+    const reliable = nc.contracts >= 30;
+    const source = { name: nc.source.name, url: nc.source.url, period: nc.period, retrievedAt: nc.source.retrievedAt, status: "OK" as const, note: `${nc.contracts.toLocaleString("es-ES")} contratos nuevos en el trimestre; renta media ${nc.monthlyRent.toLocaleString("es-ES")} €/mes` };
+    if (latest) {
+      const d = latest.data;
+      const k = nc.monthlyRent / (d.m * d.sup);
+      out.push(
+        makeEstimate({
+          value: applyAdjustments(d.m * k * sqm, adjustments),
+          low: applyAdjustments(d.p25 * k * sqm, adjustments),
+          high: applyAdjustments(d.p75 * k * sqm, adjustments),
+          sqm,
+          confidence: reliable ? "LOW" : "VERY_LOW",
+          origin: "MODEL",
+          method: `Renta media de los contratos nuevos de ${nc.municipality} (${nc.period.replace("-", " ")}): ${nc.monthlyRent.toLocaleString("es-ES")} €/mes, equivalente a ${(d.m * k).toFixed(2)} €/m² para una vivienda de ${d.sup} m² según el perfil SERPAVI ${latest.year}; × ${sqm} m².`,
+          source,
+          adjustments,
+          limitations: [
+            "Renta media real de los contratos firmados en el municipio (fianzas del Incasòl), no precios de anuncio; no distingue barrios ni calidades.",
+            "El dato oficial es la renta media por contrato: la adaptación a la superficie de tu vivienda es una estimación del modelo.",
+            "No es la renta máxima legal: en zona tensionada el límite depende del contrato anterior y del tipo de propietario.",
+          ],
+          step: 10,
+        }),
+      );
+    } else {
+      out.push(
+        makeEstimate({
+          value: nc.monthlyRent,
+          sqm,
+          confidence: "VERY_LOW",
+          origin: "MODEL",
+          method: `Renta media de los contratos nuevos de ${nc.municipality} (${nc.period.replace("-", " ")}), sin ajustar a la superficie (no hay perfil SERPAVI del municipio).`,
+          source,
+          limitations: ["Media de todos los contratos del municipio: no tiene en cuenta la superficie ni las características de tu vivienda."],
+          step: 10,
+        }),
+      );
+    }
   }
 
   // Comparables de mercado (proveedor autorizado, p. ej. Idealista): precios de ANUNCIO

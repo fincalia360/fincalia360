@@ -1,0 +1,14 @@
+{
+  "source": "Ministerio de Vivienda y Agenda Urbana · Estadística de valor tasado de la vivienda",
+  "sourceUrlMunicipios": "https://apps.fomento.gob.es/BoletinOnline2/sedal/35103500.XLS",
+  "sourceUrlProvincias": "https://apps.fomento.gob.es/BoletinOnline2/sedal/35101000.XLS",
+  "trimestresMunicipios": [
+    "2025-T3",
+    "2025-T4",
+    "2026-T1",
+    "2026-T2"
+  ],
+  "ultimoTrimestreProvincias": "2026-T2",
+  "importedAt": "2026-10-09",
+  "notes": "Valor medio de tasación de vivienda libre (€/m²). Municipios de más de 25.000 habitantes; el resto, media provincial."
+}

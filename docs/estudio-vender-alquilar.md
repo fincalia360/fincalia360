@@ -46,13 +46,14 @@ Todas las cifras de la web y del PDF salen de una única función pura, `buildSt
 2. Referencia de mercado cargada por el equipo: €/m² × m² × ajustes.
 3. Comparables de un proveedor autorizado (si está configurado): mediana de ≥ 5 anuncios con ±30 % de superficie, intervalo P25–P75, etiquetados como **precio de anuncio**, nunca como cierre.
 4. Precio de compra × (IPV CCAA último año / IPV año de compra) + reformas (confianza baja).
-5. Datos de EJEMPLO solo si `STUDY_EXAMPLE_DATA=true` (no permiten conclusiones).
+5. **Valor tasado medio del Ministerio de Vivienda** (€/m², trimestral): dato del municipio si tiene más de 25.000 habitantes (según antigüedad: hasta 5 años / más de 5 años) o media provincial (confianza muy baja). Se importa con `python scripts/import-valor-tasado.py 35103500.XLS 35101000.XLS` (ficheros oficiales del boletín del Ministerio). Es una media de tasaciones, no la tasación de la vivienda.
+6. Datos de EJEMPLO solo si `STUDY_EXAMPLE_DATA=true` (no permiten conclusiones).
 
 Si no hay ninguna fuente, el valor es **desconocido (null)**, nunca 0 €: no se calculan A/B/C ni la sensibilidad, el resumen dice «No es posible valorar el inmueble con fiabilidad» y pide los datos necesarios. La integración con una API de valoración se prepara en `services/study/sources/idealista.ts` (`ComparablesProvider`), sin simular datos.
 
 **Alquiler**: se distinguen cuatro conceptos, cada uno con fuente, fecha y naturaleza:
 - *Referencia estadística* SERPAVI: mediana del último año × m² (P25–P75), sin ajustes por características, actualizada con el IPVA. Refleja contratos vigentes declarados.
-- *Estimación de mercado*: referencias del equipo o comparables autorizados.
+- *Estimación de mercado*: referencias del equipo; en Cataluña, renta media real de los **contratos nuevos** del municipio (fianzas del Incasòl, API abierta de la Generalitat `qww9-bvhh`), adaptada a la superficie con el perfil €/m² de SERPAVI; o comparables autorizados.
 - *Renta máxima legal* (`services/study/rentRegime.ts`, Ley 12/2023, art. 17.6 y 17.7 LAU): en zona tensionada, la renta del último contrato de los 5 años anteriores; si el arrendador es gran tenedor, además el índice de referencia (no calculable aquí: se informa como límite no determinado). Sin datos suficientes, el estado es «no determinada» y se listan los requisitos; nunca se inventa un tope.
 - *Renta usada en la simulación*: la elegida (automática: contrato vigente › mercado › estadística; o manual), limitada al tope legal cuando se conoce (salvo contrato vigente).
 
