@@ -23,6 +23,12 @@ export function SiteFooter({ dict, lang }: { dict: Dictionary; lang: Language })
           <Link href={`/legal?lang=${lang}`} className="hover:text-white">
             {dict.footer.legal}
           </Link>
+          <Link href="/cookies" className="hover:text-white">
+            Política de cookies
+          </Link>
+          <Link href="/condiciones" className="hover:text-white">
+            Condiciones de uso
+          </Link>
           <Link href="/admin" className="text-ink-300 hover:text-white">
             Acceso del equipo ↗
           </Link>

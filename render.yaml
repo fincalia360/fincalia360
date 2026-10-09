@@ -1,0 +1,52 @@
+# Configuración de publicación en Render (https://render.com) — «Blueprint».
+# Crea un servicio web Node con un disco persistente para la base de datos SQLite.
+# Los valores marcados con `sync: false` los rellenas tú en el panel de Render al crear el servicio.
+# Ver docs/publicar-en-internet.md.
+services:
+  - type: web
+    name: fincalia360
+    runtime: node
+    region: frankfurt # servidores en la Unión Europea
+    plan: starter # el disco persistente requiere un plan de pago (~7 $/mes)
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /
+    disk:
+      name: datos
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: DATABASE_URL
+        value: file:/var/data/fincalia360.db
+      - key: SEED_DEMO_DATA
+        value: "false"
+      - key: STUDY_EXAMPLE_DATA
+        value: "false"
+      - key: AI_PROVIDER
+        value: demo
+      - key: NOTIFICATION_PROVIDER
+        value: demo
+      - key: ADMIN_USER
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: ADMIN_SESSION_SECRET
+        generateValue: true
+      - key: SITE_URL
+        sync: false
+      - key: ALLOW_INDEXING
+        value: "false"
+      - key: LEGAL_OWNER_NAME
+        sync: false
+      - key: LEGAL_OWNER_NIF
+        sync: false
+      - key: LEGAL_OWNER_ADDRESS
+        sync: false
+      - key: LEGAL_CONTACT_EMAIL
+        sync: false
+      - key: LEGAL_OWNER_REGISTRY
+        sync: false
+      - key: LEGAL_HOSTING_PROVIDER
+        value: "Render Services, Inc. (servidores en Frankfurt, Unión Europea)"

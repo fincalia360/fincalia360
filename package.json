@@ -2,7 +2,7 @@
   "name": "captacion-costa-brava",
   "version": "0.1.0",
   "private": true,
-  "description": "MVP de captación y cualificación de propietarios que quieren vender en la Costa Brava (FINCALIA360).",
+  "description": "FINCALIA360: estudio para propietarios (valor estimado, alquiler legal y vender/alquilar/mantener).",
   "scripts": {
     "predev": "node scripts/ensure-db.mjs",
     "dev": "next dev",
@@ -16,7 +16,8 @@
     "db:push": "prisma db push",
     "db:seed": "prisma db seed",
     "db:reset": "prisma db push --force-reset && prisma db seed",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "prestart": "node scripts/ensure-db.mjs"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -53,5 +54,8 @@
     "@prisma/engines": true,
     "esbuild": true,
     "unrs-resolver": true
+  },
+  "engines": {
+    "node": ">=20.11"
   }
 }

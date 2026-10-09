@@ -7,7 +7,9 @@ export const metadata: Metadata = {
   description:
     "Descubre cuánto vale tu inmueble, qué alquiler máximo legal le corresponde y qué opción puede convenirte más: vender, alquilar o mantener.",
   applicationName: "FINCALIA360",
-  robots: { index: false, follow: false }, // aún no publicado
+  ...(process.env.SITE_URL ? { metadataBase: new URL(process.env.SITE_URL) } : {}),
+  // Solo se indexa en buscadores cuando se publica y se activa ALLOW_INDEXING=true
+  robots: process.env.ALLOW_INDEXING === "true" ? { index: true, follow: true } : { index: false, follow: false },
 };
 
 export const viewport: Viewport = {

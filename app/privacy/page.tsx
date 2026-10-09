@@ -1,51 +1,132 @@
 import type { Metadata } from "next";
-import { LegalPage } from "@/components/landing/LegalPage";
+import Link from "next/link";
+import { L, LegalPage } from "@/components/landing/LegalPage";
 import { getDictionary } from "@/lib/i18n";
 import { getRequestLanguage } from "@/lib/i18n/server";
-import { CONSENT_VERSION } from "@/services/leadService";
+import { legalValue } from "@/lib/legal";
+import { STUDY_CONSENT_VERSION } from "@/services/study/studyService";
 
-export const metadata: Metadata = { title: "Política de privacidad (demo)" };
+export const metadata: Metadata = { title: "Política de privacidad" };
 
 export default async function PrivacyPage({ searchParams }: { searchParams: Promise<{ lang?: string }> }) {
   const lang = await getRequestLanguage((await searchParams).lang);
   const dict = getDictionary(lang);
+  const hosting = legalValue("hosting");
   return (
     <LegalPage dict={dict} lang={lang} basePath="/privacy" title="Política de privacidad">
       <p>
-        Versión del texto: <code>{CONSENT_VERSION}</code>. Esta versión es la que se guarda junto a cada consentimiento (campo{" "}
-        <code>consent_version</code>), con su fecha y hora (<code>consent_timestamp</code>).
+        Explicamos qué datos tratamos cuando usas FINCALIA360, para qué y durante cuánto tiempo, conforme al Reglamento (UE) 2016/679 (RGPD) y a la
+        Ley Orgánica 3/2018 (LOPDGDD). Versión de los textos de consentimiento: <code>{STUDY_CONSENT_VERSION}</code>.
       </p>
+
       <h2>1. Responsable del tratamiento</h2>
-      <p>[Razón social, NIF, domicilio y email de contacto del responsable — PENDIENTE].</p>
-      <h2>2. Qué datos tratamos</h2>
       <ul>
-        <li>Datos de contacto que nos facilitas: nombre, email, teléfono e idioma preferido.</li>
-        <li>Datos de la vivienda: ubicación aproximada, tipo, superficie, características y situación.</li>
-        <li>Tu intención y plazo de venta, y las conversaciones con nuestra asistente virtual.</li>
+        <li>
+          <L k="ownerName" /> · NIF/CIF <L k="ownerId" />
+        </li>
+        <li>
+          Domicilio: <L k="ownerAddress" />
+        </li>
+        <li>
+          Contacto para protección de datos: <L k="contactEmail" />
+        </li>
       </ul>
+
+      <h2>2. Qué datos tratamos</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Cuándo</th>
+            <th>Datos</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Al hacer el estudio gratuito</td>
+            <td>
+              Datos de la vivienda (ubicación, dirección y referencia catastral si las indicas, superficie y características), su situación económica
+              opcional (precio de compra, hipoteca, gastos) y tu situación (objetivo, residencia fiscal y, solo si lo indicas, si tienes 65 años o más).
+              No pedimos nombre ni contacto para hacer el estudio.
+            </td>
+          </tr>
+          <tr>
+            <td>Si solicitas una valoración profesional</td>
+            <td>Nombre, email, teléfono (opcional), forma de contacto preferida, comentarios y tus consentimientos con su fecha y versión.</td>
+          </tr>
+          <tr>
+            <td>Al navegar</td>
+            <td>
+              Datos técnicos necesarios para el funcionamiento y la seguridad (dirección IP para limitar abusos, sin conservarla) y estadísticas de uso
+              propias sin cookies de terceros (ver la <Link href="/cookies">política de cookies</Link>).
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <p>
+        Los datos de la vivienda que se completan desde el Catastro son datos públicos no protegidos (uso, superficie, año). Nunca consultamos
+        titulares, ni obtenemos datos de portales inmobiliarios, ni contactamos con personas que no lo hayan solicitado.
+      </p>
+
       <h2>3. Finalidades y base jurídica</h2>
       <ul>
-        <li>Responder a tu solicitud de valoración y contactarte sobre la posible venta: consentimiento (consent_contact).</li>
-        <li>Ponerte en contacto con una inmobiliaria colaboradora de la zona, si así lo aceptas: consentimiento.</li>
-        <li>Enviarte información de mercado: consentimiento opcional e independiente (consent_marketing).</li>
+        <li>
+          <strong>Elaborar tu estudio y tu informe PDF</strong> a petición tuya: aplicación de medidas precontractuales y ejecución del servicio
+          solicitado (art. 6.1.b RGPD).
+        </li>
+        <li>
+          <strong>Atender tu solicitud de valoración profesional</strong> y contactarte para ello: tu consentimiento (art. 6.1.a), obligatorio solo para
+          esa solicitud.
+        </li>
+        <li>
+          <strong>Enviarte información comercial</strong>: solo si marcas la casilla opcional e independiente (art. 6.1.a). Puedes retirarlo en
+          cualquier momento.
+        </li>
+        <li>
+          <strong>Seguridad y mejora del servicio</strong> con estadísticas agregadas: interés legítimo (art. 6.1.f).
+        </li>
       </ul>
-      <h2>4. Origen de los datos</h2>
+      <p>No tomamos decisiones automatizadas con efectos jurídicos sobre ti: los estudios son orientativos y la decisión es siempre tuya.</p>
+
+      <h2>4. Destinatarios</h2>
+      <ul>
+        <li>
+          Proveedor de alojamiento de la web, como encargado del tratamiento: {hosting ? hosting : <L k="hosting" />}.
+        </li>
+        <li>
+          Si solicitas una valoración profesional y así lo aceptas, el especialista o la inmobiliaria colaboradora de tu zona que la realice.
+        </li>
+        <li>Administraciones públicas cuando exista una obligación legal.</li>
+      </ul>
       <p>
-        Únicamente los datos que tú mismo nos facilitas a través de nuestros formularios o conversaciones. No obtenemos datos de portales
-        inmobiliarios ni de terceros, ni contactamos a personas que no lo hayan solicitado.
+        Si algún proveedor estuviera fuera del Espacio Económico Europeo, la transferencia se ampararía en una decisión de adecuación o en cláusulas
+        contractuales tipo de la Comisión Europea.
       </p>
-      <h2>5. Destinatarios</h2>
-      <p>[Inmobiliarias colaboradoras y encargados del tratamiento (hosting, CRM, mensajería) — PENDIENTE].</p>
-      <h2>6. Conservación</h2>
-      <p>[Plazos de conservación — PENDIENTE].</p>
-      <h2>7. Tus derechos</h2>
+
+      <h2>5. Conservación</h2>
+      <ul>
+        <li>Estudios sin solicitud de contacto: 12 meses desde su creación; después se eliminan.</li>
+        <li>
+          Solicitudes de valoración: mientras dure la relación y hasta 2 años desde el último contacto, salvo que antes pidas su supresión o retires
+          el consentimiento.
+        </li>
+        <li>Prueba de los consentimientos: durante los plazos de prescripción de las posibles responsabilidades.</li>
+      </ul>
+
+      <h2>6. Tus derechos</h2>
       <p>
-        Puedes acceder, rectificar, suprimir, oponerte, limitar el tratamiento, solicitar la portabilidad y retirar tu consentimiento en
-        cualquier momento escribiendo a [email — PENDIENTE]. También puedes reclamar ante la autoridad de control competente.
+        Puedes ejercer los derechos de acceso, rectificación, supresión, oposición, limitación del tratamiento y portabilidad, y retirar tu
+        consentimiento en cualquier momento, escribiendo a <L k="contactEmail" /> e indicando el derecho que ejerces. Si consideras que no hemos
+        atendido correctamente tu solicitud, puedes reclamar ante la Agencia Española de Protección de Datos (
+        <a href="https://www.aepd.es" target="_blank" rel="noreferrer">
+          www.aepd.es
+        </a>
+        ).
       </p>
-      <h2>8. Asistente virtual</h2>
+
+      <h2>7. Seguridad</h2>
       <p>
-        La conversación inicial la atiende una asistente virtual automatizada. Puedes pedir hablar con una persona en cualquier momento.
+        Tu estudio solo es accesible desde el navegador en el que lo creaste (con un código de acceso aleatorio que guardamos cifrado). El panel del
+        equipo está protegido con usuario y contraseña, y la web funciona con conexión cifrada (https).
       </p>
     </LegalPage>
   );

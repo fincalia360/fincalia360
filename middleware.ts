@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { SESSION_COOKIE, authConfigured, demoAccessAllowed, verifySession } from "@/lib/session";
 
 const LANGS = ["es", "ca", "en", "fr", "de", "nl", "it", "pt"];
+const TEAM_ONLY = ["/admin", "/api/admin", "/valorar/resultado", "/agent", "/api/agent", "/api/leads", "/api/slots"];
 
 /**
  * - Protege /admin y /api/admin: requiere sesión (login en /login) si ADMIN_PASSWORD está definido.
@@ -11,7 +12,9 @@ const LANGS = ["es", "ca", "en", "fr", "de", "nl", "it", "pt"];
 export async function middleware(request: NextRequest) {
   const { pathname, searchParams } = request.nextUrl;
 
-  if (pathname.startsWith("/admin") || pathname.startsWith("/api/admin")) {
+  // Solo para el equipo (sesión del panel): el panel, y las páginas y API de las solicitudes del
+  // formulario antiguo, que se identifican solo por su número y contienen datos personales.
+  if (TEAM_ONLY.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))) {
     const isApi = pathname.startsWith("/api/");
     if (!demoAccessAllowed()) {
       if (!authConfigured()) {
