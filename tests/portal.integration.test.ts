@@ -149,6 +149,18 @@ describe("inmuebles: publicación con comprobaciones", () => {
     expect((await m.listings.isPublicPhoto(photo)).isPublic).toBe(true);
   });
 
+  it("solo se publican inmuebles de Cataluña; uno antiguo de otra provincia no aparece en la web", async () => {
+    await expect(m.listings.createListing(admin, baseListing({ provinceCode: "28", municipality: "Madrid", postalCode: "28010" }))).rejects.toThrow(/Solo publicamos inmuebles en Cataluña/);
+    for (const [provinceCode, postalCode] of [["08", "08001"], ["25", "25001"], ["43", "43001"]]) {
+      expect((await m.listings.createListing(admin, baseListing({ provinceCode, postalCode }))).id).toBeTruthy();
+    }
+    const l = await publishableListing(admin);
+    await m.listings.transitionListing(admin, l.id, "publish");
+    await m.prisma.listing.update({ where: { id: l.id }, data: { provinceCode: "28" } }); // dato anterior a la restricción
+    expect(await m.listings.getPublicListing(l.reference)).toBeNull();
+    expect((await m.listings.searchPublic("SALE", {})).items.some((i) => i.reference === l.reference)).toBe(false);
+  });
+
   it("rechaza archivos que no son imágenes", async () => {
     const l = await m.listings.createListing(admin, baseListing());
     await expect(m.listings.addPhoto(admin, l.id, Buffer.from("esto no es una imagen"))).rejects.toThrow(/imagen válida/);

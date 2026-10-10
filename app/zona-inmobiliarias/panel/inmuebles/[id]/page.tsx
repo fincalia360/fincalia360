@@ -9,6 +9,7 @@ import { prisma } from "@/db/client";
 import { formatMadrid } from "@/lib/dates";
 import { requireAgency } from "@/services/agency/auth";
 import { PROVINCES } from "@/services/study/geo";
+import { isPortalProvince } from "@/services/listings/catalog";
 import { PUBLIC_STATUSES, listingPath, type ListingStatus } from "@/services/listings/catalog";
 import { ListingError, availableTransitions, getListing, publishProblems, type ListingActor } from "@/services/listings/listings";
 import { deleteListingAction, deletePhotoAction, mainPhotoAction, movePhotoAction, transitionAction, updateListingAction } from "../../actions";
@@ -29,7 +30,7 @@ export default async function AgencyListingPage({ params, searchParams }: { para
     prisma.agencyContact.findMany({ where: { agencyId: s.agencyId, kind: { in: ["OWNER_SELL", "OWNER_RENT"] } }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
     prisma.listingInquiry.findMany({ where: { listingId: listing.id, agencyId: s.agencyId }, orderBy: { createdAt: "desc" }, take: 50, include: { contact: { select: { id: true } } } }),
   ]);
-  const provinces = [...PROVINCES].sort((a, b) => a.name.localeCompare(b.name, "es")).map(({ code, name }) => ({ code, name }));
+  const provinces = PROVINCES.filter((p) => isPortalProvince(p.code)).sort((a, b) => a.name.localeCompare(b.name, "es")).map(({ code, name }) => ({ code, name }));
   const isPublic = PUBLIC_STATUSES.includes(listing.status as ListingStatus);
 
   return (

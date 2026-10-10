@@ -10,7 +10,7 @@ export function SiteFooter({ dict, lang }: { dict: Dictionary; lang: Language })
         <div>
           <Logo light />
           <p className="mt-4 max-w-sm text-sm text-ink-200">
-            Plataforma para propietarios de toda España: valor estimado de la vivienda, alquiler máximo legal y comparativa entre vender, alquilar o mantener.
+            Plataforma para propietarios de toda España: valor estimado de la vivienda, alquiler máximo legal y comparativa entre vender, alquilar o mantener. Compra y alquiler de inmuebles en Cataluña.
           </p>
         </div>
         <div className="flex flex-col gap-2 text-sm md:items-end">

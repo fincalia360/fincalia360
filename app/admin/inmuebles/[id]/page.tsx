@@ -10,6 +10,7 @@ import { prisma } from "@/db/client";
 import { requireAdmin } from "@/lib/auth";
 import { formatDateTime } from "@/lib/utils";
 import { PROVINCES } from "@/services/study/geo";
+import { isPortalProvince } from "@/services/listings/catalog";
 import { INQUIRY_STATUSES, PUBLIC_STATUSES, listingPath, type ListingStatus } from "@/services/listings/catalog";
 import { ListingError, availableTransitions, getListing, publishProblems } from "@/services/listings/listings";
 import { deleteListingAction, deletePhotoAction, mainPhotoAction, movePhotoAction, transitionAction, updateListingAction } from "../actions";
@@ -31,7 +32,7 @@ export default async function AdminListingPage({ params, searchParams }: { param
     listing.agencyId ? Promise.resolve([]) : prisma.listingInquiry.findMany({ where: { listingId: listing.id }, orderBy: { createdAt: "desc" }, take: 100 }),
     prisma.listingInquiry.count({ where: { listingId: listing.id } }),
   ]);
-  const provinces = [...PROVINCES].sort((a, b) => a.name.localeCompare(b.name, "es")).map(({ code, name }) => ({ code, name }));
+  const provinces = PROVINCES.filter((p) => isPortalProvince(p.code)).sort((a, b) => a.name.localeCompare(b.name, "es")).map(({ code, name }) => ({ code, name }));
   const isPublic = PUBLIC_STATUSES.includes(listing.status as ListingStatus);
 
   return (

@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Viviendas en alquiler",
-  description: "Pisos, casas y otros inmuebles en alquiler en España, revisados antes de publicarse. Filtra por municipio, precio, habitaciones y superficie.",
+  description: "Pisos, casas y otros inmuebles en alquiler en Cataluña (Barcelona, Girona, Lleida y Tarragona), revisados antes de publicarse. Filtra por municipio, precio, habitaciones y superficie.",
   alternates: { canonical: "/alquilar" },
 };
 

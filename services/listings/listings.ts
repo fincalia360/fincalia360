@@ -13,6 +13,8 @@ import { audit, type Actor } from "@/services/audit";
 import { deleteFile, newKey, putFile } from "@/services/storage/storage";
 import {
   ACTIVE_STATUSES,
+  PORTAL_PROVINCE_CODES,
+  isPortalProvince,
   AUTHORIZATION_TYPES,
   CONDITIONS,
   ENERGY_RATINGS,
@@ -56,7 +58,10 @@ export const listingSchema = z
     propertyType: z.enum(keys(PROPERTY_TYPES), { errorMap: () => ({ message: "Elige el tipo de inmueble" }) }),
     price: z.coerce.number({ invalid_type_error: "Precio no válido" }).int("Precio en euros, sin decimales").min(1, "Indica el precio").max(100_000_000),
     communityFee: optInt(100_000),
-    provinceCode: z.string().refine((c) => Boolean(getProvince(c)), "Elige la provincia"),
+    provinceCode: z
+      .string()
+      .refine((c) => Boolean(getProvince(c)), "Elige la provincia")
+      .refine(isPortalProvince, "Solo publicamos inmuebles en Cataluña (Barcelona, Girona, Lleida o Tarragona)"),
     municipality: z.string().trim().min(2, "Indica el municipio").max(80),
     zone: optText(80),
     postalCode: z.preprocess((v) => (v === "" ? null : v), z.string().regex(/^\d{5}$/, "Código postal de 5 cifras").nullable().optional()),
@@ -529,7 +534,7 @@ export const PUBLIC_SELECT = {
 
 function publicVisibility(): Prisma.ListingWhereInput {
   // Un inmueble de una inmobiliaria deja de verse si su cuenta se desactiva
-  return { status: { in: PUBLIC_STATUSES }, OR: [{ agencyId: null }, { agency: { crmAccess: true, status: "ACTIVE" } }] };
+  return { status: { in: PUBLIC_STATUSES }, provinceCode: { in: [...PORTAL_PROVINCE_CODES] }, OR: [{ agencyId: null }, { agency: { crmAccess: true, status: "ACTIVE" } }] };
 }
 
 export async function searchPublic(operation: "SALE" | "RENT", f: SearchFilters) {

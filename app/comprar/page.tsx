@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Viviendas en venta",
-  description: "Pisos, casas y otros inmuebles en venta en España, revisados antes de publicarse. Filtra por municipio, precio, habitaciones y superficie.",
+  description: "Pisos, casas y otros inmuebles en venta en Cataluña (Barcelona, Girona, Lleida y Tarragona), revisados antes de publicarse. Filtra por municipio, precio, habitaciones y superficie.",
   alternates: { canonical: "/comprar" },
 };
 

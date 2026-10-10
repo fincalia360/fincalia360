@@ -4,13 +4,14 @@ import { PageHeader } from "@/components/admin/PageHeader";
 import { ListingForm } from "@/components/listings/ListingForm";
 import { requireAdmin } from "@/lib/auth";
 import { PROVINCES } from "@/services/study/geo";
+import { isPortalProvince } from "@/services/listings/catalog";
 import { createListingAction } from "../actions";
 
 export const metadata = { title: "Nuevo inmueble" };
 
 export default async function NewListingPage() {
   await requireAdmin();
-  const provinces = [...PROVINCES].sort((a, b) => a.name.localeCompare(b.name, "es")).map(({ code, name }) => ({ code, name }));
+  const provinces = PROVINCES.filter((p) => isPortalProvince(p.code)).sort((a, b) => a.name.localeCompare(b.name, "es")).map(({ code, name }) => ({ code, name }));
   return (
     <div className="max-w-4xl">
       <Link href="/admin/inmuebles" className="mb-3 inline-flex items-center gap-1.5 text-sm text-ink-500 hover:text-ink-800">

@@ -47,7 +47,7 @@ export default async function AgenciesPage() {
               <div>
                 <dt className="text-[12px] text-ink-400">Provincias</dt>
                 <dd className="text-ink-700">
-                  {csv(a.provinces).length ? csv(a.provinces).map((c) => getProvince(c)?.name ?? c).join(", ") : csv(a.zones).length ? `Costa Brava (${csv(a.zones).map((z) => label(LOCATION_LABELS, z)).join(", ")})` : "Toda España"}
+                  {csv(a.provinces).length ? csv(a.provinces).map((c) => getProvince(c)?.name ?? c).join(", ") : csv(a.zones).length ? `Costa Brava (${csv(a.zones).map((z) => label(LOCATION_LABELS, z)).join(", ")})` : "Toda Cataluña"}
                 </dd>
               </div>
               <div>

@@ -35,7 +35,9 @@ export default async function LegalNoticePage({ searchParams }: { searchParams: 
       <p>
         Esta web permite a propietarios de viviendas de toda España obtener un estudio orientativo gratuito: valor de venta estimado, referencias de
         alquiler, situación respecto a las zonas de mercado residencial tensionado y una comparativa económica entre vender, alquilar o mantener la
-        vivienda. Si el propietario lo solicita expresamente, se le pone en contacto con un especialista para una valoración profesional.
+        vivienda. Si el propietario lo solicita expresamente, se le pone en contacto con un especialista para una valoración profesional. Además,
+        incluye un portal de anuncios de inmuebles en venta y en alquiler situados en Cataluña (provincias de Barcelona, Girona, Lleida y Tarragona),
+        publicados por FINCALIA360 o por inmobiliarias colaboradoras.
       </p>
 
       <h2>3. Naturaleza de la información</h2>

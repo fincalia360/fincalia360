@@ -6,6 +6,7 @@ import { SubmitButton } from "@/components/admin/SubmitButton";
 import { LANGUAGE_NAMES, LOCATION_LABELS, PROPERTY_LABELS } from "@/lib/labels";
 import { csv } from "@/lib/utils";
 import { PROVINCES } from "@/services/study/geo";
+import { isPortalProvince } from "@/services/listings/catalog";
 import { LANGUAGES, LOCATIONS, PROPERTY_TYPES } from "@/types";
 
 interface AgencyValues {
@@ -96,7 +97,7 @@ export function AgencyForm({ agency }: { agency?: AgencyValues }) {
       <div>
         <p className="field-label">Provincias donde opera</p>
         <p className="mb-2 text-xs text-ink-400">Si no marcas ninguna, se considera de ámbito nacional.</p>
-        <CheckGroup name="provinces" options={[...PROVINCES].sort((a, b) => a.name.localeCompare(b.name, "es")).map((p) => [p.code, p.name] as const)} selected={csv(agency?.provinces)} />
+        <CheckGroup name="provinces" options={PROVINCES.filter((p) => isPortalProvince(p.code)).sort((a, b) => a.name.localeCompare(b.name, "es")).map((p) => [p.code, p.name] as const)} selected={csv(agency?.provinces)} />
       </div>
       <div>
         <label className="field-label" htmlFor="municipalities">Municipios concretos (opcional)</label>

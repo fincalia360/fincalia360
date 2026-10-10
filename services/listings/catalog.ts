@@ -1,6 +1,11 @@
 // Catálogos del portal inmobiliario (etiquetas en español). Sin dependencias de servidor: se usan
 // también en componentes de cliente.
 
+/** El portal de compra y alquiler solo publica inmuebles de Cataluña (la valoración es para toda España). */
+export const PORTAL_REGION = "Cataluña";
+export const PORTAL_PROVINCE_CODES: readonly string[] = ["08", "17", "25", "43"]; // Barcelona, Girona, Lleida, Tarragona
+export const isPortalProvince = (code: string | null | undefined) => Boolean(code && PORTAL_PROVINCE_CODES.includes(code));
+
 export const OPERATIONS = { SALE: "Venta", RENT: "Alquiler" } as const;
 export type Operation = keyof typeof OPERATIONS;
 

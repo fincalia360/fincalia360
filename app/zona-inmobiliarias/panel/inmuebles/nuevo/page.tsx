@@ -5,6 +5,7 @@ import { ListingForm } from "@/components/listings/ListingForm";
 import { prisma } from "@/db/client";
 import { requireAgency } from "@/services/agency/auth";
 import { PROVINCES } from "@/services/study/geo";
+import { isPortalProvince } from "@/services/listings/catalog";
 import { createListingAction } from "../../actions";
 
 export const metadata = { title: "Nuevo inmueble" };
@@ -12,7 +13,7 @@ export const metadata = { title: "Nuevo inmueble" };
 export default async function AgencyNewListingPage() {
   const s = await requireAgency();
   const owners = await prisma.agencyContact.findMany({ where: { agencyId: s.agencyId, kind: { in: ["OWNER_SELL", "OWNER_RENT"] } }, select: { id: true, name: true }, orderBy: { name: "asc" } });
-  const provinces = [...PROVINCES].sort((a, b) => a.name.localeCompare(b.name, "es")).map(({ code, name }) => ({ code, name }));
+  const provinces = PROVINCES.filter((p) => isPortalProvince(p.code)).sort((a, b) => a.name.localeCompare(b.name, "es")).map(({ code, name }) => ({ code, name }));
   return (
     <div className="max-w-4xl">
       <Link href="/zona-inmobiliarias/panel/inmuebles" className="mb-3 inline-flex items-center gap-1.5 text-sm text-ink-500 hover:text-ink-800">

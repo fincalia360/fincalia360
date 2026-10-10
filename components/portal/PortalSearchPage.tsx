@@ -7,7 +7,7 @@ import { SiteHeader } from "@/components/landing/SiteHeader";
 import { ButtonLink } from "@/components/ui/Button";
 import { getDictionary } from "@/lib/i18n";
 import { PROVINCES } from "@/services/study/geo";
-import { PROPERTY_TYPES } from "@/services/listings/catalog";
+import { PROPERTY_TYPES, isPortalProvince } from "@/services/listings/catalog";
 import { publicMunicipalities, searchPublic, type SearchFilters } from "@/services/listings/listings";
 import { ListingCard } from "./ListingCard";
 
@@ -43,12 +43,12 @@ export async function PortalSearchPage({ operation, filters }: { operation: "SAL
           <div className="container-page py-8 sm:py-10">
             <p className="eyebrow">{rent ? "Alquilar" : "Comprar"}</p>
             <h1 className="mt-3 font-serif text-[34px] font-medium leading-tight tracking-tight text-ink-800 sm:text-5xl">
-              {rent ? "Viviendas en alquiler" : "Viviendas en venta"}
+              {rent ? "Viviendas en alquiler en Cataluña" : "Viviendas en venta en Cataluña"}
             </h1>
             <p className="mt-3 max-w-2xl text-[15.5px] text-ink-500">
               {rent
-                ? "Inmuebles en alquiler publicados por FINCALIA360 y por inmobiliarias colaboradoras. Cada anuncio se revisa antes de publicarse."
-                : "Inmuebles en venta publicados por FINCALIA360 y por inmobiliarias colaboradoras. Cada anuncio se revisa antes de publicarse."}
+                ? "Inmuebles en alquiler en Barcelona, Girona, Lleida y Tarragona, publicados por FINCALIA360 y por inmobiliarias colaboradoras. Cada anuncio se revisa antes de publicarse."
+                : "Inmuebles en venta en Barcelona, Girona, Lleida y Tarragona, publicados por FINCALIA360 y por inmobiliarias colaboradoras. Cada anuncio se revisa antes de publicarse."}
             </p>
           </div>
         </section>
@@ -79,8 +79,8 @@ export async function PortalSearchPage({ operation, filters }: { operation: "SAL
                 <label className="block">
                   <span className="field-label">Provincia</span>
                   <select name="provincia" defaultValue={filters.provincia ?? ""} className="field">
-                    <option value="">Todas</option>
-                    {[...PROVINCES].sort((a, b) => a.name.localeCompare(b.name, "es")).map((p) => (
+                    <option value="">Toda Cataluña</option>
+                    {PROVINCES.filter((p) => isPortalProvince(p.code)).sort((a, b) => a.name.localeCompare(b.name, "es")).map((p) => (
                       <option key={p.code} value={p.code}>
                         {p.name}
                       </option>
