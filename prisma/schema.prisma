@@ -247,6 +247,8 @@ model Study {
   rentEstimate       Int?
   confidence         String // HIGH | MEDIUM | LOW | VERY_LOW | NONE
   tensionedStatus    String // DECLARED | PARTIAL | EXPIRED | NOT_FOUND | UNKNOWN
+  /// Nombre que el propietario quiere en la portada del informe PDF (opcional; solo para su informe).
+  reportClientName   String?
   // Captación comercial (solo si el propietario lo solicita)
   valuationRequested Boolean          @default(false)
   commercialStatus   String           @default("NEW") // NEW | CONTACTED | VALUATION_SCHEDULED | VALUATION_DONE | NOT_INTERESTED
@@ -631,4 +633,33 @@ model AuditLog {
 
   @@index([agencyId, createdAt])
   @@index([entity, entityId])
+}
+
+// ---------------------------------------------------------------------------
+// Comparables de alquiler registrados por el equipo (anuncios consultados a mano, con enlace y fecha).
+// Son PRECIOS ANUNCIADOS, no rentas de contratos firmados. Se muestran en el informe con su fuente.
+// ---------------------------------------------------------------------------
+model RentComparable {
+  id               String   @id @default(cuid())
+  createdAt        DateTime @default(now())
+  provinceCode     String
+  municipalityCode String? // código INE (5 cifras) si se conoce
+  municipalityName String
+  zone             String?
+  propertyKind     String? // PISO | ATICO | DUPLEX | ESTUDIO | CASA_ADOSADA | CASA_INDEPENDIENTE | VILLA
+  monthlyRent      Int // € al mes anunciados
+  builtArea        Int? // m² construidos
+  usefulArea       Int? // m² útiles
+  bedrooms         Int?
+  bathrooms        Int?
+  furnished        Boolean?
+  features         String? // texto libre: ascensor, terraza, garaje…
+  sourceName       String // portal o fuente (p. ej. «Idealista», «Fotocasa», «anuncio en inmobiliaria»)
+  url              String?
+  observedAt       DateTime // fecha de consulta del anuncio
+  notes            String?
+  createdBy        String?
+
+  @@index([municipalityCode, observedAt])
+  @@index([provinceCode])
 }

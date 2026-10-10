@@ -61,6 +61,8 @@ async function render(input: StudyInput, snapshot: StudySnapshot, assumptions: u
   return { bytes, pages, all: pages.join("\n") };
 }
 const norm = (s: string) => s.replace(/\s+/g, " ");
+/** Página del resumen ejecutivo (tras la portada y el índice). */
+const summaryOf = (pages: string[]) => pages.find((p) => /RESULTADO (CON LAS HIP|NO CONCLUYENTE)/.test(p)) ?? "";
 
 describe("informe: valoración completa con impuestos", () => {
   const { input, snapshot } = fullCase();
@@ -79,7 +81,7 @@ describe("informe: valoración completa con impuestos", () => {
   it("las cifras de la primera página coinciden exactamente con el modelo (web = PDF)", async () => {
     const { pages, bytes } = await render(input, snapshot, a);
     expect(Buffer.from(bytes.slice(0, 5)).toString()).toBe("%PDF-");
-    const p1 = pages[0];
+    const p1 = summaryOf(pages);
     expect(p1).toContain(fmtEur(report.sale.used));
     expect(p1).toContain(`Intervalo ${fmtEur(276000)} – ${fmtEur(324000)}`);
     expect(p1).toContain(fmtEur(report.main.sellNow!.breakdown.net));
@@ -97,10 +99,12 @@ describe("informe: valoración completa con impuestos", () => {
 
   it("control de calidad: un único pie por página, títulos numerados una vez y sin cifras vacías", async () => {
     const { pages, all } = await render(input, snapshot, a);
-    pages.forEach((p, i) => {
-      expect(p.match(/Página \d+ de \d+/g)).toEqual([`Página ${i + 1} de ${pages.length}`]);
+    // La portada no lleva pie; el resto, uno solo con su número
+    expect(pages[0].match(/Página \d+ de \d+/g)).toBeNull();
+    pages.slice(1).forEach((p, i) => {
+      expect(p.match(/Página \d+ de \d+/g)).toEqual([`Página ${i + 2} de ${pages.length}`]);
     });
-    for (let n = 1; n <= 14; n++) expect(all.match(new RegExp(`^${n}\\. `, "gm"))?.length ?? 0).toBe(1);
+    for (let n = 1; n <= 12; n++) expect(all.match(new RegExp(`^${n}\\. `, "gm"))?.length ?? 0).toBe(1);
     expect(all).not.toMatch(/NaN|undefined|Infinity|null €/);
     expect(all.split("\n").filter((l) => /(^|[^0-9] )€/.test(l))).toEqual([]); // ninguna unidad sin cifra
   });
@@ -118,7 +122,7 @@ describe("informe: casos obligatorios", () => {
     expect(report.main.sellNow).toBeNull();
     expect(report.sensitivity.every((s) => !s.available)).toBe(true);
     const { pages } = await render(input, snapshot, a);
-    const p1 = norm(pages[0]);
+    const p1 = norm(summaryOf(pages));
     expect(p1).toContain("RESULTADO NO CONCLUYENTE");
     expect(p1).toContain("Sin valoración fiable");
     expect(p1).not.toContain("RESULTADO CON LAS");
@@ -151,8 +155,8 @@ describe("informe: casos obligatorios", () => {
     expect(report.rent.used).toBe(700);
     expect(report.rent.capped).toBe(true);
     const { pages } = await render(input, tensioned, buildDefaultAssumptions(input).values);
-    expect(pages[0]).toContain("700 €/mes");
-    expect(norm(pages[0])).toContain("limitada al tope legal");
+    expect(summaryOf(pages)).toContain("700 €/mes");
+    expect(norm(summaryOf(pages))).toContain("limitada al tope legal");
   });
 
   it("zona tensionada sin datos del contrato anterior: renta legal no determinada y se avisa", () => {
@@ -171,7 +175,7 @@ describe("informe: casos obligatorios", () => {
     expect(report.main.sellNow!.breakdown.complete).toBe(false);
     expect(report.conclusive).toBe(false); // sin precio de compra no se puede calcular el impuesto
     const { pages } = await render(input, snapshot, a);
-    expect(norm(pages[0])).toContain("INCOMPLETO");
+    expect(norm(summaryOf(pages))).toContain("INCOMPLETO");
   });
 
   it("impago: las hipótesis modificadas en la web llegan al informe", async () => {

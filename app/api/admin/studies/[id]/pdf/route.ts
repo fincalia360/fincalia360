@@ -15,7 +15,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const { id } = await params;
   const study = await getStudyAdmin(id);
   if (!study) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
-  const bytes = await renderStudyPdf({ studyId: id, input: study.input, snapshot: study.snapshot, assumptions: study.assumptions, horizon: study.input.owner.horizon });
+  const bytes = await renderStudyPdf({ studyId: id, input: study.input, snapshot: study.snapshot, assumptions: study.assumptions, horizon: study.input.owner.horizon, clientName: study.reportClientName });
   return new NextResponse(Buffer.from(bytes), {
     headers: { "Content-Type": "application/pdf", "Content-Disposition": `inline; filename="estudio-${id.slice(-8)}.pdf"`, "Cache-Control": "no-store" },
   });

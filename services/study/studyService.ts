@@ -306,6 +306,14 @@ const assumptionsSchema = z
   .partial()
   .catchall(num);
 
+/** Nombre para la portada del informe (opcional; solo lo guarda quien tiene acceso al estudio). "" lo borra. */
+export async function saveReportClientName(id: string, token: string | undefined, name: string) {
+  const study = await prisma.study.findUnique({ where: { id }, select: { tokenHash: true } });
+  if (!study || !verifyToken(token, study.tokenHash)) return false;
+  await prisma.study.update({ where: { id }, data: { reportClientName: name.trim().slice(0, 120) || null } });
+  return true;
+}
+
 export async function saveAssumptions(id: string, token: string | undefined, raw: unknown) {
   const study = await prisma.study.findUnique({ where: { id } });
   if (!study || !verifyToken(token, study.tokenHash)) return null;

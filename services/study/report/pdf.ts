@@ -13,6 +13,9 @@ import sharp from "sharp";
 import { assumptionMeta, hintsFromSnapshot } from "../assumptions";
 import { studyGeo } from "../geoLookup";
 import { MAP_INFO, renderAllMaps } from "../maps";
+import { loadComparablesFor, summarizeComparables, type ComparableRow } from "../rentComparables";
+import { simulate } from "../simulator";
+import { addInternalLink, addOutline, addUriLink, drawCover, drawToc, tocPagesNeeded, type NavEntry } from "./navigation";
 import {
   CONFIDENCE_LABELS,
   CURRENT_USE_LABELS,
@@ -96,19 +99,34 @@ class Writer {
     }
     this.y -= opts.gap ?? 2;
   }
+  /** Secciones dibujadas (para el índice y los marcadores): página y altura donde empiezan. */
+  nav: NavEntry[] = [];
+  /** Enlaces externos a crear (las páginas ya existen; se añaden al final). */
+  links: Array<{ page: PDFPage; rect: [number, number, number, number]; url: string }> = [];
   /** Título de sección: nunca queda separado de su contenido (reserva espacio para varias líneas). */
-  heading(num: number | null, title: string, reserve = 110) {
+  heading(num: number | null, title: string, reserve = 110, navLevel: 1 | 2 = 1) {
     this.ensure(30 + reserve);
+    this.nav.push({ level: navLevel, num: num != null ? String(num) : null, title, page: this.page, y: this.y });
     this.y -= 10;
     this.page.drawText(cleanPdfText(num != null ? `${num}. ${title}` : title), { x: M, y: this.y - 14, size: 13, font: this.bold, color: INK });
     this.y -= 20;
     this.page.drawLine({ start: { x: M, y: this.y }, end: { x: A4.w - M, y: this.y }, thickness: 0.6, color: LINE });
     this.y -= 8;
   }
-  subheading(title: string) {
+  subheading(title: string, nav = false) {
     this.ensure(60);
+    if (nav) this.nav.push({ level: 2, num: null, title, page: this.page, y: this.y });
     this.y -= 4;
     this.text(title, { bold: true, size: 10 });
+  }
+  /** Texto con enlace externo (toda la línea o líneas son clicables). */
+  linkText(text: string, url: string | undefined, opts: { size?: number; color?: ReturnType<typeof rgb> } = {}) {
+    const size = opts.size ?? 8;
+    const h = this.height(text, size, this.font, CONTENT_W);
+    this.ensure(h + 4);
+    const top = this.y;
+    this.text(text, { size, color: opts.color });
+    if (url) this.links.push({ page: this.page, rect: [M - 2, this.y, A4.w - M + 2, top], url });
   }
   row(label: string, value: string, note?: string, color = INK) {
     const size = 9.5;
@@ -382,33 +400,42 @@ export async function renderStudyPdf(params: {
   generatedAt?: Date;
   /** Planos de Catastro e IGN (requieren conexión). Por defecto, sí. */
   includeMaps?: boolean;
+  /** Nombre para la portada (lo indica el propietario al descargar). Sin él, la portada dice «No indicado». */
+  clientName?: string | null;
+  /** Comparables de alquiler registrados por el equipo. Si no se pasan, se buscan en la base de datos. */
+  comparables?: ComparableRow[];
 }) {
   const { input, snapshot } = params;
   const report = buildStudyReport(input, snapshot, params.assumptions, params.horizon);
   const a = report.assumptions;
   const generatedAt = params.generatedAt ?? new Date();
   const doc = await PDFDocument.create();
-  doc.setTitle("Estudio vender o alquilar - FINCALIA360");
+  doc.setTitle("Estudio inmobiliario personalizado - FINCALIA360");
   doc.setAuthor("FINCALIA360");
+  doc.setSubject("Análisis de rentabilidad: venta frente a alquiler");
   doc.setCreationDate(generatedAt);
   const font = await doc.embedFont(StandardFonts.Helvetica);
   const bold = await doc.embedFont(StandardFonts.HelveticaBold);
+  const logo = await loadLogo(doc);
   const w = new Writer(doc, font, bold);
+  const prov = getProvince(input.location.provinceCode);
+  const ccaa = getCcaa(input.location.ccaaCode);
+  const comparableRows = params.comparables ?? (await loadComparablesFor(input).catch(() => []));
+  const comps = summarizeComparables(comparableRows, input, generatedAt);
 
-  // ---------------- Página 1: resumen ----------------
-  writeSummaryPage(w, report, input, params.studyId, generatedAt, await loadLogo(doc));
+  // ---------------- Resumen ejecutivo (primera página de contenido) ----------------
+  w.nav.push({ level: 1, num: null, title: "Resumen ejecutivo y conclusiones", page: w.page, y: A4.h });
+  writeSummaryPage(w, report, input, params.studyId, generatedAt, logo);
 
   // ---------------- Detalle ----------------
   w.newPage();
   w.text("Detalle técnico", { bold: true, size: 16 });
   w.text("Procedencia de cada dato: [Dato oficial], [Aportado por el propietario], [Precio observado en el mercado], [Estimación del modelo], [Hipótesis modificable] o [Dato de EJEMPLO].", { size: 8, color: MUTED, gap: 4 });
 
-  // 1. Propiedad
-  w.heading(1, "Resumen de la propiedad");
-  const prov = getProvince(input.location.provinceCode);
-  const ccaa = getCcaa(input.location.ccaaCode);
+  // 1. Datos del inmueble
+  w.heading(1, "Datos del inmueble");
   w.row("Ubicación [Aportado]", `${input.location.municipalityName} (${prov?.name}, ${ccaa?.name}) · CP ${input.location.postalCode}`);
-  w.row("Tipo y superficie [Aportado]", `${PROPERTY_KIND_LABELS[input.property.kind]} · ${input.property.sqm} m² · ${input.property.bedrooms} hab. · ${input.property.bathrooms} baños`);
+  w.row("Tipo y superficie [Aportado]", `${PROPERTY_KIND_LABELS[input.property.kind]} · ${input.property.sqm} m² · ${input.property.bedrooms} hab. · ${input.property.bathrooms} baños`, "Superficie construida indicada en el estudio. La superficie útil no se ha indicado: no se tratan como equivalentes.");
   w.row("Situación actual [Aportado]", CURRENT_USE_LABELS[input.property.currentUse]);
   const p = input.property;
   const extras = [
@@ -432,7 +459,7 @@ export async function renderStudyPdf(params: {
   // Ubicación y planos (Catastro e IGN). Si un servicio no responde, se indica.
   if (params.includeMaps !== false) {
     const geo = await studyGeo(input, snapshot);
-    w.heading(null, "Ubicación y planos", 330);
+    w.heading(null, "Ubicación y planos", 330, 2);
     if (!geo) {
       w.text(
         input.location.cadastralRef
@@ -453,8 +480,28 @@ export async function renderStudyPdf(params: {
     }
   }
 
-  // 2. Valoración
-  w.heading(2, "Valoración de venta");
+  // 2. Mercado de la zona
+  w.heading(2, "Análisis del mercado inmobiliario de la zona");
+  const pop = snapshot.zone.population;
+  if (pop) {
+    const lastP = pop.points[pop.points.length - 1];
+    const first = pop.points[0];
+    w.row("Población [Dato oficial]", `${lastP.value.toLocaleString("es-ES")} habitantes (${lastP.period})`, `Variación ${first.period}–${lastP.period}: ${(((lastP.value - first.value) / first.value) * 100).toFixed(1)} %. Fuente: ${pop.source.name}.`);
+  }
+  const seriesRow = (s: StudySnapshot["zone"]["rentIndex"], label: string) => {
+    if (!s) return;
+    const pts = s.points.slice(-5).map((pt) => `${pt.period}: ${pt.value.toLocaleString("es-ES", { maximumFractionDigits: 2 })}`).join(" · ");
+    w.row(`${label} [Dato oficial]`, s.unit, `${pts}. Fuente: ${s.source.name}.`);
+  };
+  seriesRow(snapshot.zone.rentM2History, "Alquiler declarado (SERPAVI)");
+  seriesRow(snapshot.zone.rentalStock, "Viviendas en alquiler habitual (SERPAVI)");
+  seriesRow(snapshot.zone.rentIndex, "Índice de alquiler municipal (IPVA)");
+  seriesRow(snapshot.zone.priceIndexCcaa, "Índice de precios de vivienda (IPV, CCAA)");
+  seriesRow(snapshot.zone.touristDwellingsPct, "Viviendas turísticas");
+  snapshot.zone.unavailable.forEach((u) => w.text(`• No disponible: ${u.indicator}. ${u.reason}`, { size: 8, color: MUTED }));
+
+  // 3. Valoración
+  w.heading(3, "Estimación del valor de venta");
   if (report.sale.used == null) {
     w.text(report.sale.message, { color: WARN, bold: true });
     w.text(`Datos necesarios: ${report.sale.needed.join("; ")}.`);
@@ -475,8 +522,8 @@ export async function renderStudyPdf(params: {
   }
   report.sale.alternatives.forEach((e) => w.row(`Estimación alternativa ${tag(e.origin)}`, fmtEur(e.value), `${e.method} ${srcLine(e)}`));
 
-  // 3. Alquiler
-  w.heading(3, "Alquiler: referencia, mercado, régimen legal y renta utilizada");
+  // 4. Alquiler
+  w.heading(4, "Estimación del precio de alquiler");
   const st = report.rent.statistical;
   w.row(
     "Renta de referencia estadística [Dato oficial]",
@@ -490,30 +537,74 @@ export async function renderStudyPdf(params: {
     mk ? `${mk.method} ${srcLine(mk)}` : "No hay una fuente autorizada de precios de mercado configurada (ver Fuentes).",
   );
   if (report.rent.ownerCurrent != null) w.row("Renta de tu contrato vigente [Aportado]", `${fmtEur(report.rent.ownerCurrent)}/mes`);
+
+  // 4.1 Comparables registrados (anuncios consultados por el equipo)
+  w.subheading("Comparables de alquiler anunciados", true);
+  if (!comps.rows.length) {
+    w.text(`${comps.note} Sin comparables no se da un rango de anuncios: la estimación se apoya en las fuentes oficiales de arriba, con menor confianza.`, { size: 8.5, color: MUTED });
+  } else {
+    w.table(
+      ["Anuncio (fuente · fecha)", "Renta/mes", "m²", "Precio/m² mes", "Diferencias con tu vivienda"],
+      comps.rows.slice(0, 12).map((c) => [
+        `${c.sourceName}${c.zone ? ` · ${c.zone}` : ""} · ${fmtDate(c.observedAt.toISOString())}`,
+        fmtEur(c.monthlyRent),
+        c.builtArea ? String(c.builtArea) : "—",
+        c.perM2 != null ? c.perM2.toLocaleString("es-ES", { maximumFractionDigits: 2 }) : "—",
+        c.differences.join(", ") || "Similar",
+      ]),
+      [2.2, 0.9, 0.6, 0.8, 2],
+    );
+    comps.rows.slice(0, 12).forEach((c, i) => {
+      if (c.url) w.linkText(`Anuncio ${i + 1}: ${c.url}`, c.url, { size: 7.5, color: MUTED });
+    });
+    w.text(comps.note, { size: 8, color: MUTED });
+  }
+
+  // 4.2 Rango orientativo y precio recomendado (cuatro conceptos distintos)
+  w.subheading("Rango orientativo y precio recomendado", true);
+  const rangeRows: string[][] = [];
+  if (comps.monthly && comps.perM2) {
+    rangeRows.push([
+      `Anuncios comparables (${comps.used}) [Precio observado en el mercado]`,
+      fmtEur(comps.monthly.conservative),
+      fmtEur(comps.monthly.market),
+      fmtEur(comps.monthly.high),
+      `${comps.perM2.p50.toLocaleString("es-ES", { maximumFractionDigits: 2 })} €/m²`,
+    ]);
+  }
+  if (st) rangeRows.push([`Contratos vigentes declarados (SERPAVI) [Dato oficial]`, fmtEur(st.low), fmtEur(st.value), fmtEur(st.high), `${st.perM2.toLocaleString("es-ES", { maximumFractionDigits: 2 })} €/m²`]);
+  if (mk) rangeRows.push([`Estimación de mercado ${tag(mk.origin)}`, fmtEur(mk.low), fmtEur(mk.value), fmtEur(mk.high), `${mk.perM2.toLocaleString("es-ES", { maximumFractionDigits: 2 })} €/m²`]);
+  if (rangeRows.length) {
+    w.table(["Fuente", "Conservador", "Central", "Alto", "Precio/m² mes"], rangeRows, [2.6, 0.9, 0.9, 0.9, 0.9]);
+  } else w.text("No hay fuentes de alquiler suficientes para dar un rango.", { color: WARN, size: 9 });
   const rg = report.rent.regime;
+  w.row("1 · Precio de mercado observado", comps.monthly ? `${fmtEur(comps.monthly.market)}/mes` : "No disponible", comps.monthly ? `Mediana de ${comps.used} anuncios (precio de oferta). Fecha del más reciente: ${fmtDate(comps.latest!.toISOString())}.` : "Sin anuncios comparables registrados para esta zona.");
   w.row(
-    "Renta máxima aplicable en un nuevo contrato",
+    "2 · Precio orientativo de publicación",
+    comps.monthly ? `${fmtEur(comps.monthly.conservative)} – ${fmtEur(comps.monthly.high)}/mes` : st ? `${fmtEur(st.low)} – ${fmtEur(st.high)}/mes` : "No disponible",
+    comps.monthly ? "Rango P25–P75 de los anuncios comparables." : st ? "Sin anuncios: se muestra la franja P25–P75 de los contratos declarados (SERPAVI), que suele quedar por debajo de los anuncios." : undefined,
+  );
+  w.row(
+    "3 · Renta máxima legal aplicable",
     rg.capMonthly != null ? `${fmtEur(rg.capMonthly)}/mes` : rg.status === "NO_SPECIFIC_CAP" ? "Sin tope específico" : "No determinable",
     rg.summary,
     rg.capMonthly == null && rg.status !== "NO_SPECIFIC_CAP" ? WARN : INK,
   );
+  w.row("4 · Renta recomendada (la utilizada en el estudio)", report.rent.used == null ? "Ninguna" : `${fmtEur(report.rent.used)}/mes · ${fmtEur(report.rent.used * 12)}/año`, `${RENT_SOURCE_LABELS[report.rent.usedSource]}${report.rent.capped ? " (limitada al tope legal)" : ""}. ${report.rent.notes.join(" ")}`);
+  w.text("El precio de mercado no siempre puede cobrarse legalmente: en zona tensionada o con un contrato anterior reciente, la renta de un nuevo contrato puede estar limitada (ver régimen legal).", { size: 8, color: MUTED });
+
+  // 4.3 Régimen legal (bloque existente)
+  w.subheading("Régimen legal del alquiler", true);
   w.text(`Normativa: ${rg.source.legalBasis}. Ámbito: ${rg.source.scope}. Vigencia de la zona: ${fmtDate(rg.source.validFrom)} – ${fmtDate(rg.source.validTo)}. Fuente: ${rg.source.zoneSource}${rg.source.resolution ? ` (${rg.source.resolution})` : ""}.`, { size: 8, color: MUTED });
   rg.rules.forEach((x) => w.text(`• ${x}`, { size: 8 }));
   if (rg.requirements.length) w.text(`Requisitos: ${rg.requirements.join(" ")}`, { size: 8 });
   if (rg.missing.length) w.text(`Datos necesarios para fijar la renta máxima: ${rg.missing.join("; ")}`, { size: 8, color: WARN });
-  w.row("Renta mensual utilizada en la simulación", report.rent.used == null ? "Ninguna" : `${fmtEur(report.rent.used)}/mes`, `${RENT_SOURCE_LABELS[report.rent.usedSource]}. ${report.rent.notes.join(" ")}`);
 
-  // 4. Rentabilidad
-  w.heading(4, "Rentabilidad del alquiler (año 1)");
+  // 5. Comparativa vender / alquilar
   const ym = report.main;
-  w.row("Rentabilidad bruta anual sobre el valor de venta [Modelo]", fmtPct(ym.yields.gross), "Renta anual / valor de venta.");
-  w.row("Rentabilidad neta anual antes de impuestos [Modelo]", fmtPct(ym.yields.net), "Descuenta desocupación, comunidad, IBI, seguro, mantenimiento y gestión (sin hipoteca).");
-  w.row("Rentabilidad neta anual después de impuestos [Modelo]", fmtPct(ym.yields.netAfterTax));
-
-  // 5. Escenarios
-  w.heading(5, `Escenarios a ${report.horizon} años`, 160);
+  w.heading(5, "Comparativa entre vender y alquilar", 160);
   scenarioSection(w, ym);
-  w.subheading("Comparativa a 1, 3, 5 y 10 años (patrimonio neto, euros corrientes)");
+  w.subheading("Comparativa a 1, 3, 5 y 10 años (patrimonio neto, euros corrientes)", true);
   w.table(
     ["Horizonte", "A · Vender hoy", "B · Alquilar y vender", "C · Mantener", "Caja acumulada"],
     [1, 3, 5, 10].map((h) => {
@@ -522,9 +613,19 @@ export async function renderStudyPdf(params: {
     }),
     [1, 1.3, 1.4, 1.3, 1.3],
   );
+  w.subheading("Variables que más influyen (sensibilidad de B − A)", true);
+  w.table(
+    ["Variable", "B − A a la baja", "B − A base", "B − A al alza", "Observación"],
+    report.sensitivity.map((s) => [s.label, s.available ? fmtEur(s.down) : "—", s.available ? fmtEur(s.base) : "—", s.available ? fmtEur(s.up) : "—", s.available ? (s.reason ?? "") : `No calculado: ${s.reason}`]),
+    [1.6, 1, 1, 1, 1.8],
+  );
 
-  // 6. Flujo de caja anual
-  w.heading(6, "Flujo de caja del alquiler año a año");
+  // 6. Rentabilidad
+  w.heading(6, "Rentabilidad del alquiler");
+  w.row("Rentabilidad bruta anual sobre el valor de venta [Modelo]", fmtPct(ym.yields.gross), "Renta anual / valor de venta.");
+  w.row("Rentabilidad neta anual antes de impuestos [Modelo]", fmtPct(ym.yields.net), "Descuenta desocupación, comunidad, IBI, seguro, mantenimiento y gestión (sin hipoteca).");
+  w.row("Rentabilidad neta anual después de impuestos [Modelo]", fmtPct(ym.yields.netAfterTax));
+  w.subheading("Flujo de caja del alquiler año a año", true);
   if (!ym.rental) w.text("No calculable: falta la renta.", { color: WARN });
   else
     w.table(
@@ -532,9 +633,10 @@ export async function renderStudyPdf(params: {
       ym.rental.rows.map((row) => [String(row.year), fmtEur(row.collectedRent), fmtEur(row.operatingCosts), fmtEur(row.interest + row.principal), fmtEur(row.incomeTax), fmtEur(row.cashFlow)]),
       [0.6, 1.2, 1.1, 1.1, 1.1, 1.1],
     );
+  w.text("La cuota de la hipoteca (intereses + capital) es un pago de financiación: resta en el flujo de caja, pero no en las rentabilidades, que miden la vivienda sin financiación.", { size: 8, color: MUTED });
 
   // 7. Fiscalidad
-  w.heading(7, "Impuestos y gastos de la operación");
+  w.heading(7, "Gastos e impuestos de cada escenario");
   if (ym.sellNow) {
     const b = ym.sellNow.breakdown;
     w.row("Precio de venta", fmtEur(b.salePrice));
@@ -555,10 +657,79 @@ export async function renderStudyPdf(params: {
   w.text(`${inh.title}: ${inh.summary}`, { size: 8.5 });
   w.text(`Normativa de referencia: ${TAX_RULES_VERSION}. Estimaciones no vinculantes: consulta con un asesor fiscal.`, { size: 7.5, color: MUTED });
 
-  // 8. Impagos
-  w.heading(8, "Escenarios adversos de impago y ocupación (ilustrativos)", 160);
-  if (!report.risk) w.text("No calculable: falta la renta.", { color: WARN });
+  // 8. Gestión, abogados y desahucio (desglose informativo de las MISMAS cifras del escenario de riesgo)
+  w.heading(8, "Gastos de gestión, abogados y posibles desahucios");
+  if (y1r) {
+    w.row(`Gestión del alquiler (${a.managementPct} % de la renta cobrada) [Hipótesis]`, a.managementPct > 0 ? `${fmtEur(y1r.management)}/año` : "0 € (gestión propia)", "Se incluye en los gastos del alquiler (sección 6).");
+  }
+  const evRow = report.risk?.rows.find((row) => row.type === "EVICTION_ARREARS");
+  const ev = evRow?.results.find((x) => x.months === 6);
+  if (!report.risk || !ev) w.text("No calculable: falta la renta.", { color: WARN });
   else {
+    const interestPart = report.risk.monthlyMortgageInterest * ev.months;
+    const opportunityPart = ev.otherCosts - interestPart;
+    w.text(`Supuesto ilustrativo: impago de ${ev.months} meses que termina en desahucio, con la renta usada (${fmtEur(report.risk.monthlyRent)}/mes). No es una predicción.`, { size: 8.5 });
+    w.table(
+      ["Concepto", "Importe", "Naturaleza"],
+      [
+        ["Gastos profesionales (abogado y, si procede, procurador)", fmtEur(ev.legalCosts), "Hipótesis modificable (no es una tarifa)"],
+        [`Rentas pendientes (${ev.months} meses impagados)`, fmtEur(ev.unpaidRent), "Escenario hipotético"],
+        ["Posible recuperación: fianza aplicada a la deuda", fmtEur(-ev.depositApplied), "Hipótesis modificable"],
+        [`Ingresos no percibidos hasta volver a alquilar (${a.riskReletMonths} mes/es)`, fmtEur(ev.reletLoss), "Hipótesis modificable"],
+        ["Gastos ordinarios del periodo sin renta que los cubra", fmtEur(ev.ordinaryExpenses), "Comunidad, IBI, seguro y otros"],
+        ["Daños y reparaciones", fmtEur(ev.repairs), "Hipótesis modificable"],
+        ["Intereses de la hipoteca del periodo", fmtEur(interestPart), interestPart > 0 ? "Se pagan igualmente" : "Sin hipoteca"],
+        ["Coste de oportunidad de la renta no cobrada", fmtEur(opportunityPart), "No es una salida de dinero"],
+        ["Coste económico total del periodo", fmtEur(ev.total), "Suma de las filas anteriores"],
+        ["Coste adicional frente a un alquiler normal", fmtEur(ev.incrementalCost), "Sin gastos ordinarios ni intereses"],
+      ],
+      [2.6, 1, 1.8],
+    );
+    w.text(
+      "Cada importe aparece una sola vez: las rentas pendientes no incluyen los honorarios, y los meses hasta volver a alquilar se cuentan aparte de la desocupación habitual del alquiler. Las rentas pendientes son reclamables al inquilino, pero su cobro efectivo no está garantizado.",
+      { size: 8, color: MUTED },
+    );
+    w.subheading("Conceptos que pueden intervenir (según el caso)", true);
+    [
+      "Consulta jurídica inicial y revisión del contrato.",
+      "Requerimiento formal de pago y comunicaciones fehacientes (p. ej. burofax).",
+      "Honorarios de abogado y, cuando sean preceptivos según el procedimiento y la cuantía, de procurador.",
+      "Notificaciones y gastos del procedimiento; cerrajero el día del lanzamiento, si procede.",
+      "Recuperación y puesta a punto de la vivienda; suministros a cargo del propietario.",
+    ].forEach((t) => w.text(`• ${t}`, { size: 8.5 }));
+    w.text(
+      "No se publican tarifas oficiales de abogados: los honorarios son libres y los colegios solo publican criterios orientativos para costas. La cifra usada es una hipótesis que puedes cambiar en la web; pide presupuesto a un profesional de tu zona. La duración depende del juzgado, de la oposición del inquilino y de la posible valoración de vulnerabilidad: no se promete ningún plazo.",
+      { size: 8, color: MUTED },
+    );
+  }
+
+  // 9. Escenarios de riesgo
+  w.heading(9, "Escenarios de riesgo del alquiler", 160);
+  if (!report.risk || report.ctx.monthlyRent == null || report.ctx.saleValue == null) {
+    w.text("No calculable: faltan la renta o el valor de venta.", { color: WARN });
+  } else {
+    const normal = simulate(input, { ...a, vacancyMonths: 0 }, 1, report.ctx);
+    const vacancyMonths = a.vacancyMonths > 0 ? a.vacancyMonths : 2;
+    const vacancy = simulate(input, { ...a, vacancyMonths }, 1, report.ctx);
+    const n1 = normal.rental!.rows[0];
+    const v1 = vacancy.rental!.rows[0];
+    const extraLoss = ev ? ev.lostIncome + ev.legalCosts + ev.repairs : null;
+    w.table(
+      ["Año 1", "1 · Alquiler normal", `2 · ${vacancyMonths} mes(es) sin inquilino`, "3 · Impago y desahucio"],
+      [
+        ["Renta cobrada", fmtEur(n1.collectedRent), fmtEur(v1.collectedRent), ev ? fmtEur(n1.collectedRent - ev.unpaidRent + ev.depositApplied - ev.reletLoss) : "—"],
+        ["Gastos de explotación", fmtEur(n1.operatingCosts), fmtEur(v1.operatingCosts), fmtEur(n1.operatingCosts)],
+        ["Jurídicos y reparaciones", "0 €", "0 €", ev ? fmtEur(ev.legalCosts + ev.repairs) : "—"],
+        ["Flujo de caja (tras hipoteca e impuestos)", fmtEur(n1.cashFlow), fmtEur(v1.cashFlow), extraLoss != null ? fmtEur(n1.cashFlow - extraLoss) : "—"],
+        ["Rentabilidad neta antes de impuestos", fmtPct(normal.yields.net), fmtPct(vacancy.yields.net), "—"],
+      ],
+      [1.8, 1.1, 1.3, 1.3],
+    );
+    w.text(
+      `Hipótesis: 1) ocupación completa; 2) ${vacancyMonths} mes(es) sin inquilino${a.vacancyMonths > 0 ? " (tu hipótesis de desocupación)" : " (supuesto ilustrativo: tu hipótesis es 0)"}, con los gastos que continúan; 3) impago de ${ev?.months ?? 6} meses con desahucio (sección 8): flujo normal − (ingresos perdidos + jurídicos + reparaciones). En el escenario 3 los impuestos se mantienen como en el 1 (simplificación prudente). Son simulaciones económicas, no predicciones.`,
+      { size: 8, color: MUTED },
+    );
+    w.subheading("Otros supuestos adversos (3, 6 y 12 meses)", true);
     w.text(`Renta usada: ${fmtEur(report.risk.monthlyRent)}/mes · gastos fijos ${fmtEur(report.risk.fixedCostsYear)}/año · intereses de hipoteca ${fmtEur(report.risk.monthlyMortgageInterest)}/mes.`, { size: 8.5 });
     w.table(
       ["Supuesto (6 meses)", "Ingresos perdidos", "Gastos ordinarios", "Jurídicos", "Reparaciones", "Otros", "Total periodo"],
@@ -584,36 +755,53 @@ export async function renderStudyPdf(params: {
     w.text(RISK_DISCLAIMER, { size: 8, color: MUTED });
   }
 
-  // 9. Zona
-  w.heading(9, "Información demográfica y de mercado");
-  const pop = snapshot.zone.population;
-  if (pop) {
-    const lastP = pop.points[pop.points.length - 1];
-    const first = pop.points[0];
-    w.row("Población [Dato oficial]", `${lastP.value.toLocaleString("es-ES")} habitantes (${lastP.period})`, `Variación ${first.period}–${lastP.period}: ${(((lastP.value - first.value) / first.value) * 100).toFixed(1)} %. Fuente: ${pop.source.name}.`);
+  // 10. Recomendación
+  w.heading(10, "Recomendación final razonada");
+  w.text(report.headline, { bold: true, size: 10, color: report.conclusive ? INK : WARN });
+  report.points.forEach((pt) => w.text(`• ${pt}`, { size: 9 }));
+  w.text("Esta conclusión depende de las hipótesis indicadas (revalorización, renta, gastos, impuestos y rentabilidad alternativa del dinero). Si cambian, la recomendación puede cambiar: revisa la tabla de sensibilidad de la sección 5.", { size: 8.5, color: MUTED });
+  w.y -= 6;
+  w.text("¿Quieres una valoración profesional?", { bold: true, size: 11 });
+  w.text("Descubre cuánto dinero podrías obtener por tu vivienda y compara esa cantidad con lo que podrías ganar manteniéndola en alquiler. Un especialista local puede revisar estos resultados, visitar la vivienda y afinar el precio y la renta aplicable. Gratis y sin compromiso: solicítala desde la página de tu estudio.", { size: 9.5 });
+
+  // 11. Fuentes y metodología
+  w.heading(11, "Fuentes consultadas y metodología");
+  const seen = new Set<string>();
+  const statusLabel = { OK: "consultada", STALE: "copia guardada (fuente no disponible)", ERROR: "error al consultar", NOT_CONFIGURED: "no configurada", NOT_AVAILABLE: "sin datos" };
+  for (const s of snapshot.sources) {
+    const key = `${s.name}|${s.status}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    w.linkText(`• ${s.name} — ${statusLabel[s.status]}${s.period ? ` · periodo ${s.period}` : ""}${s.retrievedAt ? ` · ${fmtDate(s.retrievedAt)}` : ""}${s.url ? ` · ${s.url}` : ""}${s.note ? ` · ${s.note}` : ""}`, s.url, { size: 8 });
   }
-  const seriesRow = (s: StudySnapshot["zone"]["rentIndex"], label: string) => {
-    if (!s) return;
-    const pts = s.points.slice(-5).map((pt) => `${pt.period}: ${pt.value.toLocaleString("es-ES", { maximumFractionDigits: 2 })}`).join(" · ");
-    w.row(`${label} [Dato oficial]`, s.unit, `${pts}. Fuente: ${s.source.name}.`);
-  };
-  seriesRow(snapshot.zone.rentM2History, "Alquiler declarado (SERPAVI)");
-  seriesRow(snapshot.zone.rentalStock, "Viviendas en alquiler habitual (SERPAVI)");
-  seriesRow(snapshot.zone.rentIndex, "Índice de alquiler municipal (IPVA)");
-  seriesRow(snapshot.zone.priceIndexCcaa, "Índice de precios de vivienda (IPV, CCAA)");
-  seriesRow(snapshot.zone.touristDwellingsPct, "Viviendas turísticas");
-  snapshot.zone.unavailable.forEach((u) => w.text(`• No disponible: ${u.indicator}. ${u.reason}`, { size: 8, color: MUTED }));
+  if (comps.rows.length) w.text(`• Comparables de alquiler registrados por FINCALIA360 (${comps.rows.length}): anuncios consultados a mano; enlaces en la sección 4.`, { size: 8 });
+  w.text(`• ${rg.source.legalBasis} (régimen legal del alquiler).`, { size: 8 });
+  w.text(`• Normativa fiscal: ${TAX_RULES_VERSION}.`, { size: 8 });
 
-  // 10. Sensibilidad
-  w.heading(10, "Variables que más influyen (sensibilidad de B − A)");
+  w.subheading("Clasificación de la información", true);
   w.table(
-    ["Variable", "B − A a la baja", "B − A base", "B − A al alza", "Observación"],
-    report.sensitivity.map((s) => [s.label, s.available ? fmtEur(s.down) : "—", s.available ? fmtEur(s.base) : "—", s.available ? fmtEur(s.up) : "—", s.available ? (s.reason ?? "") : `No calculado: ${s.reason}`]),
-    [1.6, 1, 1, 1, 1.8],
+    ["Categoría", "Cómo aparece en el informe"],
+    [
+      ["1 · Dato verificado", "[Dato oficial]: fuentes públicas citadas con fecha (Catastro, INE, Ministerios, BOE…)."],
+      ["2 · Estimación basada en comparables o en el modelo", "[Precio observado en el mercado] y [Estimación del modelo]: cálculos a partir de datos citados."],
+      ["3 · Hipótesis introducida por el usuario", "[Aportado por el propietario] y [Hipótesis modificable]: datos y supuestos que puedes cambiar en la web."],
+      ["4 · Escenario hipotético", "Impago, desahucio, desocupación y comparativas a 1–10 años: simulaciones, no predicciones."],
+      ["5 · Dato pendiente de verificación", "Lo marcado como «No calculable», «Sin valorar», «INCOMPLETO» o con fuente antigua (p. ej. tipo de plusvalía de 2021)."],
+    ],
+    [1.5, 3],
   );
+  w.subheading("Fórmulas utilizadas", true);
+  [
+    "Neto de la venta = precio − honorarios de agencia × (1 + IVA) − notaría y gestoría − cancelación de hipoteca y comisión − plusvalía municipal − IRPF de la ganancia − hipoteca pendiente.",
+    "Plusvalía = la menor entre el método objetivo (valor catastral del suelo × coeficiente por años × tipo municipal) y el real (ganancia × % de suelo × tipo).",
+    "Renta cobrada = renta mensual × 12 × (12 − meses sin inquilino) / 12.",
+    "Gastos de explotación = comunidad + IBI + seguro + otros + mantenimiento + gestión (+ gastos extraordinarios repartidos).",
+    "Flujo de caja = renta cobrada − gastos de explotación − cuota de la hipoteca (intereses + capital) − impuestos del alquiler.",
+    "Rentabilidad bruta = renta anual / valor de venta. Rentabilidad neta = (renta cobrada − gastos de explotación sin extraordinarios) / valor de venta.",
+    "Patrimonio A = neto de la venta × (1 + rentabilidad alternativa)^años. B = caja del alquiler reinvertida + neto de la venta futura. C = caja del alquiler reinvertida + (valor futuro − hipoteca pendiente).",
+  ].forEach((t) => w.text(`• ${t}`, { size: 8.5 }));
 
-  // 11. Hipótesis
-  w.heading(11, "Hipótesis utilizadas");
+  w.subheading("Hipótesis utilizadas", true);
   const meta = assumptionMeta(input, hintsFromSnapshot(snapshot));
   const show: Array<keyof StudyAssumptions> = [
     "appreciationPct", "rentGrowthPct", "costInflationPct", "vacancyMonths", "managementPct", "maintenancePctRent", "opportunityRatePct",
@@ -629,8 +817,12 @@ export async function renderStudyPdf(params: {
     [2.6, 1.2, 1.2],
   );
 
-  // 12. Limitaciones
-  w.heading(12, "Limitaciones y resultados incompletos");
+  // 12. Aviso legal y limitaciones
+  w.heading(12, "Aviso legal y limitaciones");
+  w.text(
+    "Estudio orientativo elaborado con la información aportada por el propietario y con fuentes públicas citadas. No es una tasación oficial (Orden ECO/805/2003) ni constituye asesoramiento financiero, fiscal o jurídico. FINCALIA360 no garantiza los resultados: los precios, las rentas, los plazos y los costes reales pueden diferir. Documento confidencial destinado al propietario del inmueble.",
+    { size: 8.5 },
+  );
   const limitations = [
     ...report.main.incomplete,
     ...(report.sale.estimate?.limitations ?? []),
@@ -645,34 +837,59 @@ export async function renderStudyPdf(params: {
     snapshot.missingData.forEach((m) => w.text(`• ${m}`, { size: 8.5 }));
   }
 
-  // 13. Fuentes (solo las utilizadas)
-  w.heading(13, "Fuentes consultadas y fechas");
-  const seen = new Set<string>();
-  const statusLabel = { OK: "consultada", STALE: "copia guardada (fuente no disponible)", ERROR: "error al consultar", NOT_CONFIGURED: "no configurada", NOT_AVAILABLE: "sin datos" };
-  for (const s of snapshot.sources) {
-    const key = `${s.name}|${s.status}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    w.text(`• ${s.name} — ${statusLabel[s.status]}${s.period ? ` · periodo ${s.period}` : ""}${s.retrievedAt ? ` · ${fmtDate(s.retrievedAt)}` : ""}${s.url ? ` · ${s.url}` : ""}`, { size: 8 });
+  // ---------------- Portada e índice al principio ----------------
+  const contentPages = doc.getPages().slice();
+  const cover = doc.insertPage(0, [A4.w, A4.h]);
+  const tocCount = tocPagesNeeded(w.nav);
+  const tocPages = Array.from({ length: tocCount }, (_, i) => doc.insertPage(1 + i, [A4.w, A4.h]));
+  drawCover(
+    cover,
+    {
+      clientName: params.clientName?.trim() || null,
+      address: input.location.address ?? snapshot.geo?.address ?? null,
+      cadastralRef: input.location.cadastralRef,
+      municipality: input.location.municipalityName,
+      province: prov?.name ?? null,
+      propertyLine: `${PROPERTY_KIND_LABELS[input.property.kind]} · ${input.property.sqm} m² construidos · ${input.property.bedrooms} hab. · ${input.property.bathrooms} baños`,
+      generatedAt,
+      studyId: params.studyId,
+    },
+    { regular: font, bold },
+    logo,
+    cleanPdfText,
+  );
+  const allPages = doc.getPages();
+  const pageNumberOf = (pg: PDFPage) => allPages.indexOf(pg) + 1;
+  drawToc(doc, tocPages, w.nav, { regular: font, bold }, pageNumberOf, cleanPdfText);
+
+  // Marcadores: secciones de nivel 1 con sus subapartados
+  const outline: Array<{ title: string; page: PDFPage; y: number; children: Array<{ title: string; page: PDFPage; y: number }> }> = [
+    { title: "Portada", page: cover, y: A4.h, children: [] },
+    { title: "Índice", page: tocPages[0], y: A4.h, children: [] },
+  ];
+  for (const e of w.nav) {
+    const title = e.num ? `${e.num}. ${e.title}` : e.title;
+    if (e.level === 1 || !outline.length) outline.push({ title, page: e.page, y: e.y, children: [] });
+    else outline[outline.length - 1].children.push({ title, page: e.page, y: e.y });
   }
-  w.text(`• ${rg.source.legalBasis} (régimen legal del alquiler).`, { size: 8 });
-  w.text(`• Normativa fiscal: ${TAX_RULES_VERSION}.`, { size: 8 });
+  addOutline(doc, outline);
+  for (const l of w.links) addUriLink(doc, l.page, l.rect, l.url);
 
-  // 14. Recomendaciones e invitación
-  w.heading(14, "Recomendaciones basadas en los escenarios calculados");
-  w.text(report.headline, { bold: true, size: 10, color: report.conclusive ? INK : WARN });
-  report.points.forEach((pt) => w.text(`• ${pt}`, { size: 9 }));
-  w.y -= 6;
-  w.text("¿Quieres una valoración profesional?", { bold: true, size: 11 });
-  w.text("Descubre cuánto dinero podrías obtener por tu vivienda y compara esa cantidad con lo que podrías ganar manteniéndola en alquiler. Un especialista local puede revisar estos resultados, visitar la vivienda y afinar el precio y la renta aplicable. Gratis y sin compromiso: solicítala desde la página de tu estudio.", { size: 9.5 });
-
-  // Pie de página único en cada página: «página X de N»
-  const pages = doc.getPages();
-  pages.forEach((pg, i) => {
+  // Pie de página en todas las páginas salvo la portada: «página X de N» y enlace al índice
+  allPages.forEach((pg, i) => {
+    if (i === 0) return;
     pg.drawText(cleanPdfText(`Estudio orientativo, no vinculante · Generado el ${generatedAt.toLocaleDateString("es-ES")} · Ref. ${params.studyId.slice(-8)}`), { x: M, y: 26, size: 7.5, font, color: MUTED });
-    const label = `Página ${i + 1} de ${pages.length}`;
+    const label = `Página ${i + 1} de ${allPages.length}`;
     pg.drawText(label, { x: A4.w - M - font.widthOfTextAtSize(label, 7.5), y: 26, size: 7.5, font, color: MUTED });
+    if (!tocPages.includes(pg)) {
+      const back = "Volver al índice";
+      const bw = font.widthOfTextAtSize(back, 7.5);
+      const bx = A4.w / 2 + 60;
+      pg.drawText(back, { x: bx, y: 26, size: 7.5, font, color: ACCENT });
+      addInternalLink(doc, pg, [bx - 2, 22, bx + bw + 2, 35], tocPages[0], A4.h);
+    }
   });
+  void contentPages;
 
   return doc.save({ useObjectStreams: false });
 }

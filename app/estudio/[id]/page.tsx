@@ -64,6 +64,7 @@ export default async function StudyResultPage({ params }: { params: Promise<{ id
               chatEnabled={claudeConfigured() || chatDemoEnabled()}
               chatDemo={chatDemoEnabled()}
               ccaaName={getCcaa(study.input.location.ccaaCode)?.name ?? ""}
+              initialClientName={study.reportClientName}
             />
           </>
         )}

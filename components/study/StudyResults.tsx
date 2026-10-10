@@ -114,6 +114,7 @@ export function StudyResults({
   emailConfigured,
   chatEnabled,
   chatDemo = false,
+  initialClientName = null,
 }: {
   studyId: string;
   input: StudyInput;
@@ -122,6 +123,8 @@ export function StudyResults({
   defaultAssumptions: StudyAssumptions;
   meta: Record<keyof StudyAssumptions, AssumptionMeta>;
   ccaaName: string;
+  /** Nombre guardado para la portada del PDF (opcional). */
+  initialClientName?: string | null;
   services: PublicService[];
   emailConfigured: boolean;
   chatEnabled: boolean;
@@ -130,6 +133,7 @@ export function StudyResults({
   const [a, setA] = useState<StudyAssumptions>(initialAssumptions);
   const [horizon, setHorizon] = useState<number>(input.owner.horizon);
   const [pdfStatus, setPdfStatus] = useState<"idle" | "loading" | "error">("idle");
+  const [clientName, setClientName] = useState(initialClientName ?? "");
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSaved = useRef(JSON.stringify(initialAssumptions));
 
@@ -152,7 +156,7 @@ export function StudyResults({
   async function downloadPdf() {
     setPdfStatus("loading");
     try {
-      const res = await fetch(`/api/estudio/${studyId}/informe`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ horizon, assumptions: a }) });
+      const res = await fetch(`/api/estudio/${studyId}/informe`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ horizon, assumptions: a, clientName }) });
       if (!res.ok) throw new Error();
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
@@ -192,10 +196,23 @@ export function StudyResults({
       <section id="resumen" className="scroll-mt-32 space-y-4">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <h2 className="font-serif text-3xl font-medium text-ink-800">Resumen</h2>
-          <Button onClick={downloadPdf} disabled={pdfStatus === "loading"} variant="outline">
-            {pdfStatus === "loading" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-            Descargar informe PDF
-          </Button>
+          <div className="flex flex-wrap items-end gap-2">
+            <label className="block">
+              <span className="mb-1 block text-[12px] font-medium text-ink-500">Nombre para la portada (opcional)</span>
+              <input
+                value={clientName}
+                onChange={(e) => setClientName(e.target.value)}
+                maxLength={120}
+                autoComplete="name"
+                placeholder="Nombre y apellidos"
+                className="field h-10 w-60 py-0 text-sm"
+              />
+            </label>
+            <Button onClick={downloadPdf} disabled={pdfStatus === "loading"} variant="outline">
+              {pdfStatus === "loading" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+              Descargar informe PDF
+            </Button>
+          </div>
         </div>
         {pdfStatus === "error" && <p className="text-sm text-red-600">No se pudo generar el PDF. Inténtalo de nuevo.</p>}
 
