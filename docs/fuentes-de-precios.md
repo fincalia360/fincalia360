@@ -6,14 +6,22 @@ Cada cifra del estudio y del PDF indica su fuente, su periodo y la fecha de cons
 
 1. **Dato del propietario**: tasación, valor de referencia del Catastro u oferta firme.
 2. **Referencias cargadas por el equipo** (panel → fuentes de datos), con su fuente.
-3. **Mapa de valores del Catastro (principal sin datos del propietario)**:
-   - Es el *módulo de valor medio* de la zona. La Dirección General del Catastro lo calcula cada año con los **precios de todas las compraventas escrituradas** (Informe Anual del Mercado Inmobiliario).
-   - Es por zonas homogéneas, no por municipio, e incluye una vivienda representativa y una **plaza de garaje representativa**.
-   - Requiere la referencia catastral, que se obtiene buscando la vivienda por su dirección.
+3. **Cataluña: precio de las compraventas registradas del municipio (principal sin datos del propietario)**:
+   - €/m² construido medio de las compraventas de vivienda **inscritas en el Registro de la Propiedad** en los últimos 12 meses (precios de cierre, no de anuncio). Se usa el de vivienda usada; si hay menos de 10 operaciones, la media total.
+   - Generalitat de Catalunya, «Compravendes d'habitatges registrades i el preu de venda» (datos del Col·legi de Registradors). Municipios de más de 2.000 habitantes.
+   - Fuente: <https://habitatge.gencat.cat/ca/dades/indicadors_estadistiques/estadistiques_de_construccio_i_mercat_immobiliari/estadistica-de-les-compravendes/compravendes-habitatges-Catalunya/>
+   - Se actualiza cada trimestre con `python -E -I scripts/import-gencat-compravendes.py` (genera `data/gencat-compravendes/municipis.json`).
+4. **Resto de España: valor tasado medio del municipio** (Ministerio de Vivienda, municipios de más de 25.000 habitantes). En Cataluña aparece como contraste.
+5. **Mapa de valores del Catastro (referencia secundaria)**:
+   - Es el *módulo de valor medio* de la zona, calculado con precios de compraventas escrituradas para una vivienda representativa. En la práctica queda **muy por debajo** del precio registrado (Ripollet: 1.550 €/m² frente a 2.631 €/m² registrados; Roses: 2.660 frente a 3.263), por eso ya no es la cifra principal.
+   - Es por zonas homogéneas e incluye una **plaza de garaje representativa**, que sí se sigue usando para valorar el garaje.
+   - Requiere la referencia catastral.
    - Fuente: <https://www1.sedecatastro.gob.es/Cartografia/mapa.aspx?buscar=S> · leyenda: <https://www.catastro.hacienda.gob.es/ayuda/leyenda_mapavalores.htm>
-4. Comparables de un proveedor autorizado (Idealista API, solo con contrato; hoy no configurado).
-5. **Precio de compra actualizado con el IPV del INE** (comunidad autónoma).
-6. **Valor tasado medio del Ministerio de Vivienda** (municipios de más de 25.000 habitantes; si no, la provincia). Son medias de tasaciones hipotecarias: suelen quedar **por debajo** del mercado. Antes era la fuente principal y por eso los valores salían bajos.
+6. Comparables de un proveedor autorizado (Idealista API, solo con contrato; hoy no configurado).
+7. **Precio de compra actualizado con el IPV del INE** (comunidad autónoma).
+8. **Valor tasado medio de la provincia** (municipios sin dato propio): muy orientativo.
+
+Precio por **código postal**: solo lo publica el Consejo General del Notariado (Portal Estadístico), cuyas condiciones prohíben reutilizarlo comercialmente sin permiso por escrito. No se usa.
 
 Ajustes visibles y modificables (hipótesis):
 

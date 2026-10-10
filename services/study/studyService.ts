@@ -15,6 +15,7 @@ import { getSerpaviMunicipality, latestSerpaviYear } from "./sources/serpavi";
 import { checkTensionedArea, getDeclarations } from "./sources/tensionedAreas";
 import { getNewContractRent } from "./sources/incasol";
 import { getValorTasado } from "./sources/valorTasado";
+import { getRegisteredSalePrice } from "./sources/gencatCompravendes";
 import { VALUE_MAP_PAGE, getParcelGeo, getValueZone } from "./sources/catastroValues";
 import { getMunicipalPlusvalia } from "./sources/plusvalia";
 import { estimateRent, estimateSale, type MarketRef } from "./valuation";
@@ -124,6 +125,19 @@ export async function buildSnapshot(input: StudyInput): Promise<StudySnapshot> {
       : { name: "Ministerio de Vivienda · valor tasado", status: "NOT_AVAILABLE", note: "Sin datos importados." },
   );
 
+  // Cataluña: €/m² de las compraventas registradas del municipio (Generalitat · Registradores, 12 meses)
+  const registeredSale = getRegisteredSalePrice(municipalityCode);
+  if (registeredSale) {
+    sources.push({
+      name: registeredSale.meta.source,
+      url: registeredSale.meta.sourceUrl,
+      period: registeredSale.period,
+      retrievedAt: registeredSale.meta.importedAt,
+      status: "OK",
+      note: `${registeredSale.municipality}: ${registeredSale.sales.toLocaleString("es-ES")} compraventas ${registeredSale.basis === "USADO" ? "de vivienda usada" : "de vivienda"} registradas`,
+    });
+  }
+
   // Ubicación y mapa de valores del Catastro: valor medio de las compraventas de la zona (vivienda y garaje)
   const geo = loc.cadastralRef
     ? await safe("Catastro · ubicación", () => getParcelGeo(loc.cadastralRef!), sources, { name: "Catastro · coordenadas por referencia catastral", status: "ERROR" })
@@ -163,6 +177,7 @@ export async function buildSnapshot(input: StudyInput): Promise<StudySnapshot> {
     rentComparables,
     comparablesSource: provider.name,
     valorTasado,
+    registeredSale,
     valueZone,
   };
   const saleEstimates = estimateSale(input, ctx);

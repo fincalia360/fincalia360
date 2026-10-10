@@ -2,8 +2,11 @@
 // método, nivel de confianza y limitaciones. Orden de prioridad:
 //   VENTA:    1) valor aportado por el propietario (tasación, valor de referencia catastral, oferta)
 //             2) referencia de mercado cargada por el equipo con su fuente (MarketReference)
-//             3) precio de compra actualizado con el IPV del INE (comunidad autónoma)
-//             4) datos de EJEMPLO (solo si STUDY_EXAMPLE_DATA=true; nunca en producción)
+//             3) €/m² de las compraventas REGISTRADAS del municipio (Cataluña: Generalitat · Registradores)
+//             4) valor tasado medio del municipio (Ministerio de Vivienda; municipios > 25.000 hab.)
+//             5) módulo de valor medio del Catastro de la zona (referencia secundaria)
+//             6) comparables autorizados, precio de compra × IPV, valor tasado provincial
+//             7) datos de EJEMPLO (solo si STUDY_EXAMPLE_DATA=true; nunca en producción)
 //   ALQUILER: 1) SERPAVI (rentas declaradas, MIVAU), actualizado con el IPVA del INE si existe
 //             2) referencia de mercado cargada por el equipo
 //             3) datos de EJEMPLO
@@ -12,6 +15,7 @@ import { serpaviTypology, type AnnexLine, type CatastroValueZone, type Confidenc
 import type { SerpaviMeta, SerpaviMunicipality } from "./sources/serpavi";
 import type { NewContractRent } from "./sources/incasol";
 import type { ValorTasadoResult } from "./sources/valorTasado";
+import type { RegisteredSalePrice } from "./sources/gencatCompravendes";
 import { latestSerpaviYear } from "./sources/serpavi";
 import type { ComparableListing } from "./sources/idealista";
 
@@ -40,6 +44,8 @@ export interface ValuationContext {
   comparablesSource?: string;
   /** Valor tasado medio (€/m²) del Ministerio de Vivienda para el municipio o la provincia. */
   valorTasado?: ValorTasadoResult | null;
+  /** Cataluña: €/m² de las compraventas registradas del municipio (últimos 12 meses). */
+  registeredSale?: RegisteredSalePrice | null;
   /** Renta media de contratos nuevos del municipio (Cataluña, Incasòl). */
   newContractRent?: NewContractRent | null;
   /** Zona del mapa de valores del Catastro (módulo de valor medio de vivienda y garaje). */
@@ -244,7 +250,63 @@ export function estimateSale(input: StudyInput, ctx: ValuationContext): Estimate
     );
   }
 
-  // 2a) Mapa de valores del Catastro: módulo de valor medio (precios de compraventas escrituradas) de la zona
+  // Valor tasado medio oficial (€/m²) del municipio o, si no se publica, de la provincia
+  const valorTasadoEstimate = (vt: ValorTasadoResult) => {
+    const adjustments = saleAdjustments();
+    const municipal = vt.scope === "MUNICIPIO";
+    const basisLabel = vt.basis === "HASTA_5" ? "viviendas de hasta 5 años" : vt.basis === "MAS_5" ? "viviendas de más de 5 años" : "todas las antigüedades";
+    return makeEstimate({
+      value: applyAdjustments(vt.value * sqm, adjustments),
+      sqm,
+      confidence: municipal ? "LOW" : "VERY_LOW",
+      origin: "MODEL",
+      method: `Valor tasado medio ${municipal ? `de ${vt.name}` : `de la provincia de ${vt.name}`} (${vt.quarter.replace("-", " ")}, ${basisLabel}): ${vt.value.toLocaleString("es-ES")} €/m² × ${sqm} m²${adjustments.length ? ", con ajustes por características" : ""}.`,
+      source: {
+        name: vt.meta.source,
+        url: municipal ? vt.meta.sourceUrlMunicipios : vt.meta.sourceUrlProvincias,
+        period: vt.quarter,
+        retrievedAt: vt.meta.importedAt,
+        status: "OK",
+        note: [vt.appraisals ? `${vt.appraisals.toLocaleString("es-ES")} tasaciones en el trimestre` : null, vt.yearOnYearPct != null ? `variación interanual ${vt.yearOnYearPct.toLocaleString("es-ES")} %` : null]
+          .filter(Boolean)
+          .join(" · ") || undefined,
+      },
+      adjustments,
+      limitations: [
+        "Es la media de las tasaciones hipotecarias del " + (municipal ? "municipio" : "conjunto de la provincia") + ", no una tasación de esta vivienda: no recoge la calle, las vistas, las calidades ni el estado real.",
+        ...(municipal ? [] : ["El Ministerio solo publica datos por municipio para los de más de 25.000 habitantes: se usa la media provincial, que puede diferir mucho del precio de tu localidad."]),
+        "Para una cifra fiable, indica el precio y año de compra, una tasación o el valor de referencia del Catastro, o solicita una valoración profesional.",
+      ],
+      step: 1000,
+    });
+  };
+
+  // 3) Cataluña: €/m² de las compraventas REGISTRADAS del municipio (precios de cierre, últimos 12 meses)
+  if (ctx.registeredSale) {
+    const rs = ctx.registeredSale;
+    const adjustments = saleAdjustments();
+    out.push(
+      makeEstimate({
+        value: applyAdjustments(rs.value * sqm, adjustments),
+        sqm,
+        confidence: rs.sales >= 100 ? "MEDIUM" : "LOW",
+        origin: "OFFICIAL",
+        method: `Precio medio de las compraventas ${rs.basis === "USADO" ? "de vivienda usada " : ""}registradas en ${rs.municipality} (${rs.period}, ${rs.sales.toLocaleString("es-ES")} operaciones): ${rs.value.toLocaleString("es-ES")} €/m² construido × ${sqm} m²${adjustments.length ? ", con ajustes por características" : ""}.`,
+        source: { name: rs.meta.source, url: rs.meta.sourceUrl, period: rs.period, retrievedAt: rs.meta.importedAt, status: "OK", note: rs.meta.notes },
+        adjustments,
+        limitations: [
+          "Son precios de compraventas reales inscritas en el Registro de la Propiedad (precios de cierre, no de anuncio), pero es la media de todo el municipio: no recoge la calle, las vistas, las calidades ni el estado concretos.",
+          "La media mezcla pisos y casas de todos los tamaños; una tasación profesional o comparables de la misma zona afinan la cifra.",
+        ],
+        step: 1000,
+      }),
+    );
+  }
+
+  // 4) Valor tasado medio del municipio (resto de España; en Cataluña, como contraste)
+  if (ctx.valorTasado?.scope === "MUNICIPIO") out.push(valorTasadoEstimate(ctx.valorTasado));
+
+  // 5) Mapa de valores del Catastro: módulo de valor medio de la zona (referencia secundaria)
   const zone = ctx.valueZone;
   if (zone?.residential) {
     const r = zone.residential;
@@ -279,7 +341,7 @@ export function estimateSale(input: StudyInput, ctx: ValuationContext): Estimate
     );
   }
 
-  // 2b) Comparables de venta de un proveedor autorizado: precios de ANUNCIO (no de cierre)
+  // 6) Comparables de venta de un proveedor autorizado: precios de ANUNCIO (no de cierre)
   const saleComps = (ctx.saleComparables ?? []).filter((c) => c.sqm >= sqm * 0.7 && c.sqm <= sqm * 1.3);
   if (saleComps.length >= 5) {
     const perM2 = saleComps.map((c) => c.pricePerM2).sort((x, y) => x - y);
@@ -300,7 +362,7 @@ export function estimateSale(input: StudyInput, ctx: ValuationContext): Estimate
     );
   }
 
-  // 3) Precio de compra actualizado con el IPV (INE) de la comunidad autónoma
+  // 7) Precio de compra actualizado con el IPV (INE) de la comunidad autónoma
   if (e.purchasePrice && e.purchaseYear && ctx.priceIndexCcaa) {
     const base = seriesValue(ctx.priceIndexCcaa, String(e.purchaseYear));
     const last = lastPoint(ctx.priceIndexCcaa);
@@ -325,41 +387,10 @@ export function estimateSale(input: StudyInput, ctx: ValuationContext): Estimate
     }
   }
 
-  // 4) Valor tasado medio oficial (€/m²) del municipio o, si no se publica, de la provincia
-  if (ctx.valorTasado) {
-    const vt = ctx.valorTasado;
-    const adjustments = saleAdjustments();
-    const municipal = vt.scope === "MUNICIPIO";
-    const basisLabel = vt.basis === "HASTA_5" ? "viviendas de hasta 5 años" : vt.basis === "MAS_5" ? "viviendas de más de 5 años" : "todas las antigüedades";
-    out.push(
-      makeEstimate({
-        value: applyAdjustments(vt.value * sqm, adjustments),
-        sqm,
-        confidence: municipal ? "LOW" : "VERY_LOW",
-        origin: "MODEL",
-        method: `Valor tasado medio ${municipal ? `de ${vt.name}` : `de la provincia de ${vt.name}`} (${vt.quarter.replace("-", " ")}, ${basisLabel}): ${vt.value.toLocaleString("es-ES")} €/m² × ${sqm} m²${adjustments.length ? ", con ajustes por características" : ""}.`,
-        source: {
-          name: vt.meta.source,
-          url: municipal ? vt.meta.sourceUrlMunicipios : vt.meta.sourceUrlProvincias,
-          period: vt.quarter,
-          retrievedAt: vt.meta.importedAt,
-          status: "OK",
-          note: [vt.appraisals ? `${vt.appraisals.toLocaleString("es-ES")} tasaciones en el trimestre` : null, vt.yearOnYearPct != null ? `variación interanual ${vt.yearOnYearPct.toLocaleString("es-ES")} %` : null]
-            .filter(Boolean)
-            .join(" · ") || undefined,
-        },
-        adjustments,
-        limitations: [
-          "Es la media de las tasaciones hipotecarias del " + (municipal ? "municipio" : "conjunto de la provincia") + ", no una tasación de esta vivienda: no recoge la calle, las vistas, las calidades ni el estado real.",
-          ...(municipal ? [] : ["El Ministerio solo publica datos por municipio para los de más de 25.000 habitantes: se usa la media provincial, que puede diferir mucho del precio de tu localidad."]),
-          "Para una cifra fiable, indica el precio y año de compra, una tasación o el valor de referencia del Catastro, o solicita una valoración profesional.",
-        ],
-        step: 1000,
-      }),
-    );
-  }
+  // 8) Valor tasado medio de la provincia (municipios sin dato propio)
+  if (ctx.valorTasado && ctx.valorTasado.scope !== "MUNICIPIO") out.push(valorTasadoEstimate(ctx.valorTasado));
 
-  // 5) EJEMPLO (desarrollo/demostración)
+  // 9) EJEMPLO (desarrollo/demostración)
   if (ctx.exampleData) {
     const adjustments = saleAdjustments();
     out.push(
@@ -463,16 +494,23 @@ export function estimateRent(input: StudyInput, ctx: ValuationContext): { statis
     const source = { name: nc.source.name, url: nc.source.url, period: nc.period, retrievedAt: nc.source.retrievedAt, status: "OK" as const, note: `${nc.contracts.toLocaleString("es-ES")} contratos nuevos en el trimestre; renta media ${nc.monthlyRent.toLocaleString("es-ES")} €/mes` };
     if (latest) {
       const d = latest.data;
-      const k = nc.monthlyRent / (d.m * d.sup);
+      // La renta media del Incasòl es de TODOS los contratos del municipio (pisos y casas): se divide por la
+      // superficie media de todo el parque alquilado según SERPAVI (ponderada por nº de viviendas de cada tipo),
+      // no por la de un solo tipo. El margen P25–P75 se toma del perfil del tipo de esta vivienda.
+      const yearData = ctx.serpavi!.municipality.years[latest.year] ?? {};
+      const groups = [yearData.VC, yearData.VU].filter((g): g is NonNullable<typeof g> => Boolean(g && g.n > 0 && g.sup > 0));
+      const totalN = groups.reduce((s, g) => s + g.n, 0);
+      const avgSup = totalN ? groups.reduce((s, g) => s + g.sup * g.n, 0) / totalN : d.sup;
+      const perM2 = nc.monthlyRent / avgSup;
       out.push(
         makeEstimate({
-          value: applyAdjustments(d.m * k * sqm, adjustments),
-          low: applyAdjustments(d.p25 * k * sqm, adjustments),
-          high: applyAdjustments(d.p75 * k * sqm, adjustments),
+          value: applyAdjustments(perM2 * sqm, adjustments),
+          low: applyAdjustments(perM2 * (d.p25 / d.m) * sqm, adjustments),
+          high: applyAdjustments(perM2 * (d.p75 / d.m) * sqm, adjustments),
           sqm,
           confidence: reliable ? "LOW" : "VERY_LOW",
           origin: "MODEL",
-          method: `Renta media de los contratos nuevos de ${nc.municipality} (${nc.period.replace("-", " ")}): ${nc.monthlyRent.toLocaleString("es-ES")} €/mes, equivalente a ${(d.m * k).toFixed(2)} €/m² para una vivienda de ${d.sup} m² según el perfil SERPAVI ${latest.year}; × ${sqm} m².`,
+          method: `Renta media de los contratos nuevos de ${nc.municipality} (${nc.period.replace("-", " ")}): ${nc.monthlyRent.toLocaleString("es-ES")} €/mes ÷ ${avgSup.toFixed(0)} m² de superficie media de las viviendas alquiladas del municipio (SERPAVI ${latest.year}, pisos y casas) = ${perM2.toFixed(2)} €/m²; × ${sqm} m².`,
           source,
           adjustments,
           limitations: [

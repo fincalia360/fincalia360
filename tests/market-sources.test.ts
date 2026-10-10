@@ -46,8 +46,13 @@ describe("alquiler de contratos nuevos (Cataluña)", () => {
   it("adapta la renta media por contrato a la superficie con el perfil SERPAVI", () => {
     const newContractRent = { municipality: "Roses", period: "2026-T1", monthlyRent: 1000, contracts: 120, source: { name: "Incasòl", url: "https://example.org", retrievedAt: "2026-10-09" } };
     const { market, statistical } = estimateRent(makeInput(), { ...noCtx, serpavi: SERPAVI_FIXTURE, newContractRent });
-    const d = SERPAVI_FIXTURE.municipality.years["2024"].VC!;
-    expect(market[0].value).toBe(Math.round(((d.m * 1000) / (d.m * d.sup)) * 80 / 10) * 10); // 1000/71 €/m² × 80 m²
+    // La media del Incasòl es de todos los contratos (pisos y casas): superficie media ponderada de SERPAVI
+    // 2024 del fixture = (1307 × 71 + 145 × 170) / 1452 = 80,9 m² → 1000 / 80,9 = 12,36 €/m² × 80 m² ≈ 990 €
+    const y = SERPAVI_FIXTURE.municipality.years["2024"];
+    const avgSup = (y.VC!.n * y.VC!.sup + y.VU!.n * y.VU!.sup) / (y.VC!.n + y.VU!.n);
+    expect(market[0].value).toBe(Math.round(((1000 / avgSup) * 80) / 10) * 10);
+    expect(market[0].value).toBe(990);
+    expect(market[0].method).toMatch(/pisos y casas/);
     expect(market[0].origin).toBe("MODEL");
     expect(statistical?.origin).toBe("OFFICIAL"); // la referencia estadística se mantiene separada
   });
