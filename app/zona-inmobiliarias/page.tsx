@@ -4,7 +4,8 @@ import { CheckCircle2 } from "lucide-react";
 import { AuthShell } from "@/components/agency/AuthShell";
 import { LoginForm } from "@/components/agency/AuthForms";
 import { getAgencySession } from "@/services/agency/auth";
-import { loginAction } from "./authActions";
+import { demoToolsEnabled } from "@/lib/demo";
+import { demoLoginAction, loginAction } from "./authActions";
 
 export const metadata: Metadata = { title: "Zona inmobiliarias", description: "Acceso para inmobiliarias colaboradoras de FINCALIA360: CRM privado y publicación de inmuebles." };
 export const dynamic = "force-dynamic";
@@ -39,6 +40,16 @@ export default async function AgencyLoginPage() {
       }
     >
       <LoginForm action={loginAction} />
+      {demoToolsEnabled() && (
+        <form action={demoLoginAction} className="mt-6 rounded-xl border border-dashed border-amber-300 bg-amber-50 p-4">
+          <p className="text-[13px] text-amber-900">
+            <strong>Solo en tu ordenador:</strong> prueba la Zona inmobiliarias sin crear una cuenta, como una inmobiliaria ficticia. No aparece en la web publicada.
+          </p>
+          <button type="submit" className="mt-3 h-10 w-full rounded-full bg-amber-500 text-sm font-semibold text-white hover:bg-amber-600">
+            Entrar como inmobiliaria de demostración
+          </button>
+        </form>
+      )}
     </AuthShell>
   );
 }

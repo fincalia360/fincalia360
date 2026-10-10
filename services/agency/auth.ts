@@ -5,6 +5,7 @@
 // - Invitación y recuperación con enlaces de un solo uso que caducan.
 import { cookies, headers } from "next/headers";
 import { prisma } from "@/db/client";
+import { demoToolsEnabled } from "@/lib/demo";
 import { audit } from "@/services/audit";
 import { sendEmail, type EmailResult } from "@/services/email/emailService";
 import { burnPasswordCheck, hashPassword, hashToken, newOpaqueToken, passwordProblem, verifyPassword } from "@/lib/password";
@@ -73,6 +74,27 @@ export async function createSession(userId: string) {
   // Limpieza de sesiones caducadas del usuario
   await prisma.agencySession.deleteMany({ where: { userId, expiresAt: { lt: new Date() } } });
   return { token, expiresAt };
+}
+
+/**
+ * Acceso de demostración (solo en local, nunca en la web publicada): entra como una inmobiliaria
+ * FICTICIA para probar la Zona inmobiliarias sin crear cuentas. El usuario no tiene contraseña,
+ * así que no se puede usar desde el formulario de acceso.
+ */
+export async function demoAgencyUser() {
+  if (!demoToolsEnabled()) throw new AuthError("No disponible");
+  const name = "Inmobiliaria de demostración (ficticia)";
+  const agency =
+    (await prisma.agency.findFirst({ where: { name } })) ??
+    (await prisma.agency.create({
+      data: { name, zones: "", email: "demo.inmobiliaria@example.com", phone: "000000000", languages: "es", propertyTypes: "", status: "ACTIVE", crmAccess: true, notes: "DEMO: datos ficticios para probar la Zona inmobiliarias en local." },
+    }));
+  if (!agency.crmAccess || agency.status !== "ACTIVE") await prisma.agency.update({ where: { id: agency.id }, data: { crmAccess: true, status: "ACTIVE" } });
+  const email = "agente.demo@example.com";
+  return (
+    (await prisma.agencyUser.findUnique({ where: { email } })) ??
+    prisma.agencyUser.create({ data: { agencyId: agency.id, email, name: "Agente de demostración", role: "OWNER", status: "ACTIVE" } })
+  );
 }
 
 export async function setSessionCookie(token: string, expiresAt: Date) {

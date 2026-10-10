@@ -5,7 +5,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { rateLimit } from "@/lib/rateLimit";
-import { AuthError, consumeToken, createSession, destroySession, requestPasswordReset, setSessionCookie, verifyCredentials } from "@/services/agency/auth";
+import { AuthError, consumeToken, createSession, demoAgencyUser, destroySession, requestPasswordReset, setSessionCookie, verifyCredentials } from "@/services/agency/auth";
 
 export type AuthState = { error?: string; done?: boolean };
 
@@ -31,6 +31,14 @@ export async function loginAction(_prev: AuthState, formData: FormData): Promise
     console.error("[zona/login]", e);
     return { error: "No se ha podido iniciar sesión. Inténtalo de nuevo." };
   }
+  redirect("/zona-inmobiliarias/panel");
+}
+
+/** Solo en local: entrar como la inmobiliaria ficticia de demostración. */
+export async function demoLoginAction() {
+  const user = await demoAgencyUser();
+  const { token, expiresAt } = await createSession(user.id);
+  await setSessionCookie(token, expiresAt);
   redirect("/zona-inmobiliarias/panel");
 }
 
