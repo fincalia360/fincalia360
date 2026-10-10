@@ -1,13 +1,15 @@
 import type { Metadata, Viewport } from "next";
 import "@fontsource-variable/inter";
 import "./globals.css";
+import { publicSiteUrl } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: { default: "FINCALIA360 · ¿Vender o alquilar tu vivienda?", template: "%s · FINCALIA360" },
   description:
     "Descubre cuánto vale tu inmueble, qué alquiler máximo legal le corresponde y qué opción puede convenirte más: vender, alquilar o mantener.",
   applicationName: "FINCALIA360",
-  ...(process.env.SITE_URL ? { metadataBase: new URL(process.env.SITE_URL) } : {}),
+  // Enlaces absolutos (imágenes para compartir, canónicas): tu dominio o, si no hay, la dirección de Render
+  metadataBase: new URL(publicSiteUrl()),
   // Solo se indexa en buscadores cuando se publica y se activa ALLOW_INDEXING=true
   robots: process.env.ALLOW_INDEXING === "true" ? { index: true, follow: true } : { index: false, follow: false },
 };

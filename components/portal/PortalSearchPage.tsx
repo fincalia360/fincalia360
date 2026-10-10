@@ -9,6 +9,7 @@ import { getDictionary } from "@/lib/i18n";
 import { FEATURES, MOORING_FEATURES, MOORING_TYPES, PROPERTY_TYPES } from "@/services/listings/catalog";
 import { searchPublic, type SearchFilters } from "@/services/listings/listings";
 import { portalLocations } from "@/services/listings/portalLocations";
+import { breadcrumbJsonLd, cityPath, citiesWithListings, organizationJsonLd } from "@/services/listings/seo";
 import { ListingCard } from "./ListingCard";
 import { AutoSubmit } from "./AutoSubmit";
 import { LocationFilter } from "./LocationFilter";
@@ -50,10 +51,21 @@ function paths(category: Category) {
   return category === "MOORING" ? { SALE: "/amarres/comprar", RENT: "/amarres/alquilar" } : { SALE: "/comprar", RENT: "/alquilar" };
 }
 
-export async function PortalSearchPage({ operation, filters, category = "HOME" }: { operation: "SALE" | "RENT"; filters: SearchFilters; category?: Category }) {
+export async function PortalSearchPage({
+  operation,
+  filters,
+  category = "HOME",
+  city,
+}: {
+  operation: "SALE" | "RENT";
+  filters: SearchFilters;
+  category?: Category;
+  /** Página de una ciudad (/comprar/girona…): título y texto propios */
+  city?: { name: string; title: string; description: string };
+}) {
   const dict = getDictionary("es");
   const mooring = category === "MOORING";
-  const [result, locations] = await Promise.all([searchPublic(operation, filters, category), portalLocations(operation, category)]);
+  const [result, locations, cities] = await Promise.all([searchPublic(operation, filters, category), portalLocations(operation, category), citiesWithListings(category, operation)]);
   const rent = operation === "RENT";
   const base = paths(category)[operation];
   const anyFilter = Object.keys(filters).some((k) => k !== "pagina" && k !== "orden");
@@ -88,18 +100,36 @@ export async function PortalSearchPage({ operation, filters, category = "HOME" }
     })),
   ];
 
-  const title = mooring ? (rent ? "Amarres en alquiler" : "Amarres en venta") : rent ? "Viviendas en alquiler en Cataluña" : "Viviendas en venta en Cataluña";
-  const intro = mooring
+  const title = city?.title ?? (mooring ? (rent ? "Amarres en alquiler" : "Amarres en venta") : rent ? "Viviendas en alquiler en Cataluña" : "Viviendas en venta en Cataluña");
+  const intro = city
+    ? city.description
+    : mooring
     ? `Amarres ${rent ? "en alquiler" : "en venta"} en puertos deportivos de Cataluña. Cada anuncio se revisa antes de publicarse.`
     : `Inmuebles ${rent ? "en alquiler" : "en venta"} en Barcelona, Girona, Lleida y Tarragona, publicados por FINCALIA360 y por inmobiliarias colaboradoras. Cada anuncio se revisa antes de publicarse.`;
   const featureOptions = mooring ? MOORING_FILTER_FEATURES : HOME_FILTER_FEATURES;
+  const sectionName = mooring ? (rent ? "Alquilar amarre" : "Comprar amarre") : rent ? "Alquilar vivienda" : "Comprar vivienda";
+  const crumbs = [
+    { name: "Inicio", path: "/" },
+    { name: sectionName, path: base },
+    ...(city ? [{ name: city.name, path: cityPath(category, operation, city.name) }] : []),
+  ];
+  const jsonLd = [organizationJsonLd(), breadcrumbJsonLd(crumbs)];
 
   return (
     <div lang="es">
       <SiteHeader dict={dict} lang="es" basePath="/" />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }} />
       <main className="bg-sand-50">
         <section className="border-b border-sand-200 bg-white">
           <div className="container-page py-6 sm:py-10">
+            {city && (
+              <nav aria-label="Ruta" className="mb-3 text-[13px] text-ink-400">
+                <Link href={base} className="hover:text-ink-700 hover:underline">
+                  {sectionName}
+                </Link>{" "}
+                › <span className="text-ink-600">{city.name}</span>
+              </nav>
+            )}
             <p className="eyebrow">{mooring ? (rent ? "Alquilar amarre" : "Comprar amarre") : rent ? "Alquilar" : "Comprar"}</p>
             <h1 className="mt-3 font-serif text-[34px] font-medium leading-tight tracking-tight text-ink-800 sm:text-5xl">{title}</h1>
             <p className="mt-3 hidden max-w-2xl text-[15.5px] text-ink-500 sm:block">{intro}</p>
@@ -379,6 +409,46 @@ export async function PortalSearchPage({ operation, filters, category = "HOME" }
                     Siguiente →
                   </Link>
                 )}
+              </nav>
+            )}
+
+            {cities.length > 0 && (
+              <nav aria-label="Buscar por población" className="mt-10 rounded-2xl border border-sand-200 bg-white p-5">
+                <h2 className="text-[15px] font-semibold text-ink-800">
+                  {mooring ? (rent ? "Amarres en alquiler por población" : "Amarres en venta por población") : rent ? "Viviendas en alquiler por población" : "Viviendas en venta por población"}
+                </h2>
+                <ul className="mt-3 flex flex-wrap gap-2">
+                  {cities.slice(0, 40).map((c) => (
+                    <li key={c.slug}>
+                      <Link
+                        href={cityPath(category, operation, c.name)}
+                        className={`inline-block rounded-full border px-3 py-1 text-[13px] ${city?.name === c.name ? "border-ink-800 bg-ink-800 text-white" : "border-sand-300 text-ink-700 hover:border-ink-300"}`}
+                      >
+                        {c.name} <span className={city?.name === c.name ? "text-sand-200" : "text-ink-400"}>({c.count})</span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-3 text-[13px] text-ink-500">
+                  También:{" "}
+                  {mooring ? (
+                    <Link href={rent ? "/amarres/comprar" : "/amarres/alquilar"} className="underline">
+                      {rent ? "amarres en venta" : "amarres en alquiler"}
+                    </Link>
+                  ) : (
+                    <Link href={rent ? "/comprar" : "/alquilar"} className="underline">
+                      {rent ? "viviendas en venta" : "viviendas en alquiler"}
+                    </Link>
+                  )}{" "}
+                  ·{" "}
+                  <Link href={mooring ? "/comprar" : "/amarres/comprar"} className="underline">
+                    {mooring ? "viviendas en venta" : "amarres en venta"}
+                  </Link>{" "}
+                  ·{" "}
+                  <Link href="/estudio" className="underline">
+                    valora tu vivienda gratis
+                  </Link>
+                </p>
               </nav>
             )}
 

@@ -19,7 +19,7 @@ export function Gallery({ photos, title }: { photos: { key: string; width: numbe
   return (
     <div>
       <div className="relative overflow-hidden rounded-2xl bg-ink-900">
-        <img src={photoUrl(p.key)} alt={p.alt ?? `${title} · foto ${i + 1}`} width={p.width} height={p.height} className="aspect-[16/10] w-full object-contain" />
+        <img src={photoUrl(p.key)} alt={p.alt ?? `${title} · foto ${i + 1}`} width={p.width} height={p.height} fetchPriority={i === 0 ? "high" : "auto"} className="aspect-[16/10] w-full object-contain" />
         {photos.length > 1 && (
           <>
             <button type="button" onClick={() => go(-1)} aria-label="Foto anterior" className="absolute left-3 top-1/2 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-full bg-white/90 text-ink-800 shadow hover:bg-white">

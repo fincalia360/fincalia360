@@ -1,18 +1,18 @@
-import type { Metadata } from "next";
 import { Check } from "lucide-react";
 import { SiteFooter } from "@/components/landing/SiteFooter";
 import { SiteHeader } from "@/components/landing/SiteHeader";
 import { PublishRequestForm } from "@/components/portal/PublishRequestForm";
 import { getDictionary } from "@/lib/i18n";
 import { PORTAL_PROVINCE_CODES } from "@/services/listings/catalog";
+import { portalMetadata } from "@/services/listings/seo";
 import { PUBLICATION_MARKETING_TEXT, PUBLICATION_OWNER_TEXT, PUBLICATION_PRIVACY_TEXT } from "@/services/listings/publicationRequests";
 import { PROVINCES } from "@/services/study/geo";
 
-export const metadata: Metadata = {
+export const metadata = portalMetadata({
   title: "Publica tu vivienda gratis",
-  description: "Anuncia gratis tu vivienda o tu amarre en Cataluña: envíanos los datos y las fotos, lo revisamos y lo publicamos sin coste.",
-  alternates: { canonical: "/publicar" },
-};
+  description: "Anuncia gratis tu piso, tu casa o tu amarre en Cataluña: envíanos los datos y las fotos, lo revisamos y lo publicamos sin coste.",
+  path: "/publicar",
+});
 
 export default async function PublishPage({ searchParams }: { searchParams: Promise<{ tipo?: string }> }) {
   const dict = getDictionary("es");

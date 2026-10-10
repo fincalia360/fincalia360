@@ -6,7 +6,9 @@ import { SiteFooter } from "@/components/landing/SiteFooter";
 import { SiteHeader } from "@/components/landing/SiteHeader";
 import { Gallery } from "@/components/portal/Gallery";
 import { InquiryForm } from "@/components/portal/InquiryForm";
+import { ListingBreadcrumbs, SimilarListings } from "@/components/portal/ListingExtras";
 import { getDictionary } from "@/lib/i18n";
+import { publicSiteUrl } from "@/lib/site";
 import { csv } from "@/lib/utils";
 import { getProvince } from "@/services/study/geo";
 import {
@@ -95,7 +97,7 @@ export default async function MooringPage({ params }: Props) {
   const advertiser = l.agency?.name ?? null;
   const price = formatPrice(l.price, l.operation, l.rentPeriod);
   const available = l.availableFrom && l.availableFrom > new Date() ? `Desde el ${longDate(l.availableFrom)}` : "Inmediata";
-  const site = (process.env.SITE_URL ?? "").replace(/\/$/, "");
+  const site = publicSiteUrl();
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "Product",
@@ -112,9 +114,12 @@ export default async function MooringPage({ params }: Props) {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }} />
       <main className="bg-sand-50">
         <div className="container-page py-6 sm:py-8">
-          <Link href={rent ? "/amarres/alquilar" : "/amarres/comprar"} className="inline-flex items-center gap-1.5 text-sm text-ink-500 hover:text-ink-800">
-            <ArrowLeft className="h-4 w-4" /> {rent ? "Amarres en alquiler" : "Amarres en venta"}
-          </Link>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <Link href={rent ? "/amarres/alquilar" : "/amarres/comprar"} className="inline-flex items-center gap-1.5 text-sm text-ink-500 hover:text-ink-800">
+              <ArrowLeft className="h-4 w-4" /> {rent ? "Amarres en alquiler" : "Amarres en venta"}
+            </Link>
+            <ListingBreadcrumbs l={l} />
+          </div>
 
           <div className="mt-4 grid gap-8 lg:grid-cols-[1fr_360px]">
             <div className="min-w-0">
@@ -245,6 +250,7 @@ export default async function MooringPage({ params }: Props) {
               </div>
             </aside>
           </div>
+          <SimilarListings l={l} />
         </div>
       </main>
       <SiteFooter dict={dict} lang="es" />

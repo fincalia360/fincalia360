@@ -253,3 +253,39 @@ describe("Publica tu vivienda gratis", () => {
     expect(await m.prisma.listing.findUnique({ where: { id: listing.id } })).not.toBeNull();
   });
 });
+
+describe("SEO del portal", () => {
+  it("páginas por población solo donde hay anuncios publicados, con su dirección", async () => {
+    const seo = await import("@/services/listings/seo");
+    const a = await published(mooring({ portName: "Port SEO Ficticio", municipality: "L'Escala", provinceCode: "17" }));
+    const cities = await seo.citiesWithListings("MOORING", "SALE");
+    const escala = cities.find((c) => c.name === "L'Escala");
+    expect(escala?.slug).toBe("l-escala");
+    expect(seo.cityPath("MOORING", "SALE", "L'Escala")).toBe("/amarres/comprar/l-escala");
+    expect((await seo.findCity("MOORING", "SALE", "l-escala"))?.count).toBeGreaterThanOrEqual(1);
+    expect(await seo.findCity("MOORING", "SALE", "poblacion-sin-anuncios")).toBeNull();
+    // Retirado el anuncio, la página de la población desaparece si no quedan otros
+    await m.listings.transitionListing(admin, a.id, "unpublish");
+    expect(await seo.findCity("MOORING", "SALE", "l-escala")).toBeNull();
+  });
+
+  it("anuncios parecidos de la misma sección, sin el propio anuncio", async () => {
+    const seo = await import("@/services/listings/seo");
+    const a = await published(home({ municipality: "Badalona" }));
+    const b = await published(home({ municipality: "Badalona" }));
+    const full = await m.prisma.listing.findUniqueOrThrow({ where: { id: a.id } });
+    const similar = await seo.similarListings(full);
+    expect(similar.map((s) => s.reference)).toContain(b.reference);
+    expect(similar.map((s) => s.reference)).not.toContain(a.reference);
+    expect(similar.every((s) => s.category === "HOME")).toBe(true);
+  });
+
+  it("metadatos con imagen para compartir y migas de pan", async () => {
+    const seo = await import("@/services/listings/seo");
+    const meta = seo.portalMetadata({ title: "Amarres en venta en Roses", description: "Prueba", path: "/amarres/comprar/roses" });
+    expect(meta.alternates?.canonical).toBe("/amarres/comprar/roses");
+    expect(JSON.stringify(meta.openGraph)).toMatch(/fincalia360-portal\.jpg/);
+    const crumbs = seo.listingBreadcrumbs({ category: "MOORING", operation: "RENT", municipality: "Roses", title: "Amarre", slug: "amarre-x-f360-abcdef" });
+    expect(crumbs.map((c) => c.path)).toEqual(["/", "/amarres/alquilar", "/amarres/alquilar/roses", "/amarre/amarre-x-f360-abcdef"]);
+  });
+});

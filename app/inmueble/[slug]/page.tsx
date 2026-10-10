@@ -6,7 +6,9 @@ import { SiteFooter } from "@/components/landing/SiteFooter";
 import { SiteHeader } from "@/components/landing/SiteHeader";
 import { Gallery } from "@/components/portal/Gallery";
 import { InquiryForm } from "@/components/portal/InquiryForm";
+import { ListingBreadcrumbs, SimilarListings } from "@/components/portal/ListingExtras";
 import { getDictionary } from "@/lib/i18n";
+import { publicSiteUrl } from "@/lib/site";
 import { csv } from "@/lib/utils";
 import { getProvince } from "@/services/study/geo";
 import {
@@ -89,7 +91,7 @@ export default async function ListingPage({ params }: Props) {
   const features = csv(l.features) as FeatureCode[];
   const province = getProvince(l.provinceCode)?.name;
   const advertiser = l.agency?.name ?? null;
-  const site = (process.env.SITE_URL ?? "").replace(/\/$/, "");
+  const site = publicSiteUrl();
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "RealEstateListing",
@@ -108,9 +110,12 @@ export default async function ListingPage({ params }: Props) {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }} />
       <main className="bg-sand-50">
         <div className="container-page py-6 sm:py-8">
-          <Link href={rent ? "/alquilar" : "/comprar"} className="inline-flex items-center gap-1.5 text-sm text-ink-500 hover:text-ink-800">
-            <ArrowLeft className="h-4 w-4" /> {rent ? "Viviendas en alquiler" : "Viviendas en venta"}
-          </Link>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <Link href={rent ? "/alquilar" : "/comprar"} className="inline-flex items-center gap-1.5 text-sm text-ink-500 hover:text-ink-800">
+              <ArrowLeft className="h-4 w-4" /> {rent ? "Viviendas en alquiler" : "Viviendas en venta"}
+            </Link>
+            <ListingBreadcrumbs l={l} />
+          </div>
 
           <div className="mt-4 grid gap-8 lg:grid-cols-[1fr_360px]">
             <div className="min-w-0">
@@ -227,6 +232,7 @@ export default async function ListingPage({ params }: Props) {
               </div>
             </aside>
           </div>
+          <SimilarListings l={l} />
         </div>
       </main>
       <SiteFooter dict={dict} lang="es" />

@@ -1,12 +1,27 @@
 import type { MetadataRoute } from "next";
+import { publicSiteUrl } from "@/lib/site";
 import { listingPath } from "@/services/listings/catalog";
 import { publicListingsForSitemap } from "@/services/listings/listings";
+import { cityPath, citiesWithListings, type Category, type Operation } from "@/services/listings/seo";
 
 export const dynamic = "force-dynamic";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const base = (process.env.SITE_URL ?? "http://localhost:3000").replace(/\/$/, "");
+  const base = publicSiteUrl();
   const pages: MetadataRoute.Sitemap = ["", "/estudio", "/comprar", "/alquilar", "/amarres/comprar", "/amarres/alquilar", "/publicar", "/legal", "/privacy", "/cookies", "/condiciones"].map((p) => ({ url: `${base}${p}`, changeFrequency: "monthly" }));
   const listings = await publicListingsForSitemap().catch(() => []);
-  return [...pages, ...listings.map((l) => ({ url: `${base}${listingPath(l)}`, lastModified: l.updatedAt, changeFrequency: "weekly" as const }))];
+  const sections: Array<[Category, Operation]> = [
+    ["HOME", "SALE"],
+    ["HOME", "RENT"],
+    ["MOORING", "SALE"],
+    ["MOORING", "RENT"],
+  ];
+  const cityPages = (
+    await Promise.all(sections.map(([c, o]) => citiesWithListings(c, o).then((cities) => cities.map((city) => cityPath(c, o, city.name))).catch(() => [])))
+  ).flat();
+  return [
+    ...pages,
+    ...cityPages.map((p) => ({ url: `${base}${p}`, changeFrequency: "daily" as const })),
+    ...listings.map((l) => ({ url: `${base}${listingPath(l)}`, lastModified: l.updatedAt, changeFrequency: "weekly" as const })),
+  ];
 }

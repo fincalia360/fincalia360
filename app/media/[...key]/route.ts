@@ -25,7 +25,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ key
   return new NextResponse(new Uint8Array(file), {
     headers: {
       "Content-Type": CONTENT_TYPES[key.split(".").pop()!] ?? "application/octet-stream",
-      "Cache-Control": isPublic ? "public, max-age=3600, stale-while-revalidate=86400" : "private, no-store",
+      "Cache-Control": isPublic ? "public, max-age=86400, stale-while-revalidate=604800" : "private, no-store",
       "X-Content-Type-Options": "nosniff",
     },
   });
