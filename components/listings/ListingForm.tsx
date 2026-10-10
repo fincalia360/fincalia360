@@ -2,7 +2,7 @@
 
 // Formulario de alta y edición de inmuebles. Lo usan el panel de FINCALIA360 y la Zona inmobiliarias
 // (cada uno le pasa su propia acción de servidor, que es la que comprueba los permisos).
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useActionForm } from "@/lib/useActionForm";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -108,6 +108,23 @@ export function ListingForm({
   const [state, onSubmit, pending] = useActionForm(action, {});
   const [operation, setOperation] = useState(values.operation ?? "SALE");
   const features = new Set((values.features ?? "").split(",").filter(Boolean));
+  // Municipios oficiales (INE) de la provincia elegida: el nombre coincide con el del buscador del portal
+  const [provinceCode, setProvinceCode] = useState(values.provinceCode ?? "");
+  const [municipalityOptions, setMunicipalityOptions] = useState<string[]>([]);
+  useEffect(() => {
+    setMunicipalityOptions([]);
+    if (!provinceCode) return;
+    let cancelled = false;
+    fetch(`/api/estudio/municipios?provincia=${provinceCode}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { municipalities?: { name: string }[] } | null) => {
+        if (!cancelled && d?.municipalities) setMunicipalityOptions(d.municipalities.map((m) => m.name));
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [provinceCode]);
 
   return (
     <form onSubmit={onSubmit} className="space-y-5">
@@ -152,7 +169,7 @@ export function ListingForm({
 
       <Section title="Ubicación" description="La dirección exacta y la referencia catastral son privadas: no se muestran en la web.">
         <Field label="Provincia">
-          <select name="provinceCode" defaultValue={values.provinceCode ?? ""} required className="field">
+          <select name="provinceCode" value={provinceCode} onChange={(e) => setProvinceCode(e.target.value)} required className="field">
             <option value="">Elige la provincia</option>
             {provinces.map((p) => (
               <option key={p.code} value={p.code}>
@@ -161,8 +178,13 @@ export function ListingForm({
             ))}
           </select>
         </Field>
-        <Field label="Municipio">
-          <input name="municipality" required maxLength={80} defaultValue={values.municipality ?? ""} className="field" />
+        <Field label="Municipio" hint={provinceCode ? "Elige el nombre oficial de la lista" : "Elige antes la provincia"}>
+          <input name="municipality" required maxLength={80} defaultValue={values.municipality ?? ""} list="municipios-anuncio" autoComplete="off" className="field" />
+          <datalist id="municipios-anuncio">
+            {municipalityOptions.map((m) => (
+              <option key={m} value={m} />
+            ))}
+          </datalist>
         </Field>
         <Field label="Zona o barrio" hint="Se muestra en el anuncio">
           <input name="zone" maxLength={80} defaultValue={values.zone ?? ""} className="field" />

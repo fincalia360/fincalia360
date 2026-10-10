@@ -1,15 +1,17 @@
 // Página de resultados compartida por /comprar y /alquilar. Los filtros son un formulario GET:
 // la búsqueda queda en la URL (se puede compartir) y funciona sin JavaScript.
 import Link from "next/link";
-import { SlidersHorizontal, Home } from "lucide-react";
+import { SlidersHorizontal, Home, X } from "lucide-react";
 import { SiteFooter } from "@/components/landing/SiteFooter";
 import { SiteHeader } from "@/components/landing/SiteHeader";
 import { ButtonLink } from "@/components/ui/Button";
 import { getDictionary } from "@/lib/i18n";
-import { PROVINCES } from "@/services/study/geo";
-import { PROPERTY_TYPES, isPortalProvince } from "@/services/listings/catalog";
-import { publicMunicipalities, searchPublic, type SearchFilters } from "@/services/listings/listings";
+import { PROPERTY_TYPES } from "@/services/listings/catalog";
+import { searchPublic, type SearchFilters } from "@/services/listings/listings";
+import { portalLocations } from "@/services/listings/portalLocations";
 import { ListingCard } from "./ListingCard";
+import { AutoSubmit } from "./AutoSubmit";
+import { LocationFilter } from "./LocationFilter";
 
 const PRICE_STEPS = {
   SALE: [50000, 100000, 150000, 200000, 250000, 300000, 400000, 500000, 750000, 1000000, 1500000],
@@ -30,22 +32,36 @@ function qs(f: SearchFilters, over: Partial<SearchFilters>) {
 
 export async function PortalSearchPage({ operation, filters }: { operation: "SALE" | "RENT"; filters: SearchFilters }) {
   const dict = getDictionary("es");
-  const [result, municipalities] = await Promise.all([searchPublic(operation, filters), publicMunicipalities(operation)]);
+  const [result, locations] = await Promise.all([searchPublic(operation, filters), portalLocations(operation)]);
   const rent = operation === "RENT";
   const base = rent ? "/alquilar" : "/comprar";
   const anyFilter = Object.keys(filters).some((k) => k !== "pagina" && k !== "orden");
+  const provinceName = locations.provinces.find((p) => p.code === filters.provincia)?.name;
+  const place = filters.municipio ?? (provinceName ? `la provincia de ${provinceName}` : "Cataluña");
+  const noun = (n: number) => `${n.toLocaleString("es-ES")} ${n === 1 ? "vivienda" : "viviendas"} en ${rent ? "alquiler" : "venta"} en ${place}`;
+  // Filtros activos, cada uno con su enlace para quitarlo
+  const chips: Array<{ label: string; remove: Partial<SearchFilters> }> = [
+    ...(provinceName ? [{ label: provinceName, remove: { provincia: undefined, municipio: undefined } }] : []),
+    ...(filters.municipio ? [{ label: filters.municipio, remove: { municipio: undefined } }] : []),
+    ...(filters.zona ? [{ label: filters.zona, remove: { zona: undefined } }] : []),
+    ...(filters.tipo ? [{ label: PROPERTY_TYPES[filters.tipo as keyof typeof PROPERTY_TYPES] ?? filters.tipo, remove: { tipo: undefined } }] : []),
+    ...(filters.min ? [{ label: `Desde ${eur(filters.min)}`, remove: { min: undefined } }] : []),
+    ...(filters.max ? [{ label: `Hasta ${eur(filters.max)}`, remove: { max: undefined } }] : []),
+    ...(filters.hab ? [{ label: `${filters.hab}+ hab.`, remove: { hab: undefined } }] : []),
+    ...(filters.m2 ? [{ label: `Desde ${filters.m2} m²`, remove: { m2: undefined } }] : []),
+  ];
 
   return (
     <div lang="es">
       <SiteHeader dict={dict} lang="es" basePath="/" />
       <main className="bg-sand-50">
         <section className="border-b border-sand-200 bg-white">
-          <div className="container-page py-8 sm:py-10">
+          <div className="container-page py-6 sm:py-10">
             <p className="eyebrow">{rent ? "Alquilar" : "Comprar"}</p>
             <h1 className="mt-3 font-serif text-[34px] font-medium leading-tight tracking-tight text-ink-800 sm:text-5xl">
               {rent ? "Viviendas en alquiler en Cataluña" : "Viviendas en venta en Cataluña"}
             </h1>
-            <p className="mt-3 max-w-2xl text-[15.5px] text-ink-500">
+            <p className="mt-3 hidden max-w-2xl text-[15.5px] text-ink-500 sm:block">
               {rent
                 ? "Inmuebles en alquiler en Barcelona, Girona, Lleida y Tarragona, publicados por FINCALIA360 y por inmobiliarias colaboradoras. Cada anuncio se revisa antes de publicarse."
                 : "Inmuebles en venta en Barcelona, Girona, Lleida y Tarragona, publicados por FINCALIA360 y por inmobiliarias colaboradoras. Cada anuncio se revisa antes de publicarse."}
@@ -55,12 +71,12 @@ export async function PortalSearchPage({ operation, filters }: { operation: "SAL
 
         <div className="container-page grid gap-8 py-8 lg:grid-cols-[280px_1fr]">
           <aside>
-            <div className="rounded-2xl border border-sand-200 bg-white">
+            <div className="rounded-2xl border border-sand-200 bg-white lg:sticky lg:top-24">
               {/* En móvil los filtros se despliegan con este interruptor (sin JavaScript) */}
-              <input type="checkbox" id="ver-filtros" className="peer sr-only" defaultChecked={anyFilter} />
+              <input type="checkbox" id="ver-filtros" className="peer sr-only" />
               <label htmlFor="ver-filtros" className="flex cursor-pointer items-center justify-between px-4 py-3 text-sm font-semibold text-ink-800 lg:hidden">
                 <span className="inline-flex items-center gap-2">
-                  <SlidersHorizontal className="h-4 w-4" /> Filtros
+                  <SlidersHorizontal className="h-4 w-4" /> {chips.length ? `Filtros (${chips.length})` : "Filtrar búsqueda"}
                 </span>
                 <span className="text-ink-400">▾</span>
               </label>
@@ -76,26 +92,7 @@ export async function PortalSearchPage({ operation, filters }: { operation: "SAL
                     Alquilar
                   </Link>
                 </div>
-                <label className="block">
-                  <span className="field-label">Provincia</span>
-                  <select name="provincia" defaultValue={filters.provincia ?? ""} className="field">
-                    <option value="">Toda Cataluña</option>
-                    {PROVINCES.filter((p) => isPortalProvince(p.code)).sort((a, b) => a.name.localeCompare(b.name, "es")).map((p) => (
-                      <option key={p.code} value={p.code}>
-                        {p.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="block">
-                  <span className="field-label">Municipio</span>
-                  <input name="municipio" list="municipios-portal" defaultValue={filters.municipio ?? ""} placeholder="Cualquiera" className="field" maxLength={80} />
-                  <datalist id="municipios-portal">
-                    {municipalities.map((m) => (
-                      <option key={m} value={m} />
-                    ))}
-                  </datalist>
-                </label>
+                <LocationFilter locations={locations} province={filters.provincia} municipality={filters.municipio} />
                 <label className="block">
                   <span className="field-label">Zona o barrio</span>
                   <input name="zona" defaultValue={filters.zona ?? ""} placeholder="Cualquiera" className="field" maxLength={80} />
@@ -160,6 +157,7 @@ export async function PortalSearchPage({ operation, filters }: { operation: "SAL
                   </label>
                 </div>
                 {filters.orden && <input type="hidden" name="orden" value={filters.orden} />}
+                <AutoSubmit />
                 <div className="flex gap-2 pt-1">
                   <button type="submit" className="h-10 flex-1 rounded-full bg-ink-800 text-sm font-medium text-white hover:bg-ink-700">
                     Buscar
@@ -176,10 +174,7 @@ export async function PortalSearchPage({ operation, filters }: { operation: "SAL
 
           <section aria-label="Resultados" className="min-w-0">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-              <p className="text-sm text-ink-500">
-                {result.total === 1 ? "1 inmueble" : `${result.total} inmuebles`}
-                {anyFilter ? " con estos filtros" : ""}
-              </p>
+              <h2 className="text-[15px] font-semibold text-ink-800">{noun(result.total)}</h2>
               {result.total > 1 && (
                 <nav aria-label="Ordenar" className="flex gap-1 text-[13px]">
                   {(
@@ -200,6 +195,24 @@ export async function PortalSearchPage({ operation, filters }: { operation: "SAL
                 </nav>
               )}
             </div>
+
+            {chips.length > 0 && (
+              <div className="mb-5 flex flex-wrap items-center gap-2">
+                {chips.map((c) => (
+                  <Link
+                    key={c.label}
+                    href={`${base}${qs(filters, { ...c.remove, pagina: undefined })}`}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-sand-300 bg-white px-3 py-1 text-[13px] text-ink-700 hover:border-ink-300"
+                    aria-label={`Quitar filtro ${c.label}`}
+                  >
+                    {c.label} <X className="h-3.5 w-3.5 text-ink-400" />
+                  </Link>
+                ))}
+                <Link href={base} className="px-1 text-[13px] text-ink-500 underline-offset-2 hover:underline">
+                  Quitar todos
+                </Link>
+              </div>
+            )}
 
             {result.items.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-sand-300 bg-white px-6 py-14 text-center">

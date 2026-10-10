@@ -11,7 +11,6 @@ const NAV = [
   ["Alquilar", "/alquilar"],
   ["Valora tu vivienda", "/estudio"],
   ["Para propietarios", "/#servicios"],
-  ["Zona inmobiliarias", "/zona-inmobiliarias"],
 ] as const;
 
 /**

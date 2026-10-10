@@ -540,7 +540,7 @@ function publicVisibility(): Prisma.ListingWhereInput {
 export async function searchPublic(operation: "SALE" | "RENT", f: SearchFilters) {
   const where: Prisma.ListingWhereInput = { ...publicVisibility(), operation };
   if (f.provincia) where.provinceCode = f.provincia;
-  if (f.municipio) where.municipality = { contains: f.municipio };
+  if (f.municipio) where.municipality = f.municipio; // nombre oficial elegido en el buscador
   if (f.zona) where.zone = { contains: f.zona };
   if (f.tipo) where.propertyType = f.tipo;
   if (f.min || f.max) where.price = { ...(f.min ? { gte: f.min } : {}), ...(f.max ? { lte: f.max } : {}) };
