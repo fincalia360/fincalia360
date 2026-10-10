@@ -17,7 +17,8 @@
     "db:seed": "prisma db seed",
     "db:reset": "prisma db push --force-reset && prisma db seed",
     "db:studio": "prisma studio",
-    "prestart": "node scripts/ensure-db.mjs"
+    "prestart": "node scripts/ensure-db.mjs",
+    "demo:pisos": "tsx scripts/demo-pisos.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
