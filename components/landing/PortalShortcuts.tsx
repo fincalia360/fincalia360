@@ -15,6 +15,24 @@ export function PortalShortcuts() {
   return (
     <section aria-labelledby="portal-titulo" className="border-t border-sand-200 bg-sand-50 py-12 sm:py-14">
       <div className="container-page">
+        {/* Llamada destacada: publicación gratuita para propietarios */}
+        <div className="mb-10 flex flex-col gap-4 rounded-3xl bg-ink-800 p-6 text-white shadow-soft sm:flex-row sm:items-center sm:justify-between sm:p-8">
+          <div className="flex items-start gap-4">
+            <span className="hidden h-12 w-12 shrink-0 place-items-center rounded-2xl bg-terracotta-500 sm:grid">
+              <Megaphone className="h-6 w-6" />
+            </span>
+            <div>
+              <p className="text-xl font-extrabold tracking-tight sm:text-2xl">Publica tu vivienda gratis</p>
+              <p className="mt-1 text-[15px] text-ink-100">¿Tienes un piso, una casa o un amarre en Cataluña? Envíanos los datos y las fotos: lo revisamos y lo publicamos sin coste.</p>
+            </div>
+          </div>
+          <Link
+            href="/publicar"
+            className="inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-full bg-terracotta-500 px-6 font-semibold text-white transition hover:bg-terracotta-600"
+          >
+            Publicar gratis <ArrowRight className="h-4 w-4" />
+          </Link>
+        </div>
         <h2 id="portal-titulo" className="text-2xl font-extrabold tracking-tight text-ink-800 sm:text-3xl">
           ¿Qué quieres hacer?
         </h2>
