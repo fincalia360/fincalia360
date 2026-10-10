@@ -412,6 +412,7 @@ model Listing {
   agency    Agency?  @relation(fields: [agencyId], references: [id], onDelete: Cascade)
   status    String   @default("DRAFT") // DRAFT | REVIEW | PUBLISHED | RESERVED | SOLD | RENTED | UNPUBLISHED | ARCHIVED
   operation String // SALE | RENT
+  category  String   @default("HOME") // HOME (vivienda o inmueble) | MOORING (amarre náutico)
 
   title        String
   description  String @default("")
@@ -458,6 +459,18 @@ model Listing {
   checkEnergy        Boolean   @default(false)
   checkLegalRent     Boolean   @default(false) // alquiler: normativa revisada (zona tensionada, fianza…)
 
+  // Amarres náuticos (category = MOORING). Medidas en metros.
+  portName      String? // puerto deportivo o instalación náutica
+  berthLength   Float? // longitud del amarre
+  berthWidth    Float? // anchura del amarre
+  maxBoatLength Float? // eslora máxima admitida
+  maxBoatBeam   Float? // manga máxima admitida
+  berthDepth    Float? // calado
+  mooringType   String? // PONTOON | FINGER | DOCK | BUOY | DRY_STACK | OTHER
+  rentPeriod    String? // DAY | WEEK | MONTH | SEASON | YEAR (alquiler de amarre)
+  concessionEnd Int? // año de fin de la concesión o del derecho de uso
+  extraInfo     String? // información adicional para el comprador o arrendatario
+
   ownerContactId String? // propietario en el CRM de la inmobiliaria
   ownerContact   AgencyContact? @relation("ListingOwner", fields: [ownerContactId], references: [id], onDelete: SetNull)
 
@@ -471,6 +484,7 @@ model Listing {
   visits    AgencyVisit[]
 
   @@index([status, operation])
+  @@index([category, status])
   @@index([agencyId])
 }
 
@@ -662,4 +676,48 @@ model RentComparable {
 
   @@index([municipalityCode, observedAt])
   @@index([provinceCode])
+}
+
+// Solicitudes gratuitas de publicación enviadas por propietarios («Publica tu vivienda gratis»).
+// Llegan al administrador, que las revisa y, si procede, crea el anuncio. Las fotos son privadas.
+model PublicationRequest {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  status    String   @default("NEW") // NEW | IN_REVIEW | CONVERTED | REJECTED
+
+  // Propietario
+  name  String
+  email String
+  phone String?
+
+  // Inmueble
+  category     String  @default("HOME") // HOME | MOORING
+  operation    String // SALE | RENT
+  propertyType String
+  provinceCode String
+  municipality String
+  zone         String?
+  address      String? // privada
+  price        Int?
+  builtArea    Int?
+  bedrooms     Int?
+  bathrooms    Int?
+  portName     String?
+  berthLength  Float?
+  berthWidth   Float?
+  description  String  @default("")
+  photos       String  @default("") // CSV de claves privadas (private/requests/…)
+
+  // Consentimientos (texto y versión aceptados)
+  isOwnerConfirmed Boolean  @default(false)
+  privacyAccepted  Boolean  @default(false)
+  consentVersion   String
+  consentText      String
+  marketingConsent Boolean  @default(false)
+
+  adminNote String?
+  listingId String? // anuncio creado a partir de la solicitud
+
+  @@index([status, createdAt])
 }

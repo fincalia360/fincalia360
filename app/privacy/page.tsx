@@ -58,6 +58,14 @@ export default async function PrivacyPage({ searchParams }: { searchParams: Prom
             <td>Nombre, email, teléfono (necesario para visitas), tu mensaje y tu consentimiento con su fecha y versión.</td>
           </tr>
           <tr>
+            <td>Si nos pides publicar gratis tu vivienda o tu amarre</td>
+            <td>
+              Nombre, email, teléfono (opcional), datos del inmueble o del amarre (ubicación, dirección o número de amarre si los indicas, precio,
+              medidas y características), las fotos que envíes (les quitamos la ubicación y los datos internos) y tus consentimientos con su fecha y
+              versión.
+            </td>
+          </tr>
+          <tr>
             <td>Si trabajas en una inmobiliaria colaboradora con acceso a la Zona inmobiliarias</td>
             <td>Nombre, email profesional, contraseña (guardada cifrada, nunca en claro), rol y fechas de acceso.</td>
           </tr>
@@ -90,7 +98,12 @@ export default async function PrivacyPage({ searchParams }: { searchParams: Prom
           cualquier momento.
         </li>
         <li>
-          <strong>Responder a tu solicitud sobre un inmueble</strong> del portal (información o visita): tu consentimiento (art. 6.1.a).
+          <strong>Responder a tu solicitud sobre un inmueble o un amarre</strong> del portal (información o visita): tu consentimiento (art. 6.1.a).
+        </li>
+        <li>
+          <strong>Revisar tu solicitud de publicación gratuita</strong>, contactarte y, si lo acordamos, preparar y publicar el anuncio: tu
+          consentimiento (art. 6.1.a) y, una vez acordada la publicación, la ejecución de ese servicio (art. 6.1.b). Tus datos de contacto no se
+          publican en el anuncio.
         </li>
         <li>
           <strong>Gestionar las cuentas de las inmobiliarias colaboradoras</strong> y su acceso seguro: ejecución de la relación con la inmobiliaria
@@ -140,7 +153,11 @@ export default async function PrivacyPage({ searchParams }: { searchParams: Prom
           Solicitudes de valoración: mientras dure la relación y hasta 2 años desde el último contacto, salvo que antes pidas su supresión o retires
           el consentimiento.
         </li>
-        <li>Solicitudes sobre inmuebles del portal: hasta 2 años desde la última comunicación, salvo que antes pidas su supresión.</li>
+        <li>Solicitudes sobre inmuebles y amarres del portal: hasta 2 años desde la última comunicación, salvo que antes pidas su supresión.</li>
+        <li>
+          Solicitudes de publicación gratuita y sus fotos: si no se publica el anuncio, hasta 6 meses desde la última comunicación; si se publica,
+          mientras esté anunciado y hasta 2 años después. Puedes pedir antes su supresión.
+        </li>
         <li>Cuentas de inmobiliarias: mientras dure la colaboración; los registros de acceso y de acciones, hasta 2 años.</li>
         <li>Prueba de los consentimientos: durante los plazos de prescripción de las posibles responsabilidades.</li>
       </ul>

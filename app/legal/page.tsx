@@ -36,8 +36,9 @@ export default async function LegalNoticePage({ searchParams }: { searchParams: 
         Esta web permite a propietarios de viviendas de toda España obtener un estudio orientativo gratuito: valor de venta estimado, referencias de
         alquiler, situación respecto a las zonas de mercado residencial tensionado y una comparativa económica entre vender, alquilar o mantener la
         vivienda. Si el propietario lo solicita expresamente, se le pone en contacto con un especialista para una valoración profesional. Además,
-        incluye un portal de anuncios de inmuebles en venta y en alquiler situados en Cataluña (provincias de Barcelona, Girona, Lleida y Tarragona),
-        publicados por FINCALIA360 o por inmobiliarias colaboradoras.
+        incluye un portal de anuncios de inmuebles y de amarres náuticos en venta y en alquiler situados en Cataluña (provincias de Barcelona,
+        Girona, Lleida y Tarragona), publicados por FINCALIA360 o por inmobiliarias colaboradoras, y permite a los propietarios solicitar gratis la
+        publicación de su vivienda o su amarre. Cada anuncio se revisa antes de publicarse; los datos los facilita el anunciante.
       </p>
 
       <h2>3. Naturaleza de la información</h2>

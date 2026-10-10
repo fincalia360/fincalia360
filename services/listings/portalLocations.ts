@@ -12,14 +12,17 @@ export interface PortalLocations {
   municipalities: Record<string, string[]>;
   /** Anuncios publicados por «provincia|municipio». */
   counts: Record<string, number>;
+  /** Puertos con amarres publicados (solo en la sección de amarres). */
+  ports: { name: string; count: number }[];
 }
 
-export async function portalLocations(operation: "SALE" | "RENT"): Promise<PortalLocations> {
+export async function portalLocations(operation: "SALE" | "RENT", category: "HOME" | "MOORING" = "HOME"): Promise<PortalLocations> {
   const provinces = PROVINCES.filter((p) => PORTAL_PROVINCE_CODES.includes(p.code))
     .sort((a, b) => a.name.localeCompare(b.name, "es"))
     .map(({ code, name }) => ({ code, name }));
 
-  const [official, rows] = await Promise.all([
+  const visible = { status: { in: PUBLIC_STATUSES }, operation, category, provinceCode: { in: [...PORTAL_PROVINCE_CODES] }, OR: [{ agencyId: null }, { agency: { crmAccess: true, status: "ACTIVE" } }] };
+  const [official, rows, portRows] = await Promise.all([
     Promise.all(
       provinces.map((p) =>
         listMunicipalities(p.code)
@@ -29,9 +32,10 @@ export async function portalLocations(operation: "SALE" | "RENT"): Promise<Porta
     ),
     prisma.listing.groupBy({
       by: ["provinceCode", "municipality"],
-      where: { status: { in: PUBLIC_STATUSES }, operation, provinceCode: { in: [...PORTAL_PROVINCE_CODES] }, OR: [{ agencyId: null }, { agency: { crmAccess: true, status: "ACTIVE" } }] },
+      where: visible,
       _count: true,
     }),
+    category === "MOORING" ? prisma.listing.groupBy({ by: ["portName"], where: visible, _count: true, orderBy: { portName: "asc" } }) : Promise.resolve([]),
   ]);
 
   const municipalities: Record<string, string[]> = {};
@@ -42,5 +46,6 @@ export async function portalLocations(operation: "SALE" | "RENT"): Promise<Porta
   });
   const counts: Record<string, number> = {};
   for (const r of rows) counts[`${r.provinceCode}|${r.municipality}`] = r._count;
-  return { provinces, municipalities, counts };
+  const ports = portRows.filter((r) => r.portName).map((r) => ({ name: r.portName!, count: r._count }));
+  return { provinces, municipalities, counts, ports };
 }

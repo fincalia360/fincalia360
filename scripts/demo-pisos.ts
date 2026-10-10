@@ -1,4 +1,4 @@
-// Pisos de MUESTRA para ver cómo queda el portal en local. Todo es FICTICIO y va marcado «DEMO»:
+// Pisos y amarres de MUESTRA para ver cómo queda el portal en local. Todo es FICTICIO y va marcado «DEMO»:
 // los pisos no existen y las fotos son ilustraciones generadas, no fotos reales.
 // Solo funciona en desarrollo (nunca en la web publicada).
 //   npm run demo:pisos            → crea (o vuelve a crear) los pisos de muestra
@@ -16,8 +16,17 @@ if (process.env.NODE_ENV === "production" || process.env.SEED_DEMO_DATA === "fal
 const AGENCY_NAME = "Inmobiliaria de demostración (ficticia)";
 const DEMO_NOTE = "ANUNCIO DE DEMOSTRACIÓN: este inmueble no existe y las imágenes son ilustraciones, no fotos reales.\n\n";
 
-type Room = "fachada" | "salon" | "cocina" | "dormitorio" | "bano" | "terraza";
-const LABELS: Record<Room, string> = { fachada: "Fachada", salon: "Salón", cocina: "Cocina", dormitorio: "Dormitorio", bano: "Baño", terraza: "Terraza" };
+type Room = "fachada" | "salon" | "cocina" | "dormitorio" | "bano" | "terraza" | "puerto" | "pantalan";
+const LABELS: Record<Room, string> = {
+  fachada: "Fachada",
+  salon: "Salón",
+  cocina: "Cocina",
+  dormitorio: "Dormitorio",
+  bano: "Baño",
+  terraza: "Terraza",
+  puerto: "Puerto",
+  pantalan: "Pantalán",
+};
 
 /** Ilustración sencilla de una estancia (SVG → JPEG). */
 function svg(room: Room, accent: string, wall: string, floor: string) {
@@ -35,6 +44,12 @@ function svg(room: Room, accent: string, wall: string, floor: string) {
       .join("")}<rect x="80" y="120" width="460" height="240" fill="#fff"/><rect x="1060" y="120" width="460" height="240" fill="#fff"/><rect x="80" y="545" width="1440" height="22" fill="#d9d3c7"/>`,
     dormitorio: `${base}<rect x="200" y="140" width="340" height="400" fill="#fff"/><rect x="214" y="154" width="312" height="372" fill="url(#sky)"/><rect x="650" y="430" width="620" height="140" rx="12" fill="#8d6e4f"/><rect x="650" y="560" width="620" height="230" rx="10" fill="#fff"/><rect x="650" y="660" width="620" height="130" fill="${accent}" opacity=".7"/><rect x="700" y="520" width="220" height="70" rx="20" fill="#f4f1ea"/><rect x="990" y="520" width="220" height="70" rx="20" fill="#f4f1ea"/><rect x="1310" y="640" width="140" height="150" fill="#6d4c41"/><circle cx="1380" cy="600" r="40" fill="#f1c27d"/>`,
     bano: `${base}${win}<rect x="140" y="560" width="700" height="230" rx="30" fill="#fff"/><rect x="170" y="585" width="640" height="60" rx="20" fill="#e3eef2"/><rect x="960" y="600" width="300" height="190" fill="#fff"/><rect x="1010" y="250" width="200" height="260" rx="12" fill="${accent}" opacity=".35"/>`,
+    puerto: `<rect width="${W}" height="${H * 0.5}" fill="url(#sky)"/><rect y="${H * 0.42}" width="${W}" height="60" fill="#c9b79c"/><rect y="${H * 0.5}" width="${W}" height="${H * 0.5}" fill="#2f6f8f"/>${[0, 1, 2, 3, 4]
+      .map((i) => `<rect x="${140 + i * 290}" y="${H * 0.5 + 60}" width="40" height="300" fill="#b08a5a"/><path d="M${200 + i * 290} ${H * 0.5 + 110} h170 l-30 60 h-110 z" fill="#fff"/><rect x="${280 + i * 290}" y="${H * 0.5 - 140}" width="8" height="250" fill="#ddd"/><path d="M${290 + i * 290} ${H * 0.5 - 130} l90 200 h-90 z" fill="${accent}" opacity=".85"/>`)
+      .join("")}`,
+    pantalan: `<rect width="${W}" height="${H * 0.45}" fill="url(#sky)"/><rect y="${H * 0.45}" width="${W}" height="${H * 0.55}" fill="#2f6f8f"/><path d="M700 ${H} L760 ${H * 0.45} H840 L900 ${H} Z" fill="#b08a5a"/>${[0, 1, 2]
+      .map((i) => `<path d="M${120 + i * 160} ${H * 0.62 + i * 90} h360 l-50 80 h-260 z" fill="#fff"/><path d="M${1000 - i * 40} ${H * 0.62 + i * 90} h360 l-50 80 h-260 z" fill="#fff"/>`)
+      .join("")}<circle cx="1300" cy="160" r="70" fill="#ffe08a"/>`,
     terraza: `<rect width="${W}" height="${H * 0.6}" fill="url(#sky)"/><circle cx="1250" cy="200" r="90" fill="#ffe08a"/><rect y="${H * 0.45}" width="${W}" height="80" fill="#7fa7c9"/><rect y="${H * 0.6}" width="${W}" height="${H * 0.4}" fill="url(#floor)"/><rect y="${H * 0.52}" width="${W}" height="14" fill="#fff"/>${Array.from({ length: 16 }, (_, i) => `<rect x="${i * 100 + 40}" y="${H * 0.52}" width="10" height="120" fill="#fff"/>`).join("")}<rect x="420" y="740" width="320" height="24" fill="#8d6e4f"/><rect x="560" y="764" width="40" height="120" fill="#8d6e4f"/><circle cx="1150" cy="760" r="80" fill="${accent}"/>`,
   };
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">
@@ -71,6 +86,13 @@ async function removeDemo() {
   await prisma.listing.deleteMany({ where: { id: { in: listings.map((l) => l.id) } } });
   return listings.length;
 }
+
+/** Amarres de MUESTRA (ficticios). */
+const MOORINGS = [
+  { operation: "SALE", title: "Amarre de 12 x 4 m con finger", price: 58000, provinceCode: "17", municipality: "Roses", portName: "Puerto deportivo de muestra (Roses)", zone: "Pantalán C", berthLength: "12", berthWidth: "4", maxBoatLength: "11,5", maxBoatBeam: "3,9", berthDepth: "3", mooringType: "FINGER", concessionEnd: "2045", features: ["WATER", "ELECTRICITY", "SECURITY", "PARKING_CAR", "SHOWERS"], text: "Amarre en pantalán con finger, a pocos metros de la bocana. Toma de agua y luz, vigilancia 24 h, duchas y aparcamiento." },
+  { operation: "RENT", rentPeriod: "MONTH", title: "Amarre de 8 m para alquilar por meses", price: 320, provinceCode: "08", municipality: "Vilanova i la Geltrú", portName: "Puerto deportivo de muestra (Vilanova)", zone: "Dársena interior", berthLength: "8", berthWidth: "3", maxBoatLength: "7,8", maxBoatBeam: "2,9", berthDepth: "2,5", mooringType: "PONTOON", features: ["WATER", "ELECTRICITY", "WIFI"], text: "Amarre para embarcación de hasta 7,8 m en zona abrigada. Agua, electricidad y wifi incluidos. Alquiler mínimo de tres meses." },
+  { operation: "RENT", rentPeriod: "SEASON", title: "Amarre de 15 m para la temporada de verano", price: 4800, provinceCode: "43", municipality: "Cambrils", portName: "Puerto deportivo de muestra (Cambrils)", zone: "Muelle de levante", berthLength: "15", berthWidth: "5", maxBoatLength: "14,5", maxBoatBeam: "4,8", mooringType: "DOCK", features: ["WATER", "ELECTRICITY", "FUEL", "TRAVEL_LIFT", "RESTAURANTS"], text: "Amarre amplio para la temporada de junio a septiembre, junto a la gasolinera y el varadero. Servicios del puerto a un paso." },
+];
 
 async function main() {
   const removed = await removeDemo();
@@ -124,7 +146,42 @@ async function main() {
     await transitionListing(admin, l.id, "publish");
     console.log(`✓ ${l.reference} · ${s.title} (${s.municipality})`);
   }
-  console.log(`\nCreados ${SAMPLES.length} pisos de muestra. Se ven en /comprar y /alquilar.`);
+  for (const s of MOORINGS) {
+    const rent = s.operation === "RENT";
+    const l = await createListing(actor, {
+      category: "MOORING",
+      operation: s.operation,
+      title: `DEMO · ${s.title}`,
+      description: DEMO_NOTE.replace("este inmueble no existe", "este amarre no existe") + s.text,
+      propertyType: "AMARRE",
+      price: String(s.price),
+      rentPeriod: rent ? s.rentPeriod : "",
+      provinceCode: s.provinceCode,
+      municipality: s.municipality,
+      portName: s.portName,
+      zone: s.zone,
+      berthLength: s.berthLength,
+      berthWidth: s.berthWidth,
+      maxBoatLength: s.maxBoatLength,
+      maxBoatBeam: s.maxBoatBeam,
+      berthDepth: s.berthDepth ?? "",
+      mooringType: s.mooringType,
+      concessionEnd: s.concessionEnd ?? "",
+      features: s.features,
+      authorizationType: "OWNER_SIGNED",
+      authorizationDate: "2026-10-01",
+      checkData: "on",
+      checkAuthorization: "on",
+    });
+    for (const room of ["puerto", "pantalan"] as Room[]) {
+      const jpg = await sharp(Buffer.from(svg(room, "#e76f51", "#efe7da", "#c8a27a"))).jpeg({ quality: 88 }).toBuffer();
+      await addPhoto(actor, l.id, jpg);
+    }
+    await transitionListing(actor, l.id, "submit");
+    await transitionListing(admin, l.id, "publish");
+    console.log(`✓ ${l.reference} · ${s.title} (${s.portName})`);
+  }
+  console.log(`\nCreados ${SAMPLES.length} pisos y ${MOORINGS.length} amarres de muestra. Se ven en /comprar, /alquilar y /amarres.`);
 }
 
 main()

@@ -81,7 +81,8 @@ export default async function ListingPage({ params }: Props) {
   const { slug } = await params;
   const l = await load(slug);
   if (!l) notFound();
-  if (l.slug !== slug) permanentRedirect(listingPath(l));
+  // Los amarres tienen su propia ficha (/amarre/…)
+  if (l.slug !== slug || l.category === "MOORING") permanentRedirect(listingPath(l));
 
   const dict = getDictionary("es");
   const rent = l.operation === "RENT";

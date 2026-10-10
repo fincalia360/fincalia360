@@ -1,5 +1,5 @@
 "use client";
-// Con JavaScript, el buscador se actualiza al cambiar cualquier desplegable (sin pulsar «Buscar»).
+// Con JavaScript, el buscador se actualiza al cambiar cualquier desplegable o casilla (sin pulsar «Buscar»).
 // Sin JavaScript sigue funcionando con el botón.
 import { useEffect, useRef } from "react";
 
@@ -10,7 +10,8 @@ export function AutoSubmit() {
     if (!form) return;
     const onChange = (e: Event) => {
       // Después de que React actualice los campos dependientes (p. ej. vaciar el municipio al cambiar de provincia)
-      if (e.target instanceof HTMLSelectElement) setTimeout(() => form.requestSubmit(), 0);
+      const t = e.target;
+      if (t instanceof HTMLSelectElement || (t instanceof HTMLInputElement && t.type === "checkbox")) setTimeout(() => form.requestSubmit(), 0);
     };
     // La URL solo lleva los filtros elegidos (sin «zona=&tipo=&…» vacíos)
     const onSubmit = () => {

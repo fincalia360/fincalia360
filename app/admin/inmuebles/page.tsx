@@ -1,6 +1,6 @@
 /* eslint-disable @next/next/no-img-element -- miniaturas ya optimizadas */
 import Link from "next/link";
-import { Plus, ImageOff } from "lucide-react";
+import { Plus, ImageOff, Anchor } from "lucide-react";
 import { PageHeader } from "@/components/admin/PageHeader";
 import { Badge } from "@/components/ui/Badge";
 import { ButtonLink } from "@/components/ui/Button";
@@ -13,10 +13,10 @@ import { listListings } from "@/services/listings/listings";
 import { listAllInquiries } from "@/services/listings/inquiries";
 import { inquiryStatusAction } from "./actions";
 
-export const metadata = { title: "Inmuebles" };
+export const metadata = { title: "Anuncios" };
 export const dynamic = "force-dynamic";
 
-type Search = { estado?: string; op?: string; q?: string; anunciante?: string; vista?: string };
+type Search = { estado?: string; op?: string; q?: string; anunciante?: string; vista?: string; tipo?: string };
 
 const TABS = [
   ["", "Todos"],
@@ -24,7 +24,7 @@ const TABS = [
   ["DRAFT", "Borradores"],
   ["PUBLISHED", "Publicados"],
   ["RESERVED", "Reservados"],
-  ["UNPUBLISHED", "Despublicados"],
+  ["UNPUBLISHED", "Retirados"],
 ] as const;
 
 export default async function AdminListingsPage({ searchParams }: { searchParams: Promise<Search> }) {
@@ -94,7 +94,7 @@ export default async function AdminListingsPage({ searchParams }: { searchParams
   }
 
   const [listings, agencies, reviewCount] = await Promise.all([
-    listListings(actor, { status: sp.estado, operation: sp.op, q: sp.q, agencyId: sp.anunciante }),
+    listListings(actor, { status: sp.estado, operation: sp.op, q: sp.q, agencyId: sp.anunciante, category: sp.tipo }),
     prisma.agency.findMany({ where: { crmAccess: true }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
     prisma.listing.count({ where: { status: "REVIEW" } }),
   ]);
@@ -102,20 +102,42 @@ export default async function AdminListingsPage({ searchParams }: { searchParams
   return (
     <>
       <PageHeader
-        title="Inmuebles"
-        description="Anuncios del portal: los de FINCALIA360 y los que envían las inmobiliarias. Nada se publica sin pasar las comprobaciones."
+        title="Anuncios"
+        description="Viviendas y amarres del portal. Nada se publica sin pasar las comprobaciones."
         actions={
-          <ButtonLink href="/admin/inmuebles/nuevo" variant="accent">
-            <Plus className="h-4 w-4" /> Nuevo inmueble
-          </ButtonLink>
+          <div className="flex flex-wrap gap-2">
+            <ButtonLink href="/admin/inmuebles/nuevo" variant="accent">
+              <Plus className="h-4 w-4" /> Nueva vivienda
+            </ButtonLink>
+            <ButtonLink href="/admin/inmuebles/nuevo?tipo=amarre" variant="outline">
+              <Anchor className="h-4 w-4" /> Nuevo amarre
+            </ButtonLink>
+          </div>
         }
       />
       <Tabs current="" />
+      <nav aria-label="Tipo de anuncio" className="mb-3 inline-flex rounded-full bg-sand-100 p-1 text-[13px] font-medium">
+        {(
+          [
+            ["", "Todos"],
+            ["HOME", "Viviendas"],
+            ["MOORING", "Amarres"],
+          ] as const
+        ).map(([k, label]) => (
+          <Link
+            key={k}
+            href={`/admin/inmuebles?${new URLSearchParams({ ...(k ? { tipo: k } : {}), ...(sp.estado ? { estado: sp.estado } : {}) }).toString()}`}
+            className={(sp.tipo ?? "") === k ? "rounded-full bg-white px-4 py-1.5 text-ink-800 shadow-sm" : "rounded-full px-4 py-1.5 text-ink-500 hover:text-ink-800"}
+          >
+            {label}
+          </Link>
+        ))}
+      </nav>
       <nav className="mb-4 flex flex-wrap gap-1.5">
         {TABS.map(([k, label]) => (
           <Link
             key={k}
-            href={`/admin/inmuebles${k ? `?estado=${k}` : ""}`}
+            href={`/admin/inmuebles?${new URLSearchParams({ ...(k ? { estado: k } : {}), ...(sp.tipo ? { tipo: sp.tipo } : {}) }).toString()}`}
             className={(sp.estado ?? "") === k ? "rounded-full bg-ink-800 px-3 py-1.5 text-[13px] text-white" : "rounded-full bg-white px-3 py-1.5 text-[13px] text-ink-600 ring-1 ring-sand-200 hover:bg-sand-50"}
           >
             {label}
@@ -125,7 +147,8 @@ export default async function AdminListingsPage({ searchParams }: { searchParams
       </nav>
       <form className="mb-4 flex flex-wrap gap-2">
         {sp.estado && <input type="hidden" name="estado" value={sp.estado} />}
-        <input name="q" defaultValue={sp.q ?? ""} placeholder="Referencia, título o municipio" className="field h-10 max-w-xs py-0" />
+        {sp.tipo && <input type="hidden" name="tipo" value={sp.tipo} />}
+        <input name="q" defaultValue={sp.q ?? ""} placeholder="Referencia, título, municipio o puerto" className="field h-10 max-w-xs py-0" />
         <select name="op" defaultValue={sp.op ?? ""} className="field h-10 w-auto py-0">
           <option value="">Venta y alquiler</option>
           {Object.entries(OPERATIONS).map(([k, v]) => (
@@ -186,10 +209,12 @@ export default async function AdminListingsPage({ searchParams }: { searchParams
                       {l.title}
                     </Link>
                     <p className="text-xs text-ink-400">
-                      {l.reference} · {OPERATIONS[l.operation as keyof typeof OPERATIONS]} · {l.municipality}
+                      {l.reference} · {l.category === "MOORING" ? "Amarre · " : ""}
+                      {OPERATIONS[l.operation as keyof typeof OPERATIONS]} · {l.category === "MOORING" && l.portName ? `${l.portName}, ` : ""}
+                      {l.municipality}
                     </p>
                   </td>
-                  <td className="font-medium">{formatPrice(l.price, l.operation)}</td>
+                  <td className="font-medium">{formatPrice(l.price, l.operation, l.rentPeriod)}</td>
                   <td className="text-ink-600">{l.agency?.name ?? "FINCALIA360"}</td>
                   <td>
                     <Badge tone={LISTING_STATUS_TONES[l.status]}>{LISTING_STATUSES[l.status as keyof typeof LISTING_STATUSES]}</Badge>
@@ -213,7 +238,10 @@ function Tabs({ current }: { current: "" | "solicitudes" }) {
         Anuncios
       </Link>
       <Link href="/admin/inmuebles?vista=solicitudes" className={current === "solicitudes" ? "-mb-px border-b-2 border-ink-800 pb-2 font-semibold text-ink-800" : "pb-2 text-ink-500 hover:text-ink-800"}>
-        Solicitudes (inmuebles propios)
+        Solicitudes de interesados
+      </Link>
+      <Link href="/admin/solicitudes-publicacion" className="pb-2 text-ink-500 hover:text-ink-800">
+        Solicitudes de publicación de propietarios
       </Link>
     </div>
   );

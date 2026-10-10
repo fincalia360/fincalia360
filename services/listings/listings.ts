@@ -19,6 +19,10 @@ import {
   CONDITIONS,
   ENERGY_RATINGS,
   FEATURES,
+  MOORING_FEATURES,
+  MOORING_PROPERTY_TYPE,
+  MOORING_TYPES,
+  RENT_PERIODS,
   MAX_DOC_BYTES,
   MAX_PHOTOS,
   MAX_PHOTO_BYTES,
@@ -50,12 +54,18 @@ const optText = (max: number) => z.preprocess((v) => (typeof v === "string" && v
 const optDate = z.preprocess((v) => (v === "" || v == null ? null : v), z.coerce.date({ invalid_type_error: "Fecha no válida" }).nullable());
 const bool = z.preprocess((v) => v === true || v === "on" || v === "true", z.boolean());
 
+const optMeters = z.preprocess(
+  (v) => (v === "" || v == null ? null : typeof v === "string" ? v.replace(",", ".") : v),
+  z.coerce.number({ invalid_type_error: "Medida no válida" }).positive("La medida debe ser mayor que 0").max(200, "Medida no válida (en metros)").nullable(),
+);
+
 export const listingSchema = z
   .object({
+    category: z.preprocess((v) => (v === "" || v == null ? "HOME" : v), z.enum(["HOME", "MOORING"])),
     operation: z.enum(["SALE", "RENT"], { errorMap: () => ({ message: "Indica si es venta o alquiler" }) }),
     title: z.string().trim().min(10, "El título debe tener al menos 10 caracteres").max(110),
     description: z.string().trim().max(6000).default(""),
-    propertyType: z.enum(keys(PROPERTY_TYPES), { errorMap: () => ({ message: "Elige el tipo de inmueble" }) }),
+    propertyType: z.enum([...keys(PROPERTY_TYPES), MOORING_PROPERTY_TYPE], { errorMap: () => ({ message: "Elige el tipo de inmueble" }) }),
     price: z.coerce.number({ invalid_type_error: "Precio no válido" }).int("Precio en euros, sin decimales").min(1, "Indica el precio").max(100_000_000),
     communityFee: optInt(100_000),
     provinceCode: z
@@ -74,7 +84,7 @@ export const listingSchema = z
     floor: optText(30),
     yearBuilt: optInt(2100),
     condition: z.preprocess((v) => (v === "" ? null : v), z.enum(keys(CONDITIONS)).nullable().optional()),
-    features: z.array(z.enum(keys(FEATURES))).default([]),
+    features: z.array(z.enum([...keys(FEATURES), ...keys(MOORING_FEATURES)])).default([]),
     energyRating: z.preprocess((v) => (v === "" ? null : v), z.enum(keys(ENERGY_RATINGS)).nullable().optional()),
     energyConsumption: optFloat,
     energyEmissions: optFloat,
@@ -91,8 +101,28 @@ export const listingSchema = z
     checkEnergy: bool,
     checkLegalRent: bool,
     ownerContactId: optText(40),
+    // Amarres
+    portName: optText(100),
+    berthLength: optMeters,
+    berthWidth: optMeters,
+    maxBoatLength: optMeters,
+    maxBoatBeam: optMeters,
+    berthDepth: optMeters,
+    mooringType: z.preprocess((v) => (v === "" ? null : v), z.enum(keys(MOORING_TYPES)).nullable().optional()),
+    rentPeriod: z.preprocess((v) => (v === "" ? null : v), z.enum(keys(RENT_PERIODS)).nullable().optional()),
+    concessionEnd: z.preprocess((v) => (v === "" || v == null ? null : v), z.coerce.number().int().min(2000, "Año no válido").max(2150, "Año no válido").nullable()),
+    extraInfo: optText(3000),
   })
   .superRefine((v, ctx) => {
+    if (v.category === "MOORING") {
+      if (!v.portName) ctx.addIssue({ code: "custom", path: ["portName"], message: "Indica el puerto deportivo o la instalación náutica" });
+      if (!v.berthLength) ctx.addIssue({ code: "custom", path: ["berthLength"], message: "Indica la longitud del amarre (m)" });
+      if (!v.berthWidth) ctx.addIssue({ code: "custom", path: ["berthWidth"], message: "Indica la anchura del amarre (m)" });
+      if (v.features.some((f) => !(f in MOORING_FEATURES))) ctx.addIssue({ code: "custom", path: ["features"], message: "Característica no válida para un amarre" });
+    } else {
+      if (v.propertyType === MOORING_PROPERTY_TYPE) ctx.addIssue({ code: "custom", path: ["propertyType"], message: "Elige el tipo de inmueble" });
+      if (v.features.some((f) => !(f in FEATURES))) ctx.addIssue({ code: "custom", path: ["features"], message: "Característica no válida para una vivienda" });
+    }
     if (v.postalCode && getProvince(v.postalCode.slice(0, 2))?.code !== v.provinceCode) {
       ctx.addIssue({ code: "custom", path: ["postalCode"], message: "El código postal no corresponde a la provincia elegida" });
     }
@@ -120,8 +150,45 @@ function dataFromInput(input: ListingInput) {
   const { features, ownerContactId, ...rest } = input;
   void ownerContactId;
   const rent = input.operation === "RENT";
+  if (input.category === "MOORING") {
+    // Un amarre no tiene habitaciones, certificado energético ni régimen de alquiler de vivienda
+    return {
+      ...rest,
+      propertyType: MOORING_PROPERTY_TYPE,
+      features: features.join(","),
+      cadastralRef: null,
+      bedrooms: null,
+      bathrooms: null,
+      floor: null,
+      yearBuilt: null,
+      condition: null,
+      usefulArea: null,
+      energyRating: null,
+      energyConsumption: null,
+      energyEmissions: null,
+      checkEnergy: false,
+      rentalType: null,
+      rentalRegistry: null,
+      checkLegalRent: false,
+      rentPeriod: rent ? (input.rentPeriod ?? "MONTH") : null,
+      depositMonths: rent ? (input.depositMonths ?? null) : null,
+      minTermMonths: rent ? (input.minTermMonths ?? null) : null,
+      rentConditions: rent ? (input.rentConditions ?? null) : null,
+    };
+  }
   return {
     ...rest,
+    propertyType: input.propertyType,
+    portName: null,
+    berthLength: null,
+    berthWidth: null,
+    maxBoatLength: null,
+    maxBoatBeam: null,
+    berthDepth: null,
+    mooringType: null,
+    rentPeriod: null,
+    concessionEnd: null,
+    extraInfo: null,
     features: features.join(","),
     rentalType: rent ? (input.rentalType ?? null) : null,
     depositMonths: rent ? (input.depositMonths ?? null) : null,
@@ -203,6 +270,11 @@ export async function updateListing(actor: ListingActor, id: string, raw: unknow
 
 /** Motivos que impiden publicar (vacío = se puede publicar). */
 export function publishProblems(l: {
+  category?: string | null;
+  portName?: string | null;
+  berthLength?: number | null;
+  berthWidth?: number | null;
+  rentPeriod?: string | null;
   operation: string;
   title: string;
   description: string;
@@ -222,6 +294,19 @@ export function publishProblems(l: {
   propertyType: string;
 }, photoCount: number): string[] {
   const p: string[] = [];
+  if (l.category === "MOORING") {
+    if (l.description.trim().length < 80) p.push("Escribe una descripción de al menos 80 caracteres");
+    if (!l.price) p.push("Indica el precio");
+    if (!l.portName) p.push("Indica el puerto deportivo");
+    if (!l.municipality) p.push("Indica el municipio");
+    if (!l.berthLength || !l.berthWidth) p.push("Indica la longitud y la anchura del amarre");
+    if (l.operation === "RENT" && !l.rentPeriod) p.push("Indica la periodicidad del alquiler");
+    if (photoCount < 1) p.push("Añade al menos una fotografía");
+    if (!l.authorizationType || !l.authorizationDate) p.push("Indica el tipo y la fecha de la autorización del titular");
+    if (!l.checkAuthorization) p.push("Confirma que tienes la autorización del titular del amarre para publicar");
+    if (!l.checkData) p.push("Confirma que has comprobado los datos del amarre");
+    return p;
+  }
   if (l.description.trim().length < 80) p.push("Escribe una descripción de al menos 80 caracteres");
   if (!l.price) p.push("Indica el precio");
   if (!l.municipality) p.push("Indica el municipio");
@@ -248,7 +333,7 @@ export const TRANSITIONS = {
   reserve: "Marcar como reservado",
   unreserve: "Quitar reserva",
   close: "Marcar como vendido / alquilado",
-  unpublish: "Despublicar",
+  unpublish: "Retirar (despublicar)",
   archive: "Archivar",
   reopen: "Reabrir como borrador",
 } as const;
@@ -322,10 +407,16 @@ export async function transitionListing(actor: ListingActor, id: string, transit
   return updated;
 }
 
-/** Solo se pueden borrar borradores sin solicitudes (el resto se archiva para conservar el historial). */
+/**
+ * Eliminar: la inmobiliaria solo borra borradores; el administrador, además, anuncios retirados o
+ * archivados. Nunca si tienen solicitudes de interesados (se archivan para conservar el historial).
+ */
 export async function deleteListing(actor: ListingActor, id: string) {
   const l = await getListing(actor, id);
-  if (l.status !== "DRAFT") throw new ListingError("Solo se pueden eliminar borradores. Archiva el inmueble para retirarlo.");
+  const deletable: ListingStatus[] = actor.kind === "admin" ? ["DRAFT", "UNPUBLISHED", "ARCHIVED"] : ["DRAFT"];
+  if (!deletable.includes(l.status as ListingStatus)) {
+    throw new ListingError(actor.kind === "admin" ? "Solo se pueden eliminar borradores o anuncios retirados. Retíralo primero." : "Solo se pueden eliminar borradores. Archiva el inmueble para retirarlo.");
+  }
   const inquiries = await prisma.listingInquiry.count({ where: { listingId: l.id } });
   if (inquiries) throw new ListingError("Este inmueble tiene solicitudes: archívalo en lugar de eliminarlo");
   await prisma.listing.delete({ where: { id: l.id } });
@@ -337,15 +428,16 @@ export async function deleteListing(actor: ListingActor, id: string) {
   await audit(auditActor(actor), "listing.delete", "Listing", l.id, l.reference, l.agencyId);
 }
 
-export async function listListings(actor: ListingActor, filters: { status?: string; operation?: string; q?: string; agencyId?: string } = {}) {
+export async function listListings(actor: ListingActor, filters: { status?: string; operation?: string; q?: string; agencyId?: string; category?: string } = {}) {
   const where: Prisma.ListingWhereInput = { ...scopeWhere(actor) };
+  if (filters.category === "HOME" || filters.category === "MOORING") where.category = filters.category;
   if (filters.status === "ACTIVE") where.status = { in: ACTIVE_STATUSES };
   else if (filters.status) where.status = filters.status;
   if (filters.operation) where.operation = filters.operation;
   if (actor.kind === "admin" && filters.agencyId) where.agencyId = filters.agencyId === "OWN" ? null : filters.agencyId;
   if (filters.q?.trim()) {
     const q = filters.q.trim();
-    where.OR = [{ reference: { contains: q.toUpperCase() } }, { title: { contains: q } }, { municipality: { contains: q } }];
+    where.OR = [{ reference: { contains: q.toUpperCase() } }, { title: { contains: q } }, { municipality: { contains: q } }, { portName: { contains: q } }];
   }
   return prisma.listing.findMany({
     where,
@@ -364,7 +456,7 @@ export async function listListings(actor: ListingActor, filters: { status?: stri
 // ---------------------------------------------------------------------------
 
 /** Procesa la foto: orientación correcta, tamaño máximo, WebP y SIN metadatos (borra el GPS). */
-async function processPhoto(buffer: Buffer) {
+export async function processPhoto(buffer: Buffer) {
   const sharp = (await import("sharp")).default;
   let meta;
   try {
@@ -465,6 +557,14 @@ export async function setAuthorizationDoc(actor: ListingActor, listingId: string
 
 export const searchSchema = z.object({
   municipio: z.string().trim().max(80).optional(),
+  banos: z.coerce.number().int().min(0).max(10).optional(),
+  /** Características (códigos separados por comas) */
+  car: z.string().regex(/^[A-Z_]+(,[A-Z_]+){0,15}$/).optional(),
+  // Amarres
+  puerto: z.string().trim().max(100).optional(),
+  eslora: z.coerce.number().min(0).max(200).optional(),
+  manga: z.coerce.number().min(0).max(100).optional(),
+  tipoAmarre: z.enum(keys(MOORING_TYPES)).optional(),
   zona: z.string().trim().max(80).optional(),
   provincia: z.string().regex(/^\d{2}$/).optional(),
   tipo: z.enum(keys(PROPERTY_TYPES)).optional(),
@@ -481,7 +581,8 @@ export type SearchFilters = z.infer<typeof searchSchema>;
 export function parseSearch(params: Record<string, string | string[] | undefined>): SearchFilters {
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(params)) {
-    const value = Array.isArray(v) ? v[0] : v;
+    // Las características llegan como varias casillas (car=A&car=B)
+    const value = Array.isArray(v) ? (k === "car" ? v.join(",") : v[0]) : v;
     if (!value) continue;
     const single = searchSchema.shape[k as keyof typeof searchSchema.shape];
     if (!single) continue;
@@ -499,6 +600,7 @@ export const PUBLIC_SELECT = {
   reference: true,
   slug: true,
   status: true,
+  category: true,
   operation: true,
   title: true,
   description: true,
@@ -526,19 +628,51 @@ export const PUBLIC_SELECT = {
   availableFrom: true,
   rentConditions: true,
   rentalRegistry: true,
+  portName: true,
+  berthLength: true,
+  berthWidth: true,
+  maxBoatLength: true,
+  maxBoatBeam: true,
+  berthDepth: true,
+  mooringType: true,
+  rentPeriod: true,
+  concessionEnd: true,
+  extraInfo: true,
   publishedAt: true,
   updatedAt: true,
   agency: { select: { name: true } },
   photos: { orderBy: [{ isMain: "desc" }, { position: "asc" }], select: { key: true, width: true, height: true, alt: true, isMain: true } },
 } satisfies Prisma.ListingSelect;
 
-function publicVisibility(): Prisma.ListingWhereInput {
+export function publicVisibility(category?: "HOME" | "MOORING"): Prisma.ListingWhereInput {
   // Un inmueble de una inmobiliaria deja de verse si su cuenta se desactiva
-  return { status: { in: PUBLIC_STATUSES }, provinceCode: { in: [...PORTAL_PROVINCE_CODES] }, OR: [{ agencyId: null }, { agency: { crmAccess: true, status: "ACTIVE" } }] };
+  return {
+    status: { in: PUBLIC_STATUSES },
+    provinceCode: { in: [...PORTAL_PROVINCE_CODES] },
+    ...(category ? { category } : {}),
+    OR: [{ agencyId: null }, { agency: { crmAccess: true, status: "ACTIVE" } }],
+  };
 }
 
-export async function searchPublic(operation: "SALE" | "RENT", f: SearchFilters) {
-  const where: Prisma.ListingWhereInput = { ...publicVisibility(), operation };
+/** La lista de características se guarda como «A,B,C»: coincidencia exacta del código (AC ≠ ACCESSIBLE). */
+function hasFeature(code: string): Prisma.ListingWhereInput {
+  return { OR: [{ features: code }, { features: { startsWith: `${code},` } }, { features: { endsWith: `,${code}` } }, { features: { contains: `,${code},` } }] };
+}
+
+export async function searchPublic(operation: "SALE" | "RENT", f: SearchFilters, category: "HOME" | "MOORING" = "HOME") {
+  const where: Prisma.ListingWhereInput = { ...publicVisibility(category), operation };
+  const and: Prisma.ListingWhereInput[] = [];
+  if (f.car) for (const code of f.car.split(",")) and.push(hasFeature(code));
+  if (category === "MOORING") {
+    if (f.puerto) where.portName = f.puerto;
+    // Eslora y manga de TU barco: el amarre debe admitirlas (máximo admitido o, si no consta, medidas del amarre)
+    if (f.eslora) and.push({ OR: [{ maxBoatLength: { gte: f.eslora } }, { maxBoatLength: null, berthLength: { gte: f.eslora } }] });
+    if (f.manga) and.push({ OR: [{ maxBoatBeam: { gte: f.manga } }, { maxBoatBeam: null, berthWidth: { gte: f.manga } }] });
+    if (f.tipoAmarre) where.mooringType = f.tipoAmarre;
+  } else if (f.banos) {
+    where.bathrooms = { gte: f.banos };
+  }
+  if (and.length) where.AND = and;
   if (f.provincia) where.provinceCode = f.provincia;
   if (f.municipio) where.municipality = f.municipio; // nombre oficial elegido en el buscador
   if (f.zona) where.zone = { contains: f.zona };
@@ -561,12 +695,12 @@ export async function publicMunicipalities(operation: "SALE" | "RENT") {
   return rows.map((r) => r.municipality);
 }
 
-export async function getPublicListing(reference: string) {
-  return prisma.listing.findFirst({ where: { reference, ...publicVisibility() }, select: PUBLIC_SELECT });
+export async function getPublicListing(reference: string, category?: "HOME" | "MOORING") {
+  return prisma.listing.findFirst({ where: { reference, ...publicVisibility(category) }, select: PUBLIC_SELECT });
 }
 
 export async function publicListingsForSitemap() {
-  return prisma.listing.findMany({ where: publicVisibility(), select: { slug: true, updatedAt: true }, take: 5000 });
+  return prisma.listing.findMany({ where: publicVisibility(), select: { slug: true, category: true, updatedAt: true }, take: 5000 });
 }
 
 /** ¿Se puede servir esta foto a cualquiera? (inmueble visible en la web) */

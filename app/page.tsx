@@ -3,6 +3,7 @@ import { ArrowRight, Check } from "lucide-react";
 import { TrackOnMount } from "@/components/analytics/TrackOnMount";
 import { SiteFooter } from "@/components/landing/SiteFooter";
 import { SiteHeader } from "@/components/landing/SiteHeader";
+import { PortalShortcuts } from "@/components/landing/PortalShortcuts";
 import { ButtonLink } from "@/components/ui/Button";
 import { getDictionary } from "@/lib/i18n";
 import { getRequestLanguage } from "@/lib/i18n/server";
@@ -162,6 +163,9 @@ export default async function LandingPage({ searchParams }: Props) {
             </div>
           </div>
         </section>
+
+        {/* Accesos al portal (viviendas, amarres, valoración y publicación gratuita) */}
+        <PortalShortcuts />
 
         {/* Servicios */}
         <section id="servicios" className="scroll-mt-20 border-y border-sand-200 bg-white py-16 sm:py-20">

@@ -38,9 +38,12 @@ export default async function AdminListingPage({ params, searchParams }: { param
   return (
     <div>
       <Link href="/admin/inmuebles" className="mb-3 inline-flex items-center gap-1.5 text-sm text-ink-500 hover:text-ink-800">
-        <ArrowLeft className="h-4 w-4" /> Inmuebles
+        <ArrowLeft className="h-4 w-4" /> Anuncios
       </Link>
-      <PageHeader title={listing.title} description={`${listing.reference} · Anunciante: ${listing.agency?.name ?? "FINCALIA360"}`} />
+      <PageHeader
+        title={listing.title}
+        description={`${listing.category === "MOORING" ? "Amarre" : "Vivienda o inmueble"} · ${listing.reference} · Anunciante: ${listing.agency?.name ?? "FINCALIA360"}`}
+      />
       {created && <p className="mb-5 rounded-xl bg-pine-50 px-4 py-3 text-sm text-pine-700">Borrador creado. Ahora sube las fotos y el documento de autorización.</p>}
 
       <div className="grid gap-6 xl:grid-cols-[1fr_340px]">
@@ -53,7 +56,7 @@ export default async function AdminListingPage({ params, searchParams }: { param
             onDelete={deletePhotoAction}
           />
           <AuthorizationDocUpload uploadUrl={`/api/admin/inmuebles/${listing.id}/autorizacion`} downloadUrl={`/api/admin/inmuebles/${listing.id}/autorizacion`} hasDoc={Boolean(listing.authorizationDoc)} />
-          <ListingForm key={listing.updatedAt.toISOString()} action={updateListingAction.bind(null, listing.id)} values={listing} provinces={provinces} submitLabel="Guardar cambios" />
+          <ListingForm key={listing.updatedAt.toISOString()} action={updateListingAction.bind(null, listing.id)} values={listing} provinces={provinces} submitLabel="Guardar cambios" category={listing.category === "MOORING" ? "MOORING" : "HOME"} />
         </div>
 
         <aside className="space-y-5 xl:sticky xl:top-6 xl:self-start">

@@ -24,6 +24,41 @@ export const PROPERTY_TYPES = {
 } as const;
 export type PropertyTypeCode = keyof typeof PROPERTY_TYPES;
 
+/** Viviendas e inmuebles, o amarres náuticos (sección propia del portal). */
+export const CATEGORIES = { HOME: "Vivienda o inmueble", MOORING: "Amarre" } as const;
+export type Category = keyof typeof CATEGORIES;
+/** Tipo interno de los anuncios de amarre (no aparece en los filtros de viviendas). */
+export const MOORING_PROPERTY_TYPE = "AMARRE";
+
+export const MOORING_TYPES = {
+  PONTOON: "Pantalán",
+  FINGER: "Pantalán con finger",
+  DOCK: "Muelle",
+  BUOY: "Boya o fondeo",
+  DRY_STACK: "Marina seca (en tierra)",
+  OTHER: "Otro",
+} as const;
+export type MooringTypeCode = keyof typeof MOORING_TYPES;
+
+export const MOORING_FEATURES = {
+  WATER: "Toma de agua",
+  ELECTRICITY: "Toma de electricidad",
+  WIFI: "Wifi",
+  SECURITY: "Vigilancia 24 h",
+  SHOWERS: "Duchas y aseos",
+  PARKING_CAR: "Aparcamiento para coche",
+  FUEL: "Gasolinera",
+  TRAVEL_LIFT: "Grúa o travel-lift",
+  BOATYARD: "Varadero",
+  RESTAURANTS: "Restaurantes y servicios",
+  SHELTERED: "Zona abrigada",
+  SEAFRONT: "Acceso directo al mar",
+} as const;
+export type MooringFeatureCode = keyof typeof MOORING_FEATURES;
+
+export const RENT_PERIODS = { DAY: "día", WEEK: "semana", MONTH: "mes", SEASON: "temporada", YEAR: "año" } as const;
+export type RentPeriod = keyof typeof RENT_PERIODS;
+
 export const CONDITIONS = { NEW: "Obra nueva", GOOD: "Buen estado", TO_REFORM: "A reformar" } as const;
 
 export const FEATURES = {
@@ -73,7 +108,7 @@ export const LISTING_STATUSES = {
   RESERVED: "Reservado",
   SOLD: "Vendido",
   RENTED: "Alquilado",
-  UNPUBLISHED: "Despublicado",
+  UNPUBLISHED: "Retirado",
   ARCHIVED: "Archivado",
 } as const;
 export type ListingStatus = keyof typeof LISTING_STATUSES;
@@ -100,9 +135,15 @@ export const MAX_PHOTOS = 30;
 export const MAX_PHOTO_BYTES = 15 * 1024 * 1024;
 export const MAX_DOC_BYTES = 10 * 1024 * 1024;
 
-export function formatPrice(price: number, operation: string) {
+export function formatPrice(price: number, operation: string, rentPeriod?: string | null) {
   const eur = new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(price);
-  return operation === "RENT" ? `${eur}/mes` : eur;
+  if (operation !== "RENT") return eur;
+  return `${eur}/${RENT_PERIODS[(rentPeriod ?? "MONTH") as RentPeriod] ?? "mes"}`;
+}
+
+/** «12 m» / «3,5 m» */
+export function formatMeters(v: number | null | undefined) {
+  return v == null ? null : `${v.toLocaleString("es-ES", { maximumFractionDigits: 2 })} m`;
 }
 
 export function slugify(text: string) {
@@ -115,8 +156,12 @@ export function slugify(text: string) {
     .slice(0, 70);
 }
 
-/** Dirección clara: /inmueble/piso-3-habitaciones-girona-f360-ab12cd */
-export function buildSlug(l: { propertyType: string; bedrooms?: number | null; municipality: string; operation: string; reference: string }) {
+/** Dirección clara: /inmueble/piso-3-habitaciones-girona-f360-ab12cd · /amarre/amarre-venta-12-m-port-de-roses-f360-ab12cd */
+export function buildSlug(l: { category?: string | null; propertyType: string; bedrooms?: number | null; municipality: string; operation: string; reference: string; berthLength?: number | null; portName?: string | null }) {
+  if (l.category === "MOORING") {
+    const parts = ["amarre", l.operation === "RENT" ? "alquiler" : "venta", l.berthLength ? `${String(l.berthLength).replace(".", "-")} m` : "", l.portName ?? "", l.municipality];
+    return `${slugify(parts.filter(Boolean).join(" "))}-${l.reference.toLowerCase()}`;
+  }
   const type = PROPERTY_TYPES[l.propertyType as PropertyTypeCode] ?? "inmueble";
   const parts = [type, l.operation === "RENT" ? "alquiler" : "venta", l.bedrooms ? `${l.bedrooms}-habitaciones` : "", l.municipality];
   return `${slugify(parts.filter(Boolean).join(" "))}-${l.reference.toLowerCase()}`;
@@ -128,10 +173,13 @@ export function referenceFromSlug(slug: string) {
   return m ? m[1].toUpperCase() : null;
 }
 
-export function listingPath(l: { slug: string }) {
-  return `/inmueble/${l.slug}`;
+export function listingPath(l: { slug: string; category?: string | null }) {
+  return l.category === "MOORING" ? `/amarre/${l.slug}` : `/inmueble/${l.slug}`;
 }
 
 export function photoUrl(key: string, thumb = false) {
   return `/media/${thumb ? key.replace(/\.webp$/, "-thumb.webp") : key}`;
 }
+
+export const PUBLICATION_REQUEST_STATUSES = { NEW: "Nueva", IN_REVIEW: "En revisión", CONVERTED: "Anuncio creado", REJECTED: "Descartada" } as const;
+export type PublicationRequestStatus = keyof typeof PUBLICATION_REQUEST_STATUSES;

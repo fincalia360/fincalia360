@@ -17,7 +17,7 @@ const LABELS: Record<string, string> = {
   reserve: "Marcar reservado",
   unreserve: "Quitar reserva",
   close: "Vendido / alquilado",
-  unpublish: "Despublicar",
+  unpublish: "Retirar (despublicar)",
   archive: "Archivar",
   reopen: "Reabrir como borrador",
 };
@@ -108,16 +108,16 @@ export function StatusPanel({
         </form>
       )}
 
-      {onDelete && status === "DRAFT" && (
+      {onDelete && (status === "DRAFT" || (isAdmin && (status === "UNPUBLISHED" || status === "ARCHIVED"))) && (
         <form
           action={delAction}
           onSubmit={(e) => {
-            if (!confirm("¿Eliminar definitivamente este borrador y sus fotos?")) e.preventDefault();
+            if (!confirm("¿Eliminar definitivamente este anuncio y sus fotos? No se puede deshacer.")) e.preventDefault();
           }}
           className="border-t border-sand-100 pt-3"
         >
           <button type="submit" disabled={deleting} className="text-[13px] text-red-600 hover:underline">
-            Eliminar borrador
+            {status === "DRAFT" ? "Eliminar borrador" : "Eliminar anuncio"}
           </button>
           {delState.error && <p className="mt-1 text-sm text-red-600">{delState.error}</p>}
         </form>

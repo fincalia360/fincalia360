@@ -20,7 +20,7 @@ const TABS = [
   ["REVIEW", "En revisión"],
   ["PUBLISHED", "Publicados"],
   ["RESERVED", "Reservados"],
-  ["UNPUBLISHED", "Despublicados"],
+  ["UNPUBLISHED", "Retirados"],
   ["SOLD", "Vendidos"],
   ["RENTED", "Alquilados"],
 ] as const;

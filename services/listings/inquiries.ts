@@ -12,10 +12,11 @@ import { formatPrice } from "./catalog";
 
 export const INQUIRY_CONSENT_VERSION = "portal-v1-2026-10";
 
-export function inquiryConsentText(advertiser: string | null, reference: string) {
+export function inquiryConsentText(advertiser: string | null, reference: string, category?: string | null) {
+  const what = category === "MOORING" ? "amarre" : "inmueble";
   return advertiser
-    ? `Acepto que FINCALIA360 comunique mis datos a ${advertiser}, anunciante del inmueble ${reference}, para que responda a mi solicitud.`
-    : `Acepto que FINCALIA360 trate mis datos para responder a mi solicitud sobre el inmueble ${reference}.`;
+    ? `Acepto que FINCALIA360 comunique mis datos a ${advertiser}, anunciante del ${what} ${reference}, para que responda a mi solicitud.`
+    : `Acepto que FINCALIA360 trate mis datos para responder a mi solicitud sobre el ${what} ${reference}.`;
 }
 
 export const inquirySchema = z
@@ -47,7 +48,7 @@ export async function submitInquiry(reference: string, raw: unknown): Promise<In
   if (d.website || (d.elapsedMs != null && d.elapsedMs < 2500)) return { ok: false, status: 400, error: "No se ha podido enviar la solicitud. Inténtalo de nuevo." };
 
   const phone = d.phone?.trim() || null;
-  const consentText = inquiryConsentText(listing.agency?.name ?? null, listing.reference);
+  const consentText = inquiryConsentText(listing.agency?.name ?? null, listing.reference, listing.category);
   let contactId: string | null = null;
 
   if (listing.agencyId) {

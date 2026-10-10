@@ -6,12 +6,30 @@ import type { Language } from "@/types";
 export function SiteFooter({ dict, lang }: { dict: Dictionary; lang: Language }) {
   return (
     <footer className="bg-ink-800 text-ink-100">
-      <div className="container-page grid gap-8 py-12 md:grid-cols-[1.4fr_1fr]">
+      <div className="container-page grid gap-8 py-12 md:grid-cols-[1.4fr_1fr_1fr]">
         <div>
           <Logo light />
           <p className="mt-4 max-w-sm text-sm text-ink-200">
             Plataforma para propietarios de toda España: valor estimado de la vivienda, alquiler máximo legal y comparativa entre vender, alquilar o mantener. Compra y alquiler de inmuebles en Cataluña.
           </p>
+        </div>
+        <div className="flex flex-col gap-2 text-sm">
+          <p className="font-semibold text-white">Portal en Cataluña</p>
+          <Link href="/comprar" className="hover:text-white">
+            Comprar vivienda
+          </Link>
+          <Link href="/alquilar" className="hover:text-white">
+            Alquilar vivienda
+          </Link>
+          <Link href="/amarres/comprar" className="hover:text-white">
+            Comprar amarre
+          </Link>
+          <Link href="/amarres/alquilar" className="hover:text-white">
+            Alquilar amarre
+          </Link>
+          <Link href="/publicar" className="hover:text-white">
+            Publica tu vivienda gratis
+          </Link>
         </div>
         <div className="flex flex-col gap-2 text-sm md:items-end">
           <Link href="/estudio" className="hover:text-white">
