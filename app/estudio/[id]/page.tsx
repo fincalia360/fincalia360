@@ -7,7 +7,7 @@ import { SiteHeader } from "@/components/landing/SiteHeader";
 import { StudyResults } from "@/components/study/StudyResults";
 import { buttonClasses } from "@/components/ui/Button";
 import { getDictionary } from "@/lib/i18n";
-import { buildDefaultAssumptions } from "@/services/study/assumptions";
+import { buildDefaultAssumptions, hintsFromSnapshot } from "@/services/study/assumptions";
 import { cookieName } from "@/services/study/access";
 import { getCcaa, getProvince } from "@/services/study/geo";
 import { getServices, priceText } from "@/services/crm/catalog";
@@ -57,8 +57,8 @@ export default async function StudyResultPage({ params }: { params: Promise<{ id
               input={study.input}
               snapshot={study.snapshot}
               initialAssumptions={study.assumptions}
-              defaultAssumptions={buildDefaultAssumptions(study.input).values}
-              meta={buildDefaultAssumptions(study.input).meta}
+              defaultAssumptions={buildDefaultAssumptions(study.input, hintsFromSnapshot(study.snapshot)).values}
+              meta={buildDefaultAssumptions(study.input, hintsFromSnapshot(study.snapshot)).meta}
               services={(await getServices({ onlyActive: true })).map((sv) => ({ code: sv.code, name: sv.name, summary: sv.summary, scope: sv.scope, price: priceText(sv) }))}
               emailConfigured={emailConfig().configured}
               chatEnabled={claudeConfigured() || chatDemoEnabled()}

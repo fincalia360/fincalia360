@@ -14,6 +14,7 @@ import {
   HORIZONS,
   LANDLORD_LABELS,
   OUTDOOR_LABELS,
+  POOL_LABELS,
   OWNER_VALUATION_LABELS,
   PROPERTY_KIND_LABELS,
   TAX_RESIDENCE_LABELS,
@@ -52,6 +53,14 @@ type Form = {
   outdoor: "NONE" | "BALCONY" | "TERRACE" | "GARDEN";
   parking: boolean;
   storage: boolean;
+  parkingSpaces: string;
+  parkingValue: string;
+  storageSqm: string;
+  storageValue: string;
+  mooring: boolean;
+  mooringLengthM: string;
+  mooringValue: string;
+  pool: "NONE" | "PRIVATE" | "COMMUNITY";
   condition: "NEW" | "GOOD" | "TO_REFORM";
   yearBuilt: string;
   currentUse: CurrentUse | null;
@@ -103,6 +112,14 @@ const INITIAL: Form = {
   outdoor: "NONE",
   parking: false,
   storage: false,
+  parkingSpaces: "1",
+  parkingValue: "",
+  storageSqm: "",
+  storageValue: "",
+  mooring: false,
+  mooringLengthM: "",
+  mooringValue: "",
+  pool: "NONE",
   condition: "GOOD",
   yearBuilt: "",
   currentUse: null,
@@ -324,6 +341,13 @@ export function StudyWizard() {
         outdoor: form.outdoor,
         parking: form.parking,
         storage: form.storage,
+        parkingSpaces: form.parking ? (num(form.parkingSpaces) ?? 1) : 0,
+        parkingValue: form.parking ? num(form.parkingValue) : null,
+        storageSqm: form.storage ? num(form.storageSqm) : null,
+        storageValue: form.storage ? num(form.storageValue) : null,
+        mooringLengthM: form.mooring ? num(form.mooringLengthM) : null,
+        mooringValue: form.mooring ? num(form.mooringValue) : null,
+        pool: form.pool,
         condition: form.condition,
         yearBuilt: num(form.yearBuilt),
         currentUse: form.currentUse,
@@ -579,10 +603,56 @@ export function StudyWizard() {
               onChange={(v) => set("outdoor", v)}
             />
           </Field>
-          <div className="flex flex-wrap gap-2">
-            <Toggle label="Plaza de aparcamiento" checked={form.parking} onChange={(v) => set("parking", v)} />
-            <Toggle label="Trastero" checked={form.storage} onChange={(v) => set("storage", v)} />
+          <div className="space-y-3 rounded-2xl border border-sand-200 bg-sand-50/60 p-4">
+            <div>
+              <p className="text-sm font-semibold text-ink-800">Anexos que se venden con la vivienda</p>
+              <p className="mt-0.5 text-[13px] text-ink-500">Se valoran aparte. Si conoces su valor, indícalo: usaremos tu dato.</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Toggle label="Plaza de garaje" checked={form.parking} onChange={(v) => set("parking", v)} />
+              <Toggle label="Trastero" checked={form.storage} onChange={(v) => set("storage", v)} />
+              <Toggle label="Amarre" checked={form.mooring} onChange={(v) => set("mooring", v)} />
+            </div>
+            {form.parking && (
+              <div className="grid grid-cols-2 gap-4 sm:max-w-md">
+                <Field label="Nº de plazas" htmlFor="parkingSpaces">
+                  <NumberInput id="parkingSpaces" value={form.parkingSpaces} onChange={(v) => set("parkingSpaces", v)} min={1} />
+                </Field>
+                <Field label="Valor de las plazas" htmlFor="parkingValue" optional hint="Si no lo sabes, usamos el valor oficial de la zona">
+                  <NumberInput id="parkingValue" value={form.parkingValue} onChange={(v) => set("parkingValue", v)} suffix="€" />
+                </Field>
+              </div>
+            )}
+            {form.storage && (
+              <div className="grid grid-cols-2 gap-4 sm:max-w-md">
+                <Field label="Superficie del trastero" htmlFor="storageSqm" optional>
+                  <NumberInput id="storageSqm" value={form.storageSqm} onChange={(v) => set("storageSqm", v)} suffix="m²" />
+                </Field>
+                <Field label="Valor del trastero" htmlFor="storageValue" optional>
+                  <NumberInput id="storageValue" value={form.storageValue} onChange={(v) => set("storageValue", v)} suffix="€" />
+                </Field>
+              </div>
+            )}
+            {form.mooring && (
+              <div className="grid grid-cols-2 gap-4 sm:max-w-md">
+                <Field label="Eslora máxima del amarre" htmlFor="mooringLengthM" optional>
+                  <NumberInput id="mooringLengthM" value={form.mooringLengthM} onChange={(v) => set("mooringLengthM", v)} suffix="m" />
+                </Field>
+                <Field label="Valor del amarre" htmlFor="mooringValue" optional hint="No hay precios oficiales de amarres: sin tu dato no se suma">
+                  <NumberInput id="mooringValue" value={form.mooringValue} onChange={(v) => set("mooringValue", v)} suffix="€" />
+                </Field>
+              </div>
+            )}
           </div>
+          <Field label="Piscina">
+            <ChoiceGroup
+              name="Piscina"
+              columns="grid-cols-1 sm:grid-cols-3"
+              options={(Object.keys(POOL_LABELS) as Array<keyof typeof POOL_LABELS>).map((k) => ({ value: k, label: POOL_LABELS[k] }))}
+              value={form.pool}
+              onChange={(v) => set("pool", v)}
+            />
+          </Field>
           <Field label="Estado de conservación">
             <ChoiceGroup
               name="Estado"

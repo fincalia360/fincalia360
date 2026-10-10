@@ -142,14 +142,20 @@ export function capitalGainsTax(params: {
   };
 }
 
-// --- Plusvalía municipal (IIVTNU), Real Decreto-ley 26/2021 ----------------------------
-// Coeficientes máximos iniciales del art. 107.4 TRLRHL (RDL 26/2021). Se actualizan cada año
-// y cada ayuntamiento fija los suyos en su ordenanza: son valores de referencia.
+// --- Plusvalía municipal (IIVTNU) ------------------------------------------------------
+// Coeficientes máximos del art. 107.4 TRLRHL vigentes: Real Decreto-ley 8/2023, art. 24
+// (BOE 28-12-2023). El RDL 16/2025 los cambió del 1 al 27-01-2026, pero fue derogado (BOE 28-01-2026)
+// y vuelve a aplicarse esta tabla. Cada ayuntamiento puede fijar coeficientes iguales o inferiores.
+export const PLUSVALIA_COEFFICIENTS_RDL_8_2023 = [
+  0.15, 0.15, 0.14, 0.14, 0.16, 0.18, 0.19, 0.2, 0.19, 0.15, 0.12, 0.1, 0.09, 0.09, 0.09, 0.09, 0.1, 0.13, 0.17, 0.23, 0.4,
+];
+export const PLUSVALIA_COEFFICIENTS_SOURCE = "Real Decreto-ley 8/2023, art. 24 (BOE 28-12-2023), vigente tras la derogación del RDL 16/2025";
+/** @deprecated Tabla inicial del RDL 26/2021 (solo para referencia histórica). */
 export const PLUSVALIA_COEFFICIENTS_RDL_26_2021 = [
   0.14, 0.13, 0.15, 0.16, 0.17, 0.17, 0.16, 0.12, 0.1, 0.09, 0.08, 0.08, 0.08, 0.08, 0.1, 0.12, 0.16, 0.2, 0.26, 0.36, 0.45,
 ];
 
-export function plusvaliaCoefficient(years: number, table = PLUSVALIA_COEFFICIENTS_RDL_26_2021) {
+export function plusvaliaCoefficient(years: number, table = PLUSVALIA_COEFFICIENTS_RDL_8_2023) {
   return table[Math.min(Math.max(0, Math.floor(years)), 20)];
 }
 
@@ -162,7 +168,7 @@ export function plusvaliaMunicipal(params: {
   ratePct: number;
 }): TaxLine & { method?: "OBJETIVO" | "REAL" } {
   const label = "Plusvalía municipal (IIVTNU)";
-  const notes = ["Coeficientes máximos del RDL 26/2021 (se actualizan cada año) y tipo municipal supuesto: verifica la ordenanza fiscal de tu ayuntamiento."];
+  const notes = [`Coeficientes máximos: ${PLUSVALIA_COEFFICIENTS_SOURCE}. El tipo municipal y los coeficientes que aplique tu ayuntamiento (pueden ser menores) figuran en su ordenanza fiscal.`];
   const missing: string[] = [];
   if (params.purchasePrice != null && params.salePrice <= params.purchasePrice) {
     return { label, amount: 0, status: "NOT_SUBJECT", missing, notes: ["No hay incremento de valor entre compra y venta: no sujeto (art. 104.5 TRLRHL)."] };

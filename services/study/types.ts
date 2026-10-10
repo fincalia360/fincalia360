@@ -50,6 +50,12 @@ export const OUTDOOR_LABELS: Record<(typeof OUTDOOR)[number], string> = {
   TERRACE: "Terraza",
   GARDEN: "Jardín",
 };
+export const POOLS = ["NONE", "PRIVATE", "COMMUNITY"] as const;
+export const POOL_LABELS: Record<(typeof POOLS)[number], string> = {
+  NONE: "Sin piscina",
+  PRIVATE: "Piscina privada",
+  COMMUNITY: "Piscina comunitaria",
+};
 export const CONDITIONS = ["NEW", "GOOD", "TO_REFORM"] as const;
 export const CONDITION_LABELS: Record<(typeof CONDITIONS)[number], string> = {
   NEW: "Nueva o reformada",
@@ -148,6 +154,15 @@ export const studyInputSchema = z
       outdoor: z.enum(OUTDOOR),
       parking: z.boolean(),
       storage: z.boolean(),
+      // --- Anexos (opcionales). Si el propietario conoce su valor, se usa su dato. ---
+      parkingSpaces: intOrNull(0, 10),
+      parkingValue: money,
+      storageSqm: intOrNull(1, 500),
+      storageValue: money,
+      /** Amarre: eslora máxima en metros. */
+      mooringLengthM: z.preprocess((v) => (v === "" || v === null || v === undefined ? null : Number(v)), z.number().min(2).max(100).nullable()).default(null),
+      mooringValue: money,
+      pool: z.enum(POOLS).default("NONE"),
       condition: z.enum(CONDITIONS),
       yearBuilt: intOrNull(1700, 2030),
       currentUse: z.enum(CURRENT_USES),
@@ -288,6 +303,47 @@ export interface Estimate {
   source: SourceRef;
   adjustments: Array<{ label: string; pct: number }>;
   limitations: string[];
+  /** Valor de la vivienda sin anexos (si se han valorado anexos aparte). */
+  dwellingValue?: number;
+  /** Anexos valorados aparte (garaje, trastero, amarre…). value null = sin valorar (falta el dato). */
+  annexes?: AnnexLine[];
+}
+
+export interface AnnexLine {
+  kind: "PARKING" | "STORAGE" | "MOORING";
+  label: string;
+  value: number | null;
+  origin: DataOrigin;
+  method: string;
+  source?: SourceRef;
+}
+
+/** Ubicación de la vivienda (Catastro, por referencia catastral). */
+export interface PropertyGeo {
+  lat: number;
+  lon: number;
+  cadastralRef: string;
+  address: string | null;
+}
+
+/** Zona del mapa de valores del Catastro (Informe Anual del Mercado Inmobiliario). */
+export interface CatastroValueZone {
+  year: number;
+  zone: string;
+  athCode: string | null;
+  residential: {
+    mvmM2: number;
+    typology: string;
+    category: string | null;
+    ageYears: number | null;
+    conservation: string | null;
+    sqm: number | null;
+    annexSqm: number | null;
+    plotSqm: number | null;
+    dwellings: number | null;
+  } | null;
+  garage: { value: number; typology: string; sqm: number | null; units: number | null } | null;
+  source: SourceRef;
 }
 
 export interface SeriesPoint {
@@ -351,4 +407,9 @@ export interface StudySnapshot {
   sources: SourceRef[];
   missingData: string[];
   warnings: string[];
+  /** Ubicación (para los planos) y zona de valor del Catastro, si se conoce la referencia catastral. */
+  geo?: PropertyGeo | null;
+  valueZone?: CatastroValueZone | null;
+  /** Tipo de la plusvalía del ayuntamiento (último dato oficial publicado). */
+  plusvaliaMunicipal?: { ratePct: number; rates: Array<number | null>; year: number; source: SourceRef } | null;
 }

@@ -128,12 +128,19 @@ describe("impuestos de la venta", () => {
 
   it("plusvalía: elige el método más favorable y documenta la fórmula", () => {
     const r = plusvaliaMunicipal({ salePrice: 300000, purchasePrice: 280000, yearsHeld: 10, cadastralLand: 40000, cadastralTotal: 100000, ratePct: 30 });
-    // objetivo: 40.000 × 0,08 × 30 % = 960 ; real: 20.000 × 40 % × 30 % = 2.400
+    // objetivo: 40.000 × 0,12 (10 años, RDL 8/2023) × 30 % = 1.440 ; real: 20.000 × 40 % × 30 % = 2.400
     expect(r.method).toBe("OBJETIVO");
-    expect(r.amount).toBe(960);
+    expect(r.amount).toBe(1440);
     expect(r.status).toBe("COMPLETE");
     expect(r.formula).toMatch(/40000/);
-    expect(plusvaliaCoefficient(25)).toBe(0.45);
+    expect(plusvaliaCoefficient(25)).toBe(0.4);
+  });
+
+  it("plusvalía: coeficientes vigentes = tabla del RDL 8/2023 (BOE 28-12-2023), no la derogada del RDL 16/2025", () => {
+    // Inferior a 1 año … igual o superior a 20 años (art. 24 RDL 8/2023)
+    const boe = [0.15, 0.15, 0.14, 0.14, 0.16, 0.18, 0.19, 0.2, 0.19, 0.15, 0.12, 0.1, 0.09, 0.09, 0.09, 0.09, 0.1, 0.13, 0.17, 0.23, 0.4];
+    boe.forEach((c, years) => expect(plusvaliaCoefficient(years)).toBe(c));
+    expect(plusvaliaCoefficient(40)).toBe(0.4);
   });
 
   it("plusvalía: sin valor catastral del suelo pide el dato", () => {

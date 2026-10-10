@@ -5,7 +5,7 @@
 import { z } from "zod";
 import { prisma } from "@/db/client";
 import { trackEvent } from "@/services/analyticsService";
-import { buildDefaultAssumptions, normalizeAssumptions } from "./assumptions";
+import { buildDefaultAssumptions, hintsFromSnapshot, normalizeAssumptions } from "./assumptions";
 import { exampleFor } from "./exampleData";
 import { getCcaa, ineToCommonName, normalizeName } from "./geo";
 import { newAccessToken, verifyToken } from "./access";
@@ -15,6 +15,8 @@ import { getSerpaviMunicipality, latestSerpaviYear } from "./sources/serpavi";
 import { checkTensionedArea, getDeclarations } from "./sources/tensionedAreas";
 import { getNewContractRent } from "./sources/incasol";
 import { getValorTasado } from "./sources/valorTasado";
+import { VALUE_MAP_PAGE, getParcelGeo, getValueZone } from "./sources/catastroValues";
+import { getMunicipalPlusvalia } from "./sources/plusvalia";
 import { estimateRent, estimateSale, type MarketRef } from "./valuation";
 import {
   NEW_CONTRACT_CONDITIONS,
@@ -122,6 +124,28 @@ export async function buildSnapshot(input: StudyInput): Promise<StudySnapshot> {
       : { name: "Ministerio de Vivienda · valor tasado", status: "NOT_AVAILABLE", note: "Sin datos importados." },
   );
 
+  // Ubicación y mapa de valores del Catastro: valor medio de las compraventas de la zona (vivienda y garaje)
+  const geo = loc.cadastralRef
+    ? await safe("Catastro · ubicación", () => getParcelGeo(loc.cadastralRef!), sources, { name: "Catastro · coordenadas por referencia catastral", status: "ERROR" })
+    : null;
+  const valueZone = geo
+    ? await safe("Catastro · mapa de valores", () => getValueZone(geo), sources, { name: "Dirección General del Catastro · mapa de valores", url: VALUE_MAP_PAGE, status: "ERROR" })
+    : null;
+  if (valueZone) sources.push(valueZone.source);
+  else if (geo) sources.push({ name: "Dirección General del Catastro · mapa de valores", url: VALUE_MAP_PAGE, status: "NOT_AVAILABLE", note: "El Catastro no publica módulo de valor para esta ubicación." });
+  if (geo) {
+    sources.push(
+      { name: "Instituto Geográfico Nacional · IGN Base y ortofoto PNOA (planos del informe)", url: "https://www.ign.es", status: "OK", note: "Licencia CC BY 4.0 (© Instituto Geográfico Nacional)." },
+      { name: "Dirección General del Catastro · cartografía de parcelas (planos del informe)", url: "https://www.catastro.hacienda.gob.es/es-ES/wms.html", status: "OK" },
+    );
+  }
+  if (!loc.cadastralRef) missingData.push("Referencia catastral (búscala con la dirección): permite usar el valor de mercado oficial de tu zona y añadir los planos al informe.");
+
+  // Plusvalía: tipo del ayuntamiento (último dato oficial de Hacienda)
+  const yearsHeld = input.economics.purchaseYear ? new Date().getFullYear() - input.economics.purchaseYear : null;
+  const plusvalia = getMunicipalPlusvalia(municipalityCode, yearsHeld);
+  if (plusvalia) sources.push(plusvalia.source);
+
   // Renta de contratos nuevos (Cataluña): dato oficial abierto de la Generalitat
   const newContractRent = municipalityCode
     ? await safe("Contratos nuevos (Incasòl)", () => getNewContractRent(municipalityCode!), sources, { name: "Generalitat de Catalunya · Incasòl", status: "ERROR" })
@@ -139,6 +163,7 @@ export async function buildSnapshot(input: StudyInput): Promise<StudySnapshot> {
     rentComparables,
     comparablesSource: provider.name,
     valorTasado,
+    valueZone,
   };
   const saleEstimates = estimateSale(input, ctx);
   const rentEstimates = estimateRent(input, ctx);
@@ -214,13 +239,16 @@ export async function buildSnapshot(input: StudyInput): Promise<StudySnapshot> {
     sources,
     missingData,
     warnings,
+    geo,
+    valueZone,
+    plusvaliaMunicipal: plusvalia ? { ratePct: plusvalia.ratePct, rates: plusvalia.rates, year: plusvalia.year, source: plusvalia.source } : null,
   };
 }
 
 export async function createStudy(rawInput: unknown) {
   const input = studyInputSchema.parse(rawInput);
   const snapshot = await buildSnapshot(input);
-  const { values } = buildDefaultAssumptions(input);
+  const { values } = buildDefaultAssumptions(input, hintsFromSnapshot(snapshot));
   const { token, hash } = newAccessToken();
   const confidence = snapshot.sale?.confidence ?? "NONE";
   const study = await prisma.study.create({

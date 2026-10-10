@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, Download, Info, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { PropertyMapsPanel } from "./PropertyMapsPanel";
 import { cn } from "@/lib/utils";
 import { fmtEur } from "@/services/study/format";
 import { RENT_SOURCE_LABELS, buildStudyReport } from "@/services/study/reportModel";
@@ -50,6 +51,30 @@ function EstimateCard({ title, estimate, unit, extra, hideEmpty }: { title: stri
           </p>
           {estimate.adjustments.length > 0 && (
             <p className="mt-1 text-xs text-ink-400">Ajustes del modelo: {estimate.adjustments.map((a) => `${a.label} ${a.pct > 0 ? "+" : ""}${a.pct} %`).join(", ")}</p>
+          )}
+          {estimate.annexes && estimate.annexes.length > 0 && (
+            <div className="mt-3 rounded-xl bg-sand-50 p-3 text-xs">
+              <p className="font-semibold text-ink-700">Desglose</p>
+              <ul className="mt-1.5 space-y-1.5">
+                {estimate.dwellingValue != null && (
+                  <li className="flex justify-between gap-3">
+                    <span className="text-ink-600">Vivienda</span>
+                    <span className="font-medium tabular-nums text-ink-800">{eur(estimate.dwellingValue)}</span>
+                  </li>
+                )}
+                {estimate.annexes.map((an) => (
+                  <li key={an.label}>
+                    <div className="flex justify-between gap-3">
+                      <span className="text-ink-600">
+                        {an.label} {an.value != null && <OriginBadge origin={an.origin} />}
+                      </span>
+                      <span className={cn("font-medium tabular-nums", an.value == null ? "text-amber-700" : "text-ink-800")}>{an.value == null ? "Sin valorar" : eur(an.value)}</span>
+                    </div>
+                    <p className="mt-0.5 text-ink-400">{an.method}</p>
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
           <details className="mt-2 text-xs text-ink-500">
             <summary className="cursor-pointer text-ink-600">Limitaciones</summary>
@@ -446,6 +471,7 @@ export function StudyResults({
       {/* ZONA */}
       <section id="zona" className="scroll-mt-32 space-y-4">
         <h2 className="font-serif text-3xl font-medium text-ink-800">Análisis de la zona</h2>
+        <PropertyMapsPanel studyId={studyId} hasCadastralRef={Boolean(input.location.cadastralRef)} valueZone={snapshot.valueZone} />
         <ZonePanel zone={snapshot.zone} municipality={input.location.municipalityName} />
       </section>
 

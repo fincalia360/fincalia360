@@ -9,11 +9,15 @@ import { RENT_SOURCE_LABELS, buildStudyReport, type StudyReport } from "../repor
 import { RISK_DISCLAIMER, RISK_INFO, RISK_MONTHS } from "../risk";
 import type { ScenarioResult } from "../simulator";
 import { TAX_RULES_VERSION, TAX_STATUS_LABELS, imputedIncomeTax, inheritanceGuidance, type TaxLine } from "../taxes";
-import { assumptionMeta } from "../assumptions";
+import sharp from "sharp";
+import { assumptionMeta, hintsFromSnapshot } from "../assumptions";
+import { studyGeo } from "../geoLookup";
+import { MAP_INFO, renderAllMaps } from "../maps";
 import {
   CONFIDENCE_LABELS,
   CURRENT_USE_LABELS,
   ORIGIN_LABELS,
+  POOL_LABELS,
   PROPERTY_KIND_LABELS,
   type DataOrigin,
   type Estimate,
@@ -146,6 +150,16 @@ class Writer {
     draw(headers, this.bold, true);
     rows.forEach((r) => draw(r, this.font));
     this.y -= 6;
+  }
+  /** Imagen a todo el ancho con su pie (planos). */
+  image(img: PDFImage, caption: string) {
+    const width = CONTENT_W;
+    const height = (img.height / img.width) * width;
+    this.ensure(height + 30);
+    this.page.drawImage(img, { x: M, y: this.y - height, width, height });
+    this.page.drawRectangle({ x: M, y: this.y - height, width, height, borderColor: LINE, borderWidth: 0.6 });
+    this.y -= height + 4;
+    this.text(caption, { size: 8, color: MUTED, gap: 8 });
   }
   bars(items: Array<{ label: string; value: number | null; color?: ReturnType<typeof rgb> }>) {
     const valid = items.filter((i) => i.value != null) as Array<{ label: string; value: number; color?: ReturnType<typeof rgb> }>;
@@ -366,6 +380,8 @@ export async function renderStudyPdf(params: {
   assumptions: StudyAssumptions | Record<string, unknown>;
   horizon: number;
   generatedAt?: Date;
+  /** Planos de Catastro e IGN (requieren conexión). Por defecto, sí. */
+  includeMaps?: boolean;
 }) {
   const { input, snapshot } = params;
   const report = buildStudyReport(input, snapshot, params.assumptions, params.horizon);
@@ -394,6 +410,48 @@ export async function renderStudyPdf(params: {
   w.row("Ubicación [Aportado]", `${input.location.municipalityName} (${prov?.name}, ${ccaa?.name}) · CP ${input.location.postalCode}`);
   w.row("Tipo y superficie [Aportado]", `${PROPERTY_KIND_LABELS[input.property.kind]} · ${input.property.sqm} m² · ${input.property.bedrooms} hab. · ${input.property.bathrooms} baños`);
   w.row("Situación actual [Aportado]", CURRENT_USE_LABELS[input.property.currentUse]);
+  const p = input.property;
+  const extras = [
+    p.parkingSpaces || p.parking ? `${p.parkingSpaces ?? 1} plaza(s) de garaje` : null,
+    p.storage || p.storageSqm ? `trastero${p.storageSqm ? ` de ${p.storageSqm} m²` : ""}` : null,
+    p.mooringLengthM || p.mooringValue ? `amarre${p.mooringLengthM ? ` de ${p.mooringLengthM} m` : ""}` : null,
+    p.pool !== "NONE" ? POOL_LABELS[p.pool].toLowerCase() : null,
+  ].filter(Boolean);
+  if (extras.length) w.row("Anexos y extras [Aportado]", extras.join(" · "));
+  if (input.location.cadastralRef) w.row("Referencia catastral [Dato oficial]", input.location.cadastralRef, snapshot.geo?.address ?? undefined);
+  const vz = snapshot.valueZone;
+  if (vz?.residential) {
+    const r = vz.residential;
+    w.row(
+      `Zona de valor del Catastro ${vz.zone} (${vz.year}) [Dato oficial]`,
+      `${fmtEur(r.mvmM2)}/m² (módulo de valor medio)`,
+      `Vivienda representativa: ${[r.typology, r.sqm ? `${r.sqm} m²` : null, r.category ? `calidad ${r.category.toLowerCase()}` : null, r.ageYears != null ? `${r.ageYears} años` : null].filter(Boolean).join(", ")}${r.dwellings ? ` · ${r.dwellings} viviendas en la zona` : ""}${vz.garage ? ` · Garaje representativo: ${fmtEur(vz.garage.value)}` : ""}. Calculado por el Catastro con los precios de las compraventas escrituradas. Fuente: ${vz.source.name}, consultado ${fmtDate(vz.source.retrievedAt ?? "")}.`,
+    );
+  }
+
+  // Ubicación y planos (Catastro e IGN). Si un servicio no responde, se indica.
+  if (params.includeMaps !== false) {
+    const geo = await studyGeo(input, snapshot);
+    w.heading(null, "Ubicación y planos", 330);
+    if (!geo) {
+      w.text(
+        input.location.cadastralRef
+          ? "No se han podido obtener las coordenadas de la parcela en el Catastro en este momento."
+          : "Indica la referencia catastral (o busca la vivienda por su dirección en el estudio) para incluir el plano de situación, la vista aérea y el plano catastral.",
+        { size: 9, color: MUTED },
+      );
+    } else {
+      const maps = await renderAllMaps(geo);
+      for (const m of maps) {
+        const info = MAP_INFO[m.kind];
+        const img = m.kind === "parcela" ? await doc.embedPng(m.png) : await doc.embedJpg(await sharp(m.png).jpeg({ quality: 82 }).toBuffer());
+        w.text(info.title, { bold: true, size: 10 });
+        w.image(img, `${info.caption} ${info.attribution}.`);
+      }
+      if (maps.length < 3) w.text("Algún plano no se ha podido generar porque el servicio cartográfico no respondió.", { size: 8, color: MUTED });
+      w.text("El Catastro solo publica el contorno de la parcela y de las construcciones: el plano interior de la vivienda no es público.", { size: 8, color: MUTED });
+    }
+  }
 
   // 2. Valoración
   w.heading(2, "Valoración de venta");
@@ -406,7 +464,13 @@ export async function renderStudyPdf(params: {
     const e = report.sale.estimate!;
     w.row(`Estimación central ${tag(e.origin)}`, fmtEur(e.value), `${e.method} ${srcLine(e)}`);
     w.row("Intervalo de valoración", `${fmtEur(e.low)} – ${fmtEur(e.high)}`);
-    w.row("Precio por m²", `${fmtEur(e.perM2)}/m²`);
+    w.row("Precio por m² (vivienda)", `${fmtEur(e.perM2)}/m²`);
+    if (e.annexes?.length) {
+      if (e.dwellingValue != null) w.row("Vivienda (sin anexos)", fmtEur(e.dwellingValue));
+      for (const an of e.annexes) {
+        w.row(an.value == null ? an.label : `${an.label} ${tag(an.origin)}`, an.value == null ? "Sin valorar" : fmtEur(an.value), `${an.method}${an.source ? ` Fuente: ${an.source.name}.` : ""}`, an.value == null ? WARN : INK);
+      }
+    }
     e.limitations.forEach((l) => w.text(`• ${l}`, { size: 8, color: MUTED }));
   }
   report.sale.alternatives.forEach((e) => w.row(`Estimación alternativa ${tag(e.origin)}`, fmtEur(e.value), `${e.method} ${srcLine(e)}`));
@@ -550,7 +614,7 @@ export async function renderStudyPdf(params: {
 
   // 11. Hipótesis
   w.heading(11, "Hipótesis utilizadas");
-  const meta = assumptionMeta(input);
+  const meta = assumptionMeta(input, hintsFromSnapshot(snapshot));
   const show: Array<keyof StudyAssumptions> = [
     "appreciationPct", "rentGrowthPct", "costInflationPct", "vacancyMonths", "managementPct", "maintenancePctRent", "opportunityRatePct",
     "agencyFeePct", "notaryAndOtherSaleCosts", "plusvaliaRatePct", "marginalRatePct", "communityFeesYear", "ibiYear", "insuranceYear", "otherCostsYear", "extraordinaryCosts",

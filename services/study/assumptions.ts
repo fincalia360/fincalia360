@@ -33,10 +33,21 @@ export const DEFAULT_ASSUMPTIONS = {
 
 const COLLECTIVE = ["PISO", "ATICO", "DUPLEX", "ESTUDIO"];
 
-export function buildDefaultAssumptions(input: StudyInput) {
+/** Datos oficiales del estudio que sustituyen a una hipótesis genérica (se calculan en el servidor). */
+export interface AssumptionHints {
+  plusvalia?: { ratePct: number; year: number; sourceName: string } | null;
+}
+
+export function hintsFromSnapshot(snapshot: { plusvaliaMunicipal?: { ratePct: number; year: number; source: { name: string } } | null } | null | undefined): AssumptionHints {
+  const p = snapshot?.plusvaliaMunicipal;
+  return p ? { plusvalia: { ratePct: p.ratePct, year: p.year, sourceName: p.source.name } } : {};
+}
+
+export function buildDefaultAssumptions(input: StudyInput, hints: AssumptionHints = {}) {
   const e = input.economics;
   const values: StudyAssumptions = {
     ...DEFAULT_ASSUMPTIONS,
+    plusvaliaRatePct: hints.plusvalia?.ratePct ?? DEFAULT_ASSUMPTIONS.plusvaliaRatePct,
     saleChoice: "AUTO",
     saleValue: null,
     rentChoice: "AUTO",
@@ -48,10 +59,10 @@ export function buildDefaultAssumptions(input: StudyInput) {
     insuranceYear: e.insuranceYear ?? 300,
     otherCostsYear: e.otherCostsYear ?? 0,
   };
-  return { values, meta: assumptionMeta(input) };
+  return { values, meta: assumptionMeta(input, hints) };
 }
 
-export function assumptionMeta(input: StudyInput): Record<keyof StudyAssumptions, AssumptionMeta> {
+export function assumptionMeta(input: StudyInput, hints: AssumptionHints = {}): Record<keyof StudyAssumptions, AssumptionMeta> {
   const e = input.economics;
   const h = (label: string, note?: string): AssumptionMeta => ({ label, origin: "ASSUMPTION", note });
   return {
@@ -72,7 +83,13 @@ export function assumptionMeta(input: StudyInput): Record<keyof StudyAssumptions
     notaryAndOtherSaleCosts: h("Notaría, gestoría, certificado energético y cédula (vendedor)"),
     mortgageCancellationCosts: h("Cancelación registral de la hipoteca"),
     earlyRepaymentFeePct: h("Comisión por amortización anticipada", "Revisa tu escritura (límites de la Ley 5/2019)."),
-    plusvaliaRatePct: h("Tipo de la plusvalía municipal", "30 % es el máximo legal; tu ayuntamiento puede aplicar menos."),
+    plusvaliaRatePct: hints.plusvalia
+      ? {
+          label: "Tipo de la plusvalía municipal",
+          origin: "OFFICIAL",
+          note: `Tipo de tu ayuntamiento según ${hints.plusvalia.sourceName}: es el último dato publicado por Hacienda y puede haber cambiado; confírmalo en su ordenanza fiscal.`,
+        }
+      : h("Tipo de la plusvalía municipal", "Sin dato oficial de tu ayuntamiento: se usa el 30 %, el máximo legal; puede aplicar menos o no cobrarla."),
     marginalRatePct: input.owner.marginalRate != null ? { label: "Tu tipo marginal del IRPF", origin: "OWNER" } : h("Tu tipo marginal del IRPF"),
     communityFeesYear: e.communityFeesYear != null ? { label: "Comunidad (€/año)", origin: "OWNER" } : h("Comunidad (€/año)", "Estimación: sustitúyela por tu importe real."),
     ibiYear:

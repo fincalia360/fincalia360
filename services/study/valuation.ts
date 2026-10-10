@@ -8,7 +8,7 @@
 //             2) referencia de mercado cargada por el equipo
 //             3) datos de EJEMPLO
 //   La renta actual del propietario se muestra aparte (es un dato real de SU contrato).
-import { serpaviTypology, type Confidence, type Estimate, type Series, type SourceRef, type StudyInput } from "./types";
+import { serpaviTypology, type AnnexLine, type CatastroValueZone, type Confidence, type Estimate, type Series, type SourceRef, type StudyInput } from "./types";
 import type { SerpaviMeta, SerpaviMunicipality } from "./sources/serpavi";
 import type { NewContractRent } from "./sources/incasol";
 import type { ValorTasadoResult } from "./sources/valorTasado";
@@ -42,6 +42,8 @@ export interface ValuationContext {
   valorTasado?: ValorTasadoResult | null;
   /** Renta media de contratos nuevos del municipio (Cataluña, Incasòl). */
   newContractRent?: NewContractRent | null;
+  /** Zona del mapa de valores del Catastro (módulo de valor medio de vivienda y garaje). */
+  valueZone?: CatastroValueZone | null;
   today?: Date;
 }
 
@@ -51,16 +53,95 @@ function round(value: number, step: number) {
   return Math.round(value / step) * step;
 }
 
+/** Plazas de garaje indicadas (en estudios antiguos: 1 si se marcó «parking»). */
+export function parkingSpaces(input: StudyInput) {
+  return input.property.parkingSpaces ?? (input.property.parking ? 1 : 0);
+}
+
 /** Ajustes por características (hipótesis del modelo, visibles para el usuario). */
-export function characteristicAdjustments(input: StudyInput, operation: "sale" | "rent") {
+export function characteristicAdjustments(input: StudyInput, operation: "sale" | "rent", opts: { parkingValuedApart?: boolean } = {}) {
   const p = input.property;
   const adj: Array<{ label: string; pct: number }> = [];
   if (p.condition === "NEW") adj.push({ label: "Nueva o reformada", pct: 5 });
   if (p.condition === "TO_REFORM") adj.push({ label: "Necesita reforma", pct: -10 });
   if (p.outdoor === "TERRACE" || p.outdoor === "GARDEN") adj.push({ label: p.outdoor === "GARDEN" ? "Jardín" : "Terraza", pct: 3 });
-  if (p.parking) adj.push({ label: "Plaza de aparcamiento", pct: operation === "sale" ? 3 : 2 });
+  if (parkingSpaces(input) > 0 && !(operation === "sale" && opts.parkingValuedApart)) adj.push({ label: "Plaza de aparcamiento", pct: operation === "sale" ? 3 : 2 });
+  if (p.pool === "PRIVATE") adj.push({ label: "Piscina privada", pct: serpaviTypology(p.kind) === "VU" ? 5 : 3 });
+  if (p.pool === "COMMUNITY") adj.push({ label: "Piscina comunitaria", pct: 2 });
   if (p.elevator === false && (p.floor ?? 0) >= 3) adj.push({ label: "Sin ascensor (3.ª planta o superior)", pct: -5 });
   return adj;
+}
+
+/** Trastero sin valor aportado: 25 % del €/m² de la vivienda (hipótesis visible y modificable). */
+export const STORAGE_SHARE_OF_DWELLING_M2 = 0.25;
+
+/**
+ * Anexos valorados aparte: garaje (valor del propietario o módulo oficial del Catastro), trastero
+ * (valor del propietario o hipótesis visible) y amarre (solo con valor aportado: no hay fuente
+ * oficial pública de precios de amarres). value = null → falta el dato y no se suma.
+ */
+export function estimateAnnexes(input: StudyInput, ctx: ValuationContext, dwellingPerM2: number | null): AnnexLine[] {
+  const p = input.property;
+  const lines: AnnexLine[] = [];
+  const spaces = parkingSpaces(input);
+  if (spaces > 0) {
+    const label = spaces === 1 ? "Plaza de garaje" : `${spaces} plazas de garaje`;
+    const garage = ctx.valueZone?.garage;
+    if (p.parkingValue) {
+      lines.push({ kind: "PARKING", label, value: p.parkingValue, origin: "OWNER", method: "Valor indicado por el propietario." });
+    } else if (garage && ctx.valueZone) {
+      lines.push({
+        kind: "PARKING",
+        label,
+        value: Math.round((garage.value * spaces) / 500) * 500,
+        origin: "OFFICIAL",
+        method: `Módulo de valor medio del garaje de la zona (${garage.typology}${garage.sqm ? `, ${garage.sqm} m²` : ""}): ${garage.value.toLocaleString("es-ES")} € por plaza × ${spaces}.`,
+        source: ctx.valueZone.source,
+      });
+    }
+  }
+  if (p.storage || p.storageSqm || p.storageValue) {
+    const label = p.storageSqm ? `Trastero de ${p.storageSqm} m²` : "Trastero";
+    if (p.storageValue) {
+      lines.push({ kind: "STORAGE", label, value: p.storageValue, origin: "OWNER", method: "Valor indicado por el propietario." });
+    } else if (p.storageSqm && dwellingPerM2) {
+      lines.push({
+        kind: "STORAGE",
+        label,
+        value: Math.round((p.storageSqm * dwellingPerM2 * STORAGE_SHARE_OF_DWELLING_M2) / 100) * 100,
+        origin: "ASSUMPTION",
+        method: `Hipótesis: ${p.storageSqm} m² × ${Math.round(dwellingPerM2).toLocaleString("es-ES")} €/m² de la vivienda × ${STORAGE_SHARE_OF_DWELLING_M2 * 100} % (no hay dato oficial de trasteros; indica su valor si lo conoces).`,
+      });
+    } else {
+      lines.push({ kind: "STORAGE", label, value: null, origin: "ASSUMPTION", method: "Sin valorar: indica sus metros o su valor para incluirlo." });
+    }
+  }
+  if (p.mooringLengthM || p.mooringValue) {
+    const label = p.mooringLengthM ? `Amarre de ${p.mooringLengthM.toLocaleString("es-ES")} m de eslora` : "Amarre";
+    lines.push(
+      p.mooringValue
+        ? { kind: "MOORING", label, value: p.mooringValue, origin: "OWNER", method: "Valor indicado por el propietario (derecho de uso o concesión del amarre)." }
+        : {
+            kind: "MOORING",
+            label,
+            value: null,
+            origin: "ASSUMPTION",
+            method: "Sin valorar: no hay una fuente oficial pública de precios de amarres. Indica su valor (precio del derecho de uso, ofertas o tasación) y lo incluimos.",
+          },
+    );
+  }
+  return lines;
+}
+
+/** Suma los anexos valorados a la estimación (salvo al valor aportado por el propietario, que se supone completo). */
+function withAnnexes(est: Estimate, input: StudyInput, ctx: ValuationContext): Estimate {
+  const lines = estimateAnnexes(input, ctx, est.perM2);
+  if (!lines.length) return est;
+  if (est.origin === "OWNER") {
+    return { ...est, annexes: lines, limitations: [...est.limitations, "Los anexos no se suman al valor que has indicado: suponemos que ya los incluye. Si no es así, súmalos en el simulador."] };
+  }
+  const total = lines.reduce((sum, l) => sum + (l.value ?? 0), 0);
+  return { ...est, dwellingValue: est.value, value: est.value + total, low: est.low + total, high: est.high + total, annexes: lines };
 }
 
 function applyAdjustments(value: number, adj: Array<{ pct: number }>) {
@@ -107,6 +188,9 @@ export function estimateSale(input: StudyInput, ctx: ValuationContext): Estimate
   const sqm = input.property.sqm;
   const out: Estimate[] = [];
   const e = input.economics;
+  // Si el garaje se valora aparte (valor del propietario o módulo de garaje del Catastro), no se aplica además el % de ajuste
+  const annexParkingValued = parkingSpaces(input) > 0 && Boolean(input.property.parkingValue || ctx.valueZone?.garage);
+  const saleAdjustments = () => characteristicAdjustments(input, "sale", { parkingValuedApart: annexParkingValued });
 
   // 1) Valor aportado por el propietario
   if (e.ownerValuation) {
@@ -137,7 +221,7 @@ export function estimateSale(input: StudyInput, ctx: ValuationContext): Estimate
   // 2) Referencias de mercado cargadas por el equipo (con fuente)
   const saleRef = ctx.marketRefs.filter((r) => r.kind === "SALE_M2").sort((a, b) => String(b.period).localeCompare(String(a.period)))[0];
   if (saleRef) {
-    const adjustments = characteristicAdjustments(input, "sale");
+    const adjustments = saleAdjustments();
     const asking = saleRef.dataType === "ASKING_PRICES";
     out.push(
       makeEstimate({
@@ -154,6 +238,41 @@ export function estimateSale(input: StudyInput, ctx: ValuationContext): Estimate
           asking
             ? "Son precios de ANUNCIO (oferta), no precios de compraventa cerrados: suelen ser superiores al precio final."
             : "Referencia media del municipio: no recoge la ubicación exacta, vistas, calidades ni el estado real.",
+        ],
+        step: 1000,
+      }),
+    );
+  }
+
+  // 2a) Mapa de valores del Catastro: módulo de valor medio (precios de compraventas escrituradas) de la zona
+  const zone = ctx.valueZone;
+  if (zone?.residential) {
+    const r = zone.residential;
+    const adjustments = saleAdjustments();
+    const unifamiliar = /unifamiliar/i.test(r.typology);
+    const matches = unifamiliar === (serpaviTypology(input.property.kind) === "VU");
+    const product = [
+      r.typology,
+      r.sqm ? `${r.sqm} m²` : null,
+      r.category ? `calidad ${r.category.toLowerCase()}` : null,
+      r.ageYears != null ? `${r.ageYears} años` : null,
+      r.conservation ? `conservación ${r.conservation.toLowerCase()}` : null,
+    ]
+      .filter(Boolean)
+      .join(", ");
+    out.push(
+      makeEstimate({
+        value: applyAdjustments(r.mvmM2 * sqm, adjustments),
+        sqm,
+        confidence: matches ? "MEDIUM" : "LOW",
+        origin: "OFFICIAL",
+        method: `Módulo de valor medio del Catastro para la zona ${zone.zone} (${zone.year}): ${r.mvmM2.toLocaleString("es-ES")} €/m² × ${sqm} m²${adjustments.length ? ", con ajustes por características" : ""}.`,
+        source: { ...zone.source, note: `${zone.source.note ?? ""} Vivienda representativa de la zona: ${product}${r.dwellings ? ` (${r.dwellings.toLocaleString("es-ES")} viviendas en la zona)` : ""}.`.trim() },
+        adjustments,
+        limitations: [
+          "Es el valor medio de las compraventas reales de la zona para una vivienda representativa, no una tasación de esta vivienda: no recoge las vistas, la orientación, las calidades ni el estado concretos.",
+          ...(matches ? [] : [`La vivienda representativa de la zona es «${r.typology}» y la tuya es de otro tipo: la cifra es orientativa.`]),
+          "Son precios de compraventa escriturados (cerrados), no precios de anuncio: los anuncios suelen ser más altos que el precio final.",
         ],
         step: 1000,
       }),
@@ -209,7 +328,7 @@ export function estimateSale(input: StudyInput, ctx: ValuationContext): Estimate
   // 4) Valor tasado medio oficial (€/m²) del municipio o, si no se publica, de la provincia
   if (ctx.valorTasado) {
     const vt = ctx.valorTasado;
-    const adjustments = characteristicAdjustments(input, "sale");
+    const adjustments = saleAdjustments();
     const municipal = vt.scope === "MUNICIPIO";
     const basisLabel = vt.basis === "HASTA_5" ? "viviendas de hasta 5 años" : vt.basis === "MAS_5" ? "viviendas de más de 5 años" : "todas las antigüedades";
     out.push(
@@ -242,7 +361,7 @@ export function estimateSale(input: StudyInput, ctx: ValuationContext): Estimate
 
   // 5) EJEMPLO (desarrollo/demostración)
   if (ctx.exampleData) {
-    const adjustments = characteristicAdjustments(input, "sale");
+    const adjustments = saleAdjustments();
     out.push(
       makeEstimate({
         value: applyAdjustments(ctx.exampleData.saleM2 * sqm, adjustments),
@@ -257,7 +376,7 @@ export function estimateSale(input: StudyInput, ctx: ValuationContext): Estimate
       }),
     );
   }
-  return out;
+  return out.map((est) => withAnnexes(est, input, ctx));
 }
 
 /**
