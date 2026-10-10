@@ -35,6 +35,23 @@ export async function middleware(request: NextRequest) {
     return res;
   }
 
+  // Zona inmobiliarias: sin cookie de sesión se va a la pantalla de acceso. La sesión se valida de
+  // verdad en el servidor (base de datos) en cada página, acción y ruta: esto solo evita el viaje.
+  if (pathname.startsWith("/zona-inmobiliarias/panel") || pathname.startsWith("/api/zona/")) {
+    const hasCookie = Boolean(request.cookies.get("agency_session")?.value);
+    if (!hasCookie) {
+      if (pathname.startsWith("/api/")) return NextResponse.json({ error: "Sesión caducada. Vuelve a entrar." }, { status: 401 });
+      const url = request.nextUrl.clone();
+      url.pathname = "/zona-inmobiliarias";
+      url.search = "";
+      return NextResponse.redirect(url);
+    }
+    const res = NextResponse.next();
+    res.headers.set("Cache-Control", "no-store");
+    res.headers.set("X-Robots-Tag", "noindex");
+    return res;
+  }
+
   // El formulario antiguo solo cubría 7 municipios de la Costa Brava con precios de ejemplo:
   // la captación nacional se hace con el estudio. Las páginas de resultado existentes se mantienen.
   if (pathname === "/valorar") {

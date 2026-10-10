@@ -126,6 +126,17 @@ model Agency {
   appointments Appointment[]
   assignments  PartnerAssignment[]
   revenues     Revenue[]
+
+  // Zona inmobiliarias (cuentas, CRM propio e inmuebles). Solo con crmAccess = true.
+  crmAccess   Boolean @default(false)
+  maxListings Int     @default(25) // inmuebles activos (borrador, revisión, publicado, reservado)
+  maxUsers    Int     @default(3)
+
+  users      AgencyUser[]
+  listings   Listing[]
+  contacts   AgencyContact[]
+  activities AgencyActivity[]
+  visits     AgencyVisit[]
 }
 
 model Appointment {
@@ -380,4 +391,244 @@ model Revenue {
   description String
 
   @@index([date])
+}
+
+// ---------------------------------------------------------------------------
+// Portal inmobiliario: inmuebles en venta y alquiler
+// ---------------------------------------------------------------------------
+
+// Inmueble publicado por FINCALIA360 (agencyId = null) o por una inmobiliaria colaboradora.
+// Nunca se publica sin pasar las comprobaciones (datos, autorización del propietario, certificado
+// energético). Los de inmobiliarias además los aprueba el administrador.
+model Listing {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  reference String   @unique // F360-XXXXXX
+  slug      String
+  agencyId  String?
+  agency    Agency?  @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  status    String   @default("DRAFT") // DRAFT | REVIEW | PUBLISHED | RESERVED | SOLD | RENTED | UNPUBLISHED | ARCHIVED
+  operation String // SALE | RENT
+
+  title        String
+  description  String @default("")
+  propertyType String // PISO | ATICO | DUPLEX | ESTUDIO | CASA | CHALET | LOCAL | OFICINA | GARAJE | TERRENO | OTRO
+  price        Int // euros (venta) o euros/mes (alquiler)
+  communityFee Int? // euros/mes
+
+  // Ubicación. La dirección exacta y la referencia catastral son privadas (no se muestran en la web).
+  provinceCode String
+  municipality String
+  zone         String?
+  postalCode   String?
+  address      String?
+  cadastralRef String?
+
+  builtArea  Int?
+  usefulArea Int?
+  bedrooms   Int?
+  bathrooms  Int?
+  floor      String?
+  yearBuilt  Int?
+  condition  String? // NEW | GOOD | TO_REFORM
+  features   String  @default("") // CSV (ver services/listings/catalog.ts)
+
+  // Certificado energético
+  energyRating      String? // A..G | IN_PROGRESS | EXEMPT
+  energyConsumption Float? // kWh/m² año
+  energyEmissions   Float? // kg CO2/m² año
+
+  // Alquiler
+  rentalType     String? // HABITUAL | SEASONAL
+  depositMonths  Int?
+  minTermMonths  Int?
+  availableFrom  DateTime?
+  rentConditions String? // gastos incluidos, mascotas, garantías…
+  rentalRegistry String? // nº del Registro Único de Arrendamientos (alquiler de temporada)
+
+  // Autorización y comprobaciones previas a la publicación
+  authorizationType  String? // MANDATE_EXCLUSIVE | MANDATE_SHARED | OWNER_SIGNED
+  authorizationDate  DateTime?
+  authorizationDoc   String? // clave del documento privado
+  checkData          Boolean   @default(false)
+  checkAuthorization Boolean   @default(false)
+  checkEnergy        Boolean   @default(false)
+  checkLegalRent     Boolean   @default(false) // alquiler: normativa revisada (zona tensionada, fianza…)
+
+  ownerContactId String? // propietario en el CRM de la inmobiliaria
+  ownerContact   AgencyContact? @relation("ListingOwner", fields: [ownerContactId], references: [id], onDelete: SetNull)
+
+  reviewRequestedAt DateTime?
+  reviewNote        String? // motivo de devolución del administrador
+  publishedAt       DateTime?
+  publishedBy       String?
+
+  photos    ListingPhoto[]
+  inquiries ListingInquiry[]
+  visits    AgencyVisit[]
+
+  @@index([status, operation])
+  @@index([agencyId])
+}
+
+model ListingPhoto {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  listingId String
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  key       String   @unique // archivo en el almacenamiento (versión grande); la miniatura añade «-thumb»
+  width     Int
+  height    Int
+  position  Int      @default(0)
+  isMain    Boolean  @default(false)
+  alt       String?
+
+  @@index([listingId])
+}
+
+// Solicitud de información o visita desde la ficha pública.
+model ListingInquiry {
+  id             String         @id @default(cuid())
+  createdAt      DateTime       @default(now())
+  listingId      String
+  listing        Listing        @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  agencyId       String? // copia del anunciante en el momento de la solicitud
+  name           String
+  email          String
+  phone          String?
+  message        String?
+  wantsVisit     Boolean        @default(false)
+  consentVersion String
+  consentText    String
+  status         String         @default("NEW") // NEW | HANDLED | DISCARDED
+  contactId      String? // contacto creado en el CRM de la inmobiliaria
+  contact        AgencyContact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+
+  @@index([listingId])
+  @@index([agencyId, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Zona inmobiliarias: cuentas, sesiones y CRM propio de cada inmobiliaria
+// ---------------------------------------------------------------------------
+
+model AgencyUser {
+  id           String    @id @default(cuid())
+  createdAt    DateTime  @default(now())
+  agencyId     String
+  agency       Agency    @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  email        String    @unique
+  name         String
+  role         String    @default("AGENT") // OWNER | AGENT
+  status       String    @default("INVITED") // INVITED | ACTIVE | DISABLED
+  passwordHash String?
+  lastLoginAt  DateTime?
+  failedLogins Int       @default(0)
+  lockedUntil  DateTime?
+
+  sessions AgencySession[]
+  tokens   AuthToken[]
+}
+
+// Sesión de la Zona inmobiliarias. Se guarda solo el hash del token (revocable desde el panel).
+model AgencySession {
+  id        String     @id // sha256 del token de la cookie
+  createdAt DateTime   @default(now())
+  expiresAt DateTime
+  userId    String
+  user      AgencyUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// Enlaces de un solo uso: invitación (activar la cuenta) y recuperación de contraseña.
+model AuthToken {
+  id        String     @id @default(cuid())
+  createdAt DateTime   @default(now())
+  userId    String
+  user      AgencyUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String // INVITE | RESET
+  tokenHash String     @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+}
+
+// Contacto del CRM de una inmobiliaria (propietario, comprador, inquilino…). Siempre con agencyId.
+model AgencyContact {
+  id              String    @id @default(cuid())
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  agencyId        String
+  agency          Agency    @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  kind            String // OWNER_SELL | OWNER_RENT | BUYER | TENANT | OTHER
+  name            String
+  email           String?
+  phone           String?
+  emailNormalized String?
+  phoneNormalized String?
+  status          String    @default("NEW") // NEW | PENDING_CONTACT | CONTACTED | VISIT_SCHEDULED | PROPOSAL_SENT | NEGOTIATION | WON | LOST
+  source          String    @default("MANUAL") // MANUAL | PORTAL | FINCALIA360
+  sourceRef       String? // id de la asignación o de la solicitud de origen
+  notes           String?
+  nextAction      String?
+  nextActionAt    DateTime?
+  lastContactAt   DateTime?
+  createdById     String?
+
+  activities AgencyActivity[]
+  visits     AgencyVisit[]
+  inquiries  ListingInquiry[]
+  listings   Listing[]        @relation("ListingOwner")
+
+  @@index([agencyId, status])
+  @@index([agencyId, nextActionAt])
+}
+
+model AgencyActivity {
+  id        String        @id @default(cuid())
+  createdAt DateTime      @default(now())
+  at        DateTime      @default(now())
+  agencyId  String
+  agency    Agency        @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  contactId String
+  contact   AgencyContact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  type      String // NOTE | CALL | EMAIL | WHATSAPP | MEETING | STATUS | SYSTEM
+  summary   String
+  userId    String?
+  userName  String?
+
+  @@index([contactId, at])
+}
+
+model AgencyVisit {
+  id        String        @id @default(cuid())
+  createdAt DateTime      @default(now())
+  agencyId  String
+  agency    Agency        @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  contactId String
+  contact   AgencyContact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  listingId String?
+  listing   Listing?      @relation(fields: [listingId], references: [id], onDelete: SetNull)
+  at        DateTime
+  status    String        @default("SCHEDULED") // SCHEDULED | DONE | CANCELLED
+  notes     String?
+
+  @@index([agencyId, at])
+}
+
+// Registro de acciones sensibles (publicaciones, cuentas, exportaciones).
+model AuditLog {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  actorType String // ADMIN | AGENCY_USER | SYSTEM | PUBLIC
+  actorId   String?
+  agencyId  String?
+  action    String
+  entity    String
+  entityId  String?
+  detail    String?
+
+  @@index([agencyId, createdAt])
+  @@index([entity, entityId])
 }

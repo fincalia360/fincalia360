@@ -11,3 +11,6 @@ npm-debug.log*
 
 # Copias de seguridad locales de la base de datos
 backups/
+
+# Fotos y documentos subidos en local (en producción van al disco persistente)
+storage/

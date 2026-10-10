@@ -54,6 +54,14 @@ export default async function PrivacyPage({ searchParams }: { searchParams: Prom
             <td>Nombre, email, teléfono (opcional), forma de contacto preferida, comentarios y tus consentimientos con su fecha y versión.</td>
           </tr>
           <tr>
+            <td>Si pides información o una visita de un inmueble del portal</td>
+            <td>Nombre, email, teléfono (necesario para visitas), tu mensaje y tu consentimiento con su fecha y versión.</td>
+          </tr>
+          <tr>
+            <td>Si trabajas en una inmobiliaria colaboradora con acceso a la Zona inmobiliarias</td>
+            <td>Nombre, email profesional, contraseña (guardada cifrada, nunca en claro), rol y fechas de acceso.</td>
+          </tr>
+          <tr>
             <td>Al navegar</td>
             <td>
               Datos técnicos necesarios para el funcionamiento y la seguridad (dirección IP para limitar abusos, sin conservarla) y estadísticas de uso
@@ -82,6 +90,13 @@ export default async function PrivacyPage({ searchParams }: { searchParams: Prom
           cualquier momento.
         </li>
         <li>
+          <strong>Responder a tu solicitud sobre un inmueble</strong> del portal (información o visita): tu consentimiento (art. 6.1.a).
+        </li>
+        <li>
+          <strong>Gestionar las cuentas de las inmobiliarias colaboradoras</strong> y su acceso seguro: ejecución de la relación con la inmobiliaria
+          (art. 6.1.b).
+        </li>
+        <li>
           <strong>Seguridad y mejora del servicio</strong> con estadísticas agregadas: interés legítimo (art. 6.1.f).
         </li>
       </ul>
@@ -103,6 +118,14 @@ export default async function PrivacyPage({ searchParams }: { searchParams: Prom
           tratamiento, recibe tus mensajes y los datos de tu estudio para generar la respuesta. FINCALIA360 no guarda el contenido de esas
           conversaciones. No escribas datos personales en el chat.
         </li>
+        <li>
+          Si pides información de un inmueble anunciado por una inmobiliaria colaboradora: esa inmobiliaria, identificada en la ficha del inmueble,
+          recibe tu solicitud para atenderla y la trata como responsable.
+        </li>
+        <li>
+          Datos que cada inmobiliaria colaboradora gestiona en su espacio privado (CRM): la responsable es la propia inmobiliaria; FINCALIA360 solo
+          los aloja y trata por su cuenta, como encargado del tratamiento. Ninguna otra inmobiliaria tiene acceso a ellos.
+        </li>
         <li>Administraciones públicas cuando exista una obligación legal.</li>
       </ul>
       <p>
@@ -117,6 +140,8 @@ export default async function PrivacyPage({ searchParams }: { searchParams: Prom
           Solicitudes de valoración: mientras dure la relación y hasta 2 años desde el último contacto, salvo que antes pidas su supresión o retires
           el consentimiento.
         </li>
+        <li>Solicitudes sobre inmuebles del portal: hasta 2 años desde la última comunicación, salvo que antes pidas su supresión.</li>
+        <li>Cuentas de inmobiliarias: mientras dure la colaboración; los registros de acceso y de acciones, hasta 2 años.</li>
         <li>Prueba de los consentimientos: durante los plazos de prescripción de las posibles responsabilidades.</li>
       </ul>
 

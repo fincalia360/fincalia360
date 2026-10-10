@@ -2,6 +2,7 @@
 // Todas las funciones se llaman desde server actions o rutas protegidas con requireAdmin().
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/db/client";
+import { deliverAssignment } from "@/services/agency/crm";
 import { INTEREST_LABELS } from "@/lib/labels";
 import { emitBusinessEvent } from "@/services/notificationService";
 import { updateLeadStatus } from "@/services/leadService";
@@ -126,6 +127,8 @@ export async function assignPartner(leadId: string, agencyId: string, serviceCod
   if (agency.status !== "ACTIVE") throw new Error("El colaborador no está activo.");
   const a = await prisma.partnerAssignment.create({ data: { leadId, agencyId, serviceCode } });
   await prisma.lead.update({ where: { id: leadId }, data: { agencyId, assignedAt: new Date() } });
+  // Si la inmobiliaria usa la Zona inmobiliarias, la oportunidad aparece en su CRM
+  await deliverAssignment(a.id);
   await emitBusinessEvent("PARTNER_ASSIGNED", {
     leadId,
     payload: { assignmentId: a.id, partnerName: agency.name, service: serviceCode ? INTEREST_LABELS[serviceCode] : null, statusLabel: ASSIGNMENT_STATUS_LABELS.ASSIGNED },

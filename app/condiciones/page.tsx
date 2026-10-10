@@ -48,13 +48,30 @@ export default async function TermsPage({ searchParams }: { searchParams: Promis
         tuyos tanto si la solicitas como si no.
       </p>
 
-      <h2>5. Responsabilidad</h2>
+      <h2>5. Portal de inmuebles en venta y alquiler</h2>
+      <ul>
+        <li>
+          Cada anuncio indica quién lo publica: FINCALIA360 o una inmobiliaria colaboradora. El anunciante facilita los datos, fija el precio y
+          responde de ellos; FINCALIA360 revisa cada anuncio antes de publicarlo y exige la autorización del propietario.
+        </li>
+        <li>La ubicación que se muestra es aproximada. Comprueba la documentación del inmueble antes de firmar cualquier contrato.</li>
+        <li>Un anuncio puede retirarse en cualquier momento si deja de estar disponible o si sus datos no son correctos.</li>
+      </ul>
+
+      <h2>6. Zona inmobiliarias</h2>
+      <p>
+        El acceso es solo para inmobiliarias colaboradoras con cuenta creada por FINCALIA360. Las credenciales son personales. Cada inmobiliaria es
+        responsable de los datos que registra en su espacio, de contar con la autorización de los propietarios para publicar sus inmuebles y de la
+        veracidad de sus anuncios. FINCALIA360 puede rechazar o retirar anuncios y suspender cuentas que incumplan estas condiciones.
+      </p>
+
+      <h2>7. Responsabilidad</h2>
       <p>
         Los estudios se ofrecen tal cual, con la información disponible en la fecha de consulta. El titular no responde de las decisiones tomadas
         únicamente a partir de ellos ni de errores o cambios de las fuentes públicas. Para decisiones importantes, consulta a un profesional.
       </p>
 
-      <h2>6. Contacto</h2>
+      <h2>8. Contacto</h2>
       <p>
         Para cualquier consulta: <L k="contactEmail" />. Datos del titular en el <Link href="/legal">aviso legal</Link>; tratamiento de datos en la{" "}
         <Link href="/privacy">política de privacidad</Link>.

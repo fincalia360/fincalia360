@@ -50,3 +50,27 @@ describe("acceso al CRM", () => {
     expect((await call("/estudio")).status).toBe(200);
   });
 });
+
+describe("acceso a la Zona inmobiliarias", () => {
+  it.each(["/zona-inmobiliarias/panel", "/zona-inmobiliarias/panel/contactos", "/zona-inmobiliarias/panel/inmuebles/abc"])("%s sin sesión → a la pantalla de acceso", async (path) => {
+    const res = await call(path);
+    expect(res.status).toBe(307);
+    expect(res.headers.get("location")).toMatch(/\/zona-inmobiliarias$/);
+  });
+
+  it.each(["/api/zona/inmuebles/abc/fotos", "/api/zona/contactos/abc/export"])("%s sin sesión → 401", async (path) => {
+    expect((await call(path)).status).toBe(401);
+  });
+
+  it("la sesión del administrador no abre la Zona inmobiliarias (son accesos distintos)", async () => {
+    const { signSession, SESSION_COOKIE } = await import("@/lib/session");
+    const res = await call("/zona-inmobiliarias/panel", `${SESSION_COOKIE}=${await signSession("admin")}`);
+    expect(res.status).toBe(307);
+  });
+
+  it("el acceso, el portal y las fichas son públicos", async () => {
+    for (const path of ["/zona-inmobiliarias", "/zona-inmobiliarias/recuperar", "/comprar", "/alquilar", "/inmueble/piso-venta-girona-f360-abc123"]) {
+      expect((await call(path)).status).toBe(200);
+    }
+  });
+});

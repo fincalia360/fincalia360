@@ -2,7 +2,7 @@
 // Se configuran con variables de entorno al publicar la web; nunca se inventan.
 // Mientras falte alguno, las páginas legales muestran un aviso visible.
 
-export const LEGAL_UPDATED = "9 de octubre de 2026";
+export const LEGAL_UPDATED = "10 de octubre de 2026";
 
 const FIELDS = {
   ownerName: { env: "LEGAL_OWNER_NAME", label: "Nombre o razón social del titular", required: true },

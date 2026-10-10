@@ -20,6 +20,10 @@ services:
         value: "22"
       - key: DATABASE_URL
         value: file:/var/data/fincalia360.db
+      # Fotos de los inmuebles y documentos de autorización: en el mismo disco persistente
+      # (se conservan entre publicaciones). Ver docs/portal-y-zona-inmobiliarias.md
+      - key: UPLOAD_DIR
+        value: /var/data/uploads
       - key: SEED_DEMO_DATA
         value: "false"
       - key: STUDY_EXAMPLE_DATA

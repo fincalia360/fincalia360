@@ -12,6 +12,10 @@ import { INTEREST_LABELS, LOCATION_LABELS, PROPERTY_LABELS, STATUS_LABELS, label
 import { ASSIGNMENT_STATUS_LABELS } from "@/services/crm/contacts";
 import { formatDate, formatEUR } from "@/lib/utils";
 import { getAgency } from "@/services/agencyService";
+import { AgencyAccessPanel } from "@/components/admin/AgencyAccessPanel";
+import { addUserAction, resendInviteAction, resetLinkAction, saveAccessAction, userRoleAction, userStatusAction } from "@/app/admin/agencyAccessActions";
+import { listAgencyUsers } from "@/services/agency/accounts";
+import { ACTIVE_STATUSES } from "@/services/listings/catalog";
 
 export const metadata = { title: "Colaborador" };
 
@@ -64,6 +68,22 @@ export default async function AgencyPage({ params }: { params: Promise<{ id: str
           </CardBody>
         </Card>
         <div className="space-y-6">
+        <Card>
+          <CardHeader title="Zona inmobiliarias" description="Cuentas de acceso a su CRM privado dentro de FINCALIA360. Solo ven sus propios datos." />
+          <CardBody>
+            <AgencyAccessPanel
+              agency={{ crmAccess: agency.crmAccess, maxListings: agency.maxListings, maxUsers: agency.maxUsers, status: agency.status }}
+              users={await listAgencyUsers(agency.id)}
+              activeListings={await prisma.listing.count({ where: { agencyId: agency.id, status: { in: ACTIVE_STATUSES } } })}
+              saveAccess={saveAccessAction.bind(null, agency.id)}
+              addUser={addUserAction.bind(null, agency.id)}
+              resendInvite={resendInviteAction.bind(null, agency.id)}
+              resetLink={resetLinkAction.bind(null, agency.id)}
+              setStatus={userStatusAction.bind(null, agency.id)}
+              setRole={userRoleAction.bind(null, agency.id)}
+            />
+          </CardBody>
+        </Card>
         <Card>
           <CardHeader title="Oportunidades asignadas" description="Solo contactos que autorizaron comunicar sus datos" />
           <ul className="divide-y divide-sand-100">

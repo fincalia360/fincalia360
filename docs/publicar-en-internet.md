@@ -73,7 +73,14 @@ Los correos son de servicio (confirmaciones e informe solicitado). La plataforma
 3. En Render → **Environment**: `ANTHROPIC_API_KEY` = la clave. Opcional: `CHAT_DAILY_MESSAGE_LIMIT` (por defecto 500 mensajes al día).
 4. El chat aparece en los resultados de cada estudio. Sin clave, simplemente no se muestra.
 
-Coste orientativo: con el modelo rápido (Haiku), unos céntimos de euro por conversación; consulta los precios vigentes en anthropic.com/pricing.
+Coste (modelo `claude-haiku-5-5`: 0,10 $ por millón de tokens de entrada y 0,50 $ por millón de salida; confírmalo en anthropic.com/pricing):
+cada mensaje usa unos 2.500–5.000 tokens de entrada y 250–800 de salida, así que cuesta unos **0,0004–0,001 $** (menos de una décima de céntimo).
+Una conversación de 10 mensajes cuesta menos de 1 céntimo. Con el tope de 500 mensajes al día, el máximo es de unos 0,75 $ al día.
+Cada mensaje registra sus tokens reales, así que el coste exacto se puede calcular después.
+
+## Portal y Zona inmobiliarias
+
+Las fotos de los inmuebles se guardan en el mismo disco persistente que la base de datos (`UPLOAD_DIR=/var/data/uploads`, ya en `render.yaml`): no se pierden al publicar versiones nuevas. Cómo subir pisos y dar acceso a las inmobiliarias: `docs/portal-y-zona-inmobiliarias.md`.
 
 ## Qué está preparado
 
