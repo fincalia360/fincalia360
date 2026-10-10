@@ -13,4 +13,4 @@ npm-debug.log*
 backups/
 
 # Fotos y documentos subidos en local (en producción van al disco persistente)
-storage/
+/storage/
