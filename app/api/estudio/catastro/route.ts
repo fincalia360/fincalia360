@@ -12,7 +12,8 @@ export async function GET(request: Request) {
   try {
     return NextResponse.json(await lookupCadastralReference(rc));
   } catch (error) {
-    const message = error instanceof CatastroError ? error.message : "El servicio del Catastro no está disponible en este momento.";
+    if (!(error instanceof CatastroError)) console.error("[catastro/catastro]", (error as Error).message);
+    const message = error instanceof CatastroError ? error.message : "El Catastro no responde en este momento. Vuelve a intentarlo en unos segundos o rellena los datos de la vivienda a mano.";
     return NextResponse.json({ error: message }, { status: error instanceof CatastroError ? 400 : 503 });
   }
 }

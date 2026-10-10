@@ -196,11 +196,17 @@ export interface CatastroUnit {
 function unitFrom(rc: Rc, dt: UnitDt, debi?: Debi): CatastroUnit {
   const loint = dt.locs?.lous?.lourb?.loint ?? {};
   const floor = loint.pt ?? null;
+  // En casas y adosados el Catastro rellena escalera/planta/puerta con códigos genéricos
+  // («T» = toda, «OD»/«OS»): no se muestran porque no ayudan a reconocer la vivienda.
+  const meaningful = (v: string | undefined, generic: string[]) => (v && !generic.includes(v.trim().toUpperCase()) ? v : null);
+  const es = meaningful(loint.es, ["T"]);
+  const pt = meaningful(floor ?? undefined, ["OD", "OS"]);
+  const pu = meaningful(loint.pu, ["OD", "OS"]);
   const parts = [
     loint.bq ? `Bloque ${loint.bq}` : null,
-    loint.es ? `Esc. ${loint.es}` : null,
-    floor != null ? (parseFloor(floor) === 0 ? "Planta baja" : parseFloor(floor) != null ? `Planta ${parseFloor(floor)}` : `Planta ${floor}`) : null,
-    loint.pu ? `Puerta ${loint.pu}` : null,
+    es ? `Esc. ${es}` : null,
+    pt != null ? (parseFloor(pt) === 0 ? "Planta baja" : parseFloor(pt) != null ? `Planta ${parseFloor(pt)}` : `Planta ${pt}`) : null,
+    pu ? `Puerta ${pu}` : null,
   ].filter(Boolean);
   return {
     cadastralRef: rcString(rc),
@@ -239,7 +245,8 @@ export async function findUnitsByAddress(ineMunicipality: string, streetType: st
   }>(url, 20000);
   const r = j.consulta_dnplocResult;
   if (!r) throw new CatastroError("Respuesta inesperada del Catastro.");
-  const nearbyNumbers = (r.numerero?.nump ?? []).map((x) => x.num.pnp);
+  // El Catastro repite el número si varias parcelas lo comparten: únicos y en orden
+  const nearbyNumbers = [...new Set((r.numerero?.nump ?? []).map((x) => x.num.pnp))].sort((a, b) => Number(a) - Number(b) || a.localeCompare(b));
   const err = firstError(r.lerr);
   if (err) {
     return { units: [], nearbyNumbers, message: err.cod === "43" ? "Ese número no figura en el Catastro." : err.des };
@@ -256,6 +263,17 @@ export async function findUnitsByAddress(ineMunicipality: string, streetType: st
       (parseFloor(a.floor ?? undefined) ?? 999) - (parseFloor(b.floor ?? undefined) ?? 999) ||
       cmp(a.door, b.door),
   );
+  // Si varias quedan con la misma descripción (p. ej. casas adosadas), se numeran para distinguirlas
+  const seen = new Map<string, number>();
+  for (const u of units) seen.set(u.label, (seen.get(u.label) ?? 0) + 1);
+  const counters = new Map<string, number>();
+  for (const u of units) {
+    if ((seen.get(u.label) ?? 0) < 2) continue;
+    const kind = u.use === "Residencial" ? "Vivienda" : "Inmueble";
+    const n = (counters.get(kind) ?? 0) + 1;
+    counters.set(kind, n);
+    u.label = u.label === "Inmueble único" ? `${kind} ${n}` : `${u.label} · ${kind} ${n}`;
+  }
   return { units, nearbyNumbers, message: units.length ? null : "El Catastro no devolvió inmuebles para esa dirección." };
 }
 
