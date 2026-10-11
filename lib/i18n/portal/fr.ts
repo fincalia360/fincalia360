@@ -11,6 +11,7 @@ const fr: PortalDict = {
     sale: "Acheter",
     rent: "Louer",
     valuate: "Estimer un bien",
+    searching: "Je cherche",
     contact: "Contact",
     publish: "Publiez votre bien gratuitement",
     publishShort: "Publier gratuitement",

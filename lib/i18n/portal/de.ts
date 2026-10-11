@@ -9,6 +9,7 @@ const de: PortalDict = {
     sale: "Kaufen",
     rent: "Mieten",
     valuate: "Immobilienbewertung",
+    searching: "Ich suche",
     contact: "Kontakt",
     publish: "Immobilie kostenlos inserieren",
     publishShort: "Kostenlos inserieren",

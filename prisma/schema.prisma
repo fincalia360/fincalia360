@@ -767,3 +767,51 @@ model ContactMessage {
 
   @@index([status, createdAt])
 }
+
+// «Busco piso»: personas que buscan vivienda en compra o alquiler (Cataluña). Llegan como
+// PENDING y solo se ven en la web cuando el administrador las publica (sin datos de contacto).
+model SearchRequest {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  reference String   @unique // BP-XXXXXX (identificador público, no personal)
+  status    String   @default("PENDING") // PENDING | PUBLISHED | HIDDEN | REJECTED | RESOLVED
+
+  operation      String // SALE | RENT
+  propertyType   String // PISO | ATICO | CASA_CHALET | ADOSADA | ESTUDIO | TERRENO | LOCAL | GARAJE | OTRO
+  provinceCode   String
+  municipalities String // nombres separados por «|»
+  zone           String?
+  minPrice       Int? // euros (compra) o euros/mes (alquiler)
+  maxPrice       Int
+  minBedrooms    Int?
+  minBathrooms   Int?
+  minArea        Int?
+  maxArea        Int?
+  terrace        String  @default("ANY") // YES | NO | ANY
+  elevator       String  @default("ANY")
+  parking        String  @default("ANY")
+  exterior       String  @default("ANY")
+  condition      String  @default("ANY") // NEW | GOOD | TO_REFORM | ANY
+  description    String  @default("") // texto original (privado)
+  publicText     String? // texto que se publica, revisado por el administrador
+
+  // Contacto (privado: solo en el panel)
+  name  String
+  email String
+  phone String?
+  lang  String @default("es")
+
+  // Consentimientos (texto y versión aceptados)
+  privacyAccepted  Boolean @default(false)
+  consentVersion   String
+  consentText      String
+  marketingConsent Boolean @default(false)
+
+  adminNote   String?
+  publishedAt DateTime?
+  resolvedAt  DateTime?
+
+  @@index([status, createdAt])
+  @@index([status, operation, provinceCode])
+}

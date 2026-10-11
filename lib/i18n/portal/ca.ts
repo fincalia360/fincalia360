@@ -9,6 +9,7 @@ const ca: PortalDict = {
     sale: "Venda",
     rent: "Lloguer",
     valuate: "Valorar habitatge",
+    searching: "Busco pis",
     contact: "Contacte",
     publish: "Publica el teu immoble gratis",
     publishShort: "Publicar gratis",
