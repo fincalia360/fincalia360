@@ -1,6 +1,6 @@
 "use server";
 
-// Acciones del panel sobre las solicitudes «Busco piso». Cada una exige la sesión de administrador.
+// Acciones del panel sobre las solicitudes «Busco comprar». Cada una exige la sesión de administrador.
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";

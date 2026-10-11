@@ -9,7 +9,7 @@ import { SEARCH_STATUSES, SEARCH_TONES, SEARCH_TYPES, splitMunicipalities } from
 import { listSearchRequestsAdmin } from "@/services/searchRequests/searchRequests";
 import { PROVINCES, getProvince } from "@/services/study/geo";
 
-export const metadata = { title: "Solicitudes Busco piso" };
+export const metadata = { title: "Solicitudes Busco comprar" };
 export const dynamic = "force-dynamic";
 
 const YEAR_MS = 365 * 24 * 3600 * 1000;
@@ -45,8 +45,8 @@ export default async function SearchRequestsAdminPage({ searchParams }: { search
   return (
     <>
       <PageHeader
-        title="Solicitudes Busco piso"
-        description="Personas que buscan vivienda en compra o alquiler. Llegan pendientes de revisión: solo se ven en la web cuando las apruebas, y nunca con sus datos de contacto."
+        title="Solicitudes Busco comprar"
+        description="Personas que buscan un inmueble (compra o alquiler). Llegan pendientes de revisión: solo se ven en la web cuando las apruebas, y nunca con sus datos de contacto."
       />
       <nav className="mb-4 flex flex-wrap gap-1.5">
         {[["", "Todas"], ...Object.entries(SEARCH_STATUSES)].map(([k, label]) => (

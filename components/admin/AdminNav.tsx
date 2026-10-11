@@ -28,7 +28,7 @@ export const ADMIN_NAV = [
   { href: "/admin/leads", label: "Contactos", icon: Users },
   { href: "/admin/inmuebles", label: "Anuncios", icon: Home },
   { href: "/admin/solicitudes-publicacion", label: "Solicitudes de publicación", icon: Inbox },
-  { href: "/admin/busco-piso", label: "Solicitudes Busco piso", icon: SearchCheck },
+  { href: "/admin/busco-piso", label: "Solicitudes Busco comprar", icon: SearchCheck },
   { href: "/admin/mensajes", label: "Mensajes de contacto", icon: Mail },
   { href: "/admin/studies", label: "Estudios", icon: FileBarChart },
   { href: "/admin/comparables", label: "Comparables de alquiler", icon: Scale },

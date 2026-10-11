@@ -2,7 +2,7 @@
 // 1) presentación con el buscador, 2) Venta y Alquiler, 3) categorías, 4) publicar gratis,
 // y la cabecera que separa la valoración como servicio independiente.
 import Link from "next/link";
-import { Anchor, ArrowRight, Briefcase, Building2, Car, Home, KeyRound, LandPlot, Megaphone, Store, Tag } from "lucide-react";
+import { Anchor, ArrowRight, Briefcase, Building2, Car, Home, KeyRound, LandPlot, Megaphone, SearchCheck, Store, Tag } from "lucide-react";
 import { type PropertyGroup } from "@/services/listings/catalog";
 import { publicVisibility } from "@/services/listings/listings";
 import { citiesWithListings, groupPath } from "@/services/listings/seo";
@@ -10,6 +10,7 @@ import { prisma } from "@/db/client";
 import { HomeSearch } from "./HomeSearch";
 import { portalDict } from "@/lib/i18n/site";
 import { getSiteLang } from "@/lib/i18n/siteServer";
+import { searchTexts } from "@/lib/i18n/searchRequests";
 
 const CATEGORIES: Array<{ group: PropertyGroup; icon: typeof Home }> = [
   { group: "pisos", icon: Building2 },
@@ -91,6 +92,9 @@ export async function PortalHome() {
         </div>
       </section>
 
+      {/* «Busco comprar»: quien busca un inmueble nos dice qué necesita */}
+      <BuscoComprarBand />
+
       {/* 3. Categorías */}
       <section aria-labelledby="categorias-titulo" className="pb-10 sm:pb-14">
         <div className="container-page">
@@ -158,5 +162,34 @@ export async function ValuationIntro() {
         <p className="text-sm text-ink-500">{d.home.valuationText}</p>
       </div>
     </div>
+  );
+}
+
+/** Banda destacada de la portada para la sección «Busco comprar» (/busco-piso). */
+async function BuscoComprarBand() {
+  const t = searchTexts(await getSiteLang());
+  return (
+    <section aria-labelledby="busco-comprar-titulo" className="pb-10 sm:pb-14">
+      <div className="container-page">
+        <div className="flex flex-col gap-6 rounded-3xl bg-ink-800 p-6 text-white sm:p-10 lg:flex-row lg:items-center lg:justify-between">
+          <div className="max-w-3xl">
+            <p className="inline-flex items-center gap-2 text-[12px] font-bold uppercase tracking-[0.14em] text-terracotta-100">
+              <SearchCheck className="h-4 w-4" /> {t.eyebrow}
+            </p>
+            <h2 id="busco-comprar-titulo" className="mt-3 text-2xl font-extrabold uppercase leading-tight tracking-tight sm:text-3xl">
+              {t.title}
+            </h2>
+            <p className="mt-3 text-[15.5px] leading-relaxed text-ink-100">{t.intro}</p>
+            <p className="mt-4 text-[15px] font-bold uppercase tracking-wide text-terracotta-100">{t.slogan}</p>
+          </div>
+          <Link
+            href="/busco-piso"
+            className="inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-full bg-terracotta-500 px-7 text-[15px] font-semibold uppercase tracking-wide text-white hover:bg-terracotta-600"
+          >
+            {t.cta} <ArrowRight className="h-4 w-4" />
+          </Link>
+        </div>
+      </div>
+    </section>
   );
 }

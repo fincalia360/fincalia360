@@ -6,7 +6,7 @@ const es = {
     sale: "Venta",
     rent: "Alquiler",
     valuate: "Valorar vivienda",
-    searching: "Busco piso",
+    searching: "Busco comprar",
     contact: "Contacto",
     publish: "Publica tu inmueble gratis",
     publishShort: "Publicar gratis",

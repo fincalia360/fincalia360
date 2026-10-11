@@ -241,3 +241,57 @@ describe("coincidencias con los inmuebles publicados (datos reales de la base de
     expect(n("Girona")).not.toBe(n("Salt"));
   });
 });
+
+describe("«Busco comprar»: otros tipos de inmueble", () => {
+  it("un garaje no guarda habitaciones ni preferencias de vivienda; un amarre no guarda superficie", async () => {
+    const g = await m.search.submitSearchRequest(request({ propertyType: "GARAJE", maxPrice: 30000, minBedrooms: 3, terrace: "YES", minArea: 12 }));
+    const garage = await m.prisma.searchRequest.findUniqueOrThrow({ where: { id: g.id } });
+    expect(garage).toMatchObject({ propertyType: "GARAJE", minBedrooms: null, terrace: "ANY", minArea: 12 });
+    const a = await m.search.submitSearchRequest(request({ propertyType: "AMARRE", maxPrice: 80000, minArea: 20 }));
+    expect(await m.prisma.searchRequest.findUniqueOrThrow({ where: { id: a.id } })).toMatchObject({ propertyType: "AMARRE", minArea: null, minBedrooms: null });
+    await m.prisma.searchRequest.deleteMany();
+  });
+
+  it("amarres: solo propone amarres; oficinas y naves: tipos reales del anuncio, sin inventar", async () => {
+    const mooring = await published({
+      category: "MOORING",
+      operation: "SALE",
+      title: "Amarre ficticio de 12 x 4 m en puerto de prueba",
+      description: "Descripción ficticia de prueba. Amarre en pantalán con finger, agua y electricidad, zona abrigada y fácil acceso desde el aparcamiento.",
+      propertyType: "AMARRE",
+      price: "60000",
+      provinceCode: "17",
+      municipality: "Roses",
+      portName: "Port Ficticio de Roses",
+      berthLength: "12",
+      berthWidth: "4",
+      mooringType: "FINGER",
+      features: ["WATER"],
+      authorizationType: "OWNER_SIGNED",
+      authorizationDate: "2026-10-01",
+      checkData: "on",
+      checkAuthorization: "on",
+    });
+    await published(home({ title: "Piso ficticio en Roses para comprobar amarres", municipality: "Roses", price: "50000" }));
+    const office = await published(home({ title: "Oficina ficticia de prueba en Roses", propertyType: "OFICINA", municipality: "Roses", price: "90000", bedrooms: "", features: [] }));
+    const shop = await published(home({ title: "Local ficticio de prueba en Roses", propertyType: "LOCAL", municipality: "Roses", price: "95000", bedrooms: "", features: [] }));
+
+    const find = async (over: Record<string, unknown>) => {
+      const { id } = await m.search.submitSearchRequest(request({ municipalities: ["Roses"], ...over }));
+      return m.matching.findMatches(await m.prisma.searchRequest.findUniqueOrThrow({ where: { id } }));
+    };
+    const moorings = await find({ propertyType: "AMARRE", maxPrice: 80000 });
+    expect(moorings.map((x) => x.listing.id)).toEqual([mooring.id]);
+    expect(moorings[0].url).toMatch(/^\/amarre\//);
+
+    const offices = await find({ propertyType: "OFICINA", maxPrice: 100000 });
+    expect(offices.map((x) => x.listing.id).sort()).toEqual([office.id, shop.id].sort());
+    expect(offices[0].listing.id).toBe(office.id);
+    expect(offices[0].full).toBe(true);
+
+    const naves = await find({ propertyType: "NAVE", maxPrice: 100000 });
+    expect(naves.map((x) => x.listing.id)).toEqual([shop.id]);
+    expect(naves[0].checks.find((c) => c.label === "Tipo")).toMatchObject({ result: "unknown" });
+    expect(naves[0].full).toBe(false);
+  });
+});

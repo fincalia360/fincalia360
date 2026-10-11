@@ -9,7 +9,7 @@ const en: PortalDict = {
     sale: "For sale",
     rent: "To rent",
     valuate: "Property valuation",
-    searching: "Looking for a home",
+    searching: "Looking to buy",
     contact: "Contact",
     publish: "List your property for free",
     publishShort: "List for free",

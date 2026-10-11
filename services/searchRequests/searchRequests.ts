@@ -1,4 +1,4 @@
-// «Busco piso»: solicitudes de personas que buscan vivienda en compra o alquiler.
+// «Busco comprar»: solicitudes de personas que buscan un inmueble (compra o alquiler).
 // - Se validan en el servidor y se guardan como «Pendiente de revisión».
 // - Solo se ven en la web cuando el administrador las publica, y nunca con datos de contacto.
 // - Consentimiento de privacidad obligatorio y publicidad opcional (nunca premarcada); se guarda el texto aceptado.
@@ -12,9 +12,10 @@ import { audit } from "@/services/audit";
 import { emailConfig, sendEmail } from "@/services/email/emailService";
 import { isPortalProvince } from "@/services/listings/catalog";
 import { getProvince } from "@/services/study/geo";
-import { MAX_MUNICIPALITIES, MUNICIPALITY_SEPARATOR, SEARCH_CONDITIONS, SEARCH_TYPES, splitMunicipalities, type SearchStatus } from "./catalog";
+import { MAX_MUNICIPALITIES, MUNICIPALITY_SEPARATOR, SEARCH_CONDITIONS, SEARCH_TYPES, isDwellingSearch, splitMunicipalities, type SearchStatus } from "./catalog";
 
-export const SEARCH_CONSENT_VERSION = "busco-piso-v1-2026-10";
+// v2: textos con «inmueble» en lugar de «vivienda» (sección «Busco comprar»)
+export const SEARCH_CONSENT_VERSION = "busco-comprar-v2-2026-10";
 
 export class SearchRequestError extends Error {}
 
@@ -63,7 +64,8 @@ const searchFields = {
 type Coherent = { minPrice?: number | null; maxPrice: number; minArea?: number | null; maxArea?: number | null; operation: string };
 function checkCoherence(v: Coherent, ctx: z.RefinementCtx) {
   if (v.minPrice != null && v.minPrice > v.maxPrice) ctx.addIssue({ code: "custom", path: ["minPrice"], message: "El precio mínimo no puede superar al máximo" });
-  if (v.minArea != null && v.maxArea != null && v.minArea > v.maxArea) ctx.addIssue({ code: "custom", path: ["minArea"], message: "La superficie mínima no puede superar a la máxima" });
+  if (v.minArea != null && v.maxArea != null && v.minArea > v.maxArea)
+    ctx.addIssue({ code: "custom", path: ["minArea"], message: "La superficie mínima no puede superar a la máxima" });
   // Alquiler: importes mensuales. Un máximo de más de 100.000 €/mes casi seguro es un precio de compra.
   if (v.operation === "RENT" && v.maxPrice > 100_000) ctx.addIssue({ code: "custom", path: ["maxPrice"], message: "En alquiler el presupuesto es mensual: revisa el importe" });
   if (v.operation === "SALE" && v.maxPrice < 1_000) ctx.addIssue({ code: "custom", path: ["maxPrice"], message: "En compra el presupuesto es el precio total: revisa el importe" });
@@ -74,7 +76,15 @@ export const searchRequestSchema = z
     ...searchFields,
     name: z.string().trim().min(2, "Indica tu nombre").max(100),
     email: z.string().trim().toLowerCase().email("Email no válido").max(150),
-    phone: z.preprocess((v) => (typeof v === "string" && v.trim() === "" ? null : v), z.string().trim().regex(/^[+\d][\d\s().-]{6,19}$/, "Teléfono no válido").nullable().optional()),
+    phone: z.preprocess(
+      (v) => (typeof v === "string" && v.trim() === "" ? null : v),
+      z
+        .string()
+        .trim()
+        .regex(/^[+\d][\d\s().-]{6,19}$/, "Teléfono no válido")
+        .nullable()
+        .optional(),
+    ),
     privacy: checked.refine((v) => v, "Debes aceptar la política de privacidad para enviar la solicitud"),
     marketing: checked.default(false),
     lang: z.enum(["es", "ca", "en", "de", "fr"]).default("es"),
@@ -113,6 +123,10 @@ async function newReference() {
 }
 
 function dataFrom(v: z.infer<typeof searchRequestSchema> | z.infer<typeof adminEditSchema>) {
+  // Habitaciones, baños, terraza, ascensor, exterior y estado solo tienen sentido en viviendas;
+  // en un amarre no se pide superficie (se busca por las medidas en la descripción).
+  const dwelling = isDwellingSearch(v.propertyType);
+  const mooring = v.propertyType === "AMARRE";
   return {
     operation: v.operation,
     propertyType: v.propertyType,
@@ -121,15 +135,15 @@ function dataFrom(v: z.infer<typeof searchRequestSchema> | z.infer<typeof adminE
     zone: v.zone ?? null,
     minPrice: v.minPrice ?? null,
     maxPrice: v.maxPrice,
-    minBedrooms: v.minBedrooms ?? null,
-    minBathrooms: v.minBathrooms ?? null,
-    minArea: v.minArea ?? null,
-    maxArea: v.maxArea ?? null,
-    terrace: v.terrace,
-    elevator: v.elevator,
-    parking: v.parking,
-    exterior: v.exterior,
-    condition: v.condition,
+    minBedrooms: dwelling ? (v.minBedrooms ?? null) : null,
+    minBathrooms: dwelling ? (v.minBathrooms ?? null) : null,
+    minArea: mooring ? null : (v.minArea ?? null),
+    maxArea: mooring ? null : (v.maxArea ?? null),
+    terrace: dwelling ? v.terrace : "ANY",
+    elevator: dwelling ? v.elevator : "ANY",
+    parking: dwelling ? v.parking : "ANY",
+    exterior: dwelling ? v.exterior : "ANY",
+    condition: dwelling ? v.condition : "ANY",
     description: v.description,
   };
 }
@@ -163,12 +177,12 @@ export async function submitSearchRequest(raw: unknown) {
   if (team) {
     await sendEmail({
       to: team,
-      subject: `Nueva solicitud «Busco piso» ${created.reference}`,
+      subject: `Nueva solicitud «Busco comprar» ${created.reference}`,
       text: [
         `${v.operation === "RENT" ? "Alquiler" : "Compra"} · ${SEARCH_TYPES[v.propertyType]} · ${v.municipalities.join(", ")} (${getProvince(v.provinceCode)?.name ?? v.provinceCode})`,
         `Presupuesto máximo: ${v.maxPrice.toLocaleString("es-ES")} €${v.operation === "RENT" ? "/mes" : ""}`,
         "",
-        "Revísala en el panel: Solicitudes Busco piso. Está pendiente de revisión y no se publica hasta que la apruebes.",
+        "Revísala en el panel: Solicitudes Busco comprar. Está pendiente de revisión y no se publica hasta que la apruebes.",
       ].join("\n"),
     }).catch((e) => console.error("[busco-piso] aviso por correo", (e as Error).message));
   }

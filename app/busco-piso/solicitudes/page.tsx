@@ -1,4 +1,4 @@
-// Solicitudes «Busco piso» aprobadas por FINCALIA360. Solo campos públicos: nunca datos de contacto.
+// Solicitudes «Busco comprar» aprobadas por FINCALIA360. Solo campos públicos: nunca datos de contacto.
 import Link from "next/link";
 import { BedDouble, Bath, MapPin, Ruler, SearchX } from "lucide-react";
 import { SiteFooter } from "@/components/landing/SiteFooter";

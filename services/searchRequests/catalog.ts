@@ -1,4 +1,4 @@
-// «Busco piso»: tipos, estados y equivalencias con los tipos de inmueble de los anuncios.
+// «Busco comprar»: tipos, estados y equivalencias con los tipos de inmueble de los anuncios.
 
 export const SEARCH_STATUSES = {
   PENDING: "Pendiente de revisión",
@@ -11,24 +11,34 @@ export type SearchStatus = keyof typeof SEARCH_STATUSES;
 /** Color de la etiqueta de estado en el panel. */
 export const SEARCH_TONES = { PENDING: "blue", PUBLISHED: "green", HIDDEN: "amber", REJECTED: "neutral", RESOLVED: "neutral" } as const;
 
-/** Tipos que puede pedir quien busca vivienda. */
+/** Tipos que puede pedir quien busca un inmueble (ADOSADA y ESTUDIO: solo solicitudes antiguas). */
 export const SEARCH_TYPES = {
   PISO: "Piso",
   ATICO: "Ático",
   CASA_CHALET: "Casa o chalet",
-  ADOSADA: "Casa adosada",
-  ESTUDIO: "Estudio",
-  TERRENO: "Terreno",
   LOCAL: "Local comercial",
   GARAJE: "Garaje",
+  AMARRE: "Amarre",
+  TERRENO: "Terreno",
+  OFICINA: "Oficina",
+  NAVE: "Nave industrial",
   OTRO: "Otro",
+  ADOSADA: "Casa adosada",
+  ESTUDIO: "Estudio",
 } as const;
 export type SearchType = keyof typeof SEARCH_TYPES;
 
+/** Tipos que ofrece el formulario, en este orden. */
+export const FORM_SEARCH_TYPES: SearchType[] = ["PISO", "ATICO", "CASA_CHALET", "LOCAL", "GARAJE", "AMARRE", "TERRENO", "OFICINA", "NAVE", "OTRO"];
+
+/** Tipos de vivienda: solo en ellos tienen sentido habitaciones, baños, terraza, ascensor, exterior y estado. */
+export const DWELLING_SEARCH_TYPES: SearchType[] = ["PISO", "ATICO", "CASA_CHALET", "ADOSADA", "ESTUDIO", "OTRO"];
+export const isDwellingSearch = (type: string) => (DWELLING_SEARCH_TYPES as string[]).includes(type);
+
 /**
  * Tipos de anuncio que corresponden a cada tipo buscado (catálogo de services/listings/catalog.ts).
- * Los anuncios no distinguen «casa adosada»: se comparan con «Casa» y se indica en el motivo.
- * «Otro» no limita el tipo.
+ * Los anuncios no distinguen «casa adosada» ni «nave industrial»: se indica en el motivo.
+ * Los amarres se buscan entre los anuncios de amarres. «Otro» no limita el tipo.
  */
 export const LISTING_TYPES_FOR: Record<SearchType, string[]> = {
   PISO: ["PISO", "DUPLEX"],
@@ -39,6 +49,9 @@ export const LISTING_TYPES_FOR: Record<SearchType, string[]> = {
   TERRENO: ["TERRENO"],
   LOCAL: ["LOCAL"],
   GARAJE: ["GARAJE"],
+  AMARRE: ["AMARRE"],
+  OFICINA: ["OFICINA"],
+  NAVE: [],
   OTRO: [],
 };
 
@@ -52,8 +65,14 @@ export const RELATED_LISTING_TYPES: Record<SearchType, string[]> = {
   TERRENO: [],
   LOCAL: ["OFICINA"],
   GARAJE: [],
+  AMARRE: [],
+  OFICINA: ["LOCAL"],
+  NAVE: ["LOCAL", "OTRO"],
   OTRO: [],
 };
+
+/** Los amarres son anuncios de la categoría MOORING; el resto, HOME. */
+export const searchCategory = (type: string) => (type === "AMARRE" ? "MOORING" : "HOME");
 
 export const PREFERENCES = { YES: "Sí", NO: "No", ANY: "Indiferente" } as const;
 export type Preference = keyof typeof PREFERENCES;
@@ -76,12 +95,7 @@ export function splitMunicipalities(value: string) {
 
 /** Compara nombres de municipio sin acentos, artículos ni el orden oficial del INE («Hospitalet de Llobregat, L'»). */
 export function normalizeMunicipality(name: string) {
-  let s = name
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase()
-    .replace(/[’`]/g, "'")
-    .trim();
+  let s = name.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[’`]/g, "'").trim();
   const tail = s.match(/^(.*),\s*(l'|el|la|els|les|lo|los|las|s')$/);
   if (tail) s = tail[1];
   s = s.replace(/^(l'|el |la |els |les |lo |los |las |s')/, "");

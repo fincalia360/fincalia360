@@ -1,4 +1,4 @@
-// «Busco piso»: recibe la solicitud de una persona que busca vivienda. Queda pendiente de revisión.
+// «Busco comprar»: recibe la solicitud de una persona que busca un inmueble. Queda pendiente de revisión.
 import { NextResponse } from "next/server";
 import { clientKey, rateLimit } from "@/lib/rateLimit";
 import { SearchRequestError, submitSearchRequest } from "@/services/searchRequests/searchRequests";

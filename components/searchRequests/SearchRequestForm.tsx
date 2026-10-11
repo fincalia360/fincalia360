@@ -1,18 +1,32 @@
 "use client";
-// Formulario «Busco piso». Valida en el navegador (el servidor vuelve a validar todo) y envía la
+// Formulario «Busco comprar». Valida en el navegador (el servidor vuelve a validar todo) y envía la
 // solicitud, que queda pendiente de revisión. Los consentimientos nunca van marcados de antemano.
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { CheckCircle2, Loader2, Plus, X } from "lucide-react";
 import { searchTexts } from "@/lib/i18n/searchRequests";
+import { FORM_SEARCH_TYPES, isDwellingSearch } from "@/services/searchRequests/catalog";
 
-const TYPES = ["PISO", "ATICO", "CASA_CHALET", "ADOSADA", "ESTUDIO", "TERRENO", "LOCAL", "GARAJE", "OTRO"] as const;
 const PREFS = ["ANY", "YES", "NO"] as const;
 const MAX_MUNICIPALITIES = 10;
 
 type Errors = Partial<Record<string, string>>;
 
-function Field({ label, hint, error, children, wide, htmlFor }: { label: React.ReactNode; hint?: string; error?: string; children: React.ReactNode; wide?: boolean; htmlFor?: string }) {
+function Field({
+  label,
+  hint,
+  error,
+  children,
+  wide,
+  htmlFor,
+}: {
+  label: React.ReactNode;
+  hint?: string;
+  error?: string;
+  children: React.ReactNode;
+  wide?: boolean;
+  htmlFor?: string;
+}) {
   return (
     <div className={wide ? "sm:col-span-2" : undefined}>
       <label htmlFor={htmlFor} className="field-label">
@@ -36,6 +50,10 @@ export function SearchRequestForm({ lang, provinces }: { lang: string; provinces
   const t = searchTexts(lang);
   const openedAt = useRef(Date.now());
   const [operation, setOperation] = useState<"SALE" | "RENT" | "">("");
+  const [propertyType, setPropertyType] = useState("");
+  // Habitaciones, baños, terraza, ascensor, exterior y estado solo para viviendas; superficie, salvo en amarres
+  const dwelling = !propertyType || isDwellingSearch(propertyType);
+  const showArea = propertyType !== "AMARRE";
   const [provinceCode, setProvinceCode] = useState("");
   const [options, setOptions] = useState<string[]>([]);
   const [municipalities, setMunicipalities] = useState<string[]>([]);
@@ -164,7 +182,11 @@ export function SearchRequestForm({ lang, provinces }: { lang: string; provinces
           <Link href="/busco-piso/solicitudes" className="inline-flex h-11 items-center rounded-full bg-ink-800 px-5 font-medium text-white hover:bg-ink-900">
             {t.seeList}
           </Link>
-          <button type="button" onClick={() => location.reload()} className="inline-flex h-11 items-center rounded-full border border-sand-300 px-5 font-medium text-ink-700 hover:bg-sand-50">
+          <button
+            type="button"
+            onClick={() => location.reload()}
+            className="inline-flex h-11 items-center rounded-full border border-sand-300 px-5 font-medium text-ink-700 hover:bg-sand-50"
+          >
             {t.another}
           </button>
         </div>
@@ -200,11 +222,20 @@ export function SearchRequestForm({ lang, provinces }: { lang: string; provinces
             </div>
           </Field>
           <Field label={t.propertyType} htmlFor="bp-type" error={errors.propertyType}>
-            <select id="bp-type" name="propertyType" defaultValue="" className="field">
+            <select
+              id="bp-type"
+              name="propertyType"
+              value={propertyType}
+              onChange={(e) => {
+                setPropertyType(e.target.value);
+                setErrors((er) => ({ ...er, propertyType: undefined }));
+              }}
+              className="field"
+            >
               <option value="" disabled>
                 —
               </option>
-              {TYPES.map((k) => (
+              {FORM_SEARCH_TYPES.map((k) => (
                 <option key={k} value={k}>
                   {t.types[k]}
                 </option>
@@ -328,52 +359,64 @@ export function SearchRequestForm({ lang, provinces }: { lang: string; provinces
         <h2 className={h2}>{t.step4}</h2>
         <p className="mt-0.5 text-[13px] text-ink-400">{t.step4Hint}</p>
         <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
-          <Field label={t.bedrooms} htmlFor="bp-bed">
-            <select id="bp-bed" name="minBedrooms" defaultValue="" className="field">
-              <option value="">{t.prefs.ANY}</option>
-              {[1, 2, 3, 4, 5].map((n) => (
-                <option key={n} value={n}>
-                  {n}+
-                </option>
+          {dwelling && (
+            <>
+              <Field label={t.bedrooms} htmlFor="bp-bed">
+                <select id="bp-bed" name="minBedrooms" defaultValue="" className="field">
+                  <option value="">{t.prefs.ANY}</option>
+                  {[1, 2, 3, 4, 5].map((n) => (
+                    <option key={n} value={n}>
+                      {n}+
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field label={t.bathrooms} htmlFor="bp-bath">
+                <select id="bp-bath" name="minBathrooms" defaultValue="" className="field">
+                  <option value="">{t.prefs.ANY}</option>
+                  {[1, 2, 3].map((n) => (
+                    <option key={n} value={n}>
+                      {n}+
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            </>
+          )}
+          {showArea && (
+            <>
+              <Field label={t.minArea} htmlFor="bp-mina" error={errors.minArea}>
+                <input id="bp-mina" name="minArea" type="number" inputMode="numeric" min={0} className="field" />
+              </Field>
+              <Field label={t.maxArea} htmlFor="bp-maxa">
+                <input id="bp-maxa" name="maxArea" type="number" inputMode="numeric" min={0} className="field" />
+              </Field>
+            </>
+          )}
+          {dwelling && (
+            <>
+              {(["terrace", "elevator", "parking", "exterior"] as const).map((k) => (
+                <Field key={k} label={t[k]} htmlFor={`bp-${k}`}>
+                  <select id={`bp-${k}`} name={k} defaultValue="ANY" className="field">
+                    {PREFS.map((p) => (
+                      <option key={p} value={p}>
+                        {t.prefs[p]}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
               ))}
-            </select>
-          </Field>
-          <Field label={t.bathrooms} htmlFor="bp-bath">
-            <select id="bp-bath" name="minBathrooms" defaultValue="" className="field">
-              <option value="">{t.prefs.ANY}</option>
-              {[1, 2, 3].map((n) => (
-                <option key={n} value={n}>
-                  {n}+
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label={t.minArea} htmlFor="bp-mina" error={errors.minArea}>
-            <input id="bp-mina" name="minArea" type="number" inputMode="numeric" min={0} className="field" />
-          </Field>
-          <Field label={t.maxArea} htmlFor="bp-maxa">
-            <input id="bp-maxa" name="maxArea" type="number" inputMode="numeric" min={0} className="field" />
-          </Field>
-          {(["terrace", "elevator", "parking", "exterior"] as const).map((k) => (
-            <Field key={k} label={t[k]} htmlFor={`bp-${k}`}>
-              <select id={`bp-${k}`} name={k} defaultValue="ANY" className="field">
-                {PREFS.map((p) => (
-                  <option key={p} value={p}>
-                    {t.prefs[p]}
-                  </option>
-                ))}
-              </select>
-            </Field>
-          ))}
-          <Field label={t.condition} htmlFor="bp-cond" wide>
-            <select id="bp-cond" name="condition" defaultValue="ANY" className="field">
-              {(["ANY", "NEW", "GOOD", "TO_REFORM"] as const).map((c) => (
-                <option key={c} value={c}>
-                  {t.conditions[c]}
-                </option>
-              ))}
-            </select>
-          </Field>
+              <Field label={t.condition} htmlFor="bp-cond" wide>
+                <select id="bp-cond" name="condition" defaultValue="ANY" className="field">
+                  {(["ANY", "NEW", "GOOD", "TO_REFORM"] as const).map((c) => (
+                    <option key={c} value={c}>
+                      {t.conditions[c]}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            </>
+          )}
         </div>
         <div className="mt-4">
           <Field
@@ -468,7 +511,7 @@ export function SearchRequestForm({ lang, provinces }: { lang: string; provinces
           disabled={state === "sending"}
           className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-terracotta-500 px-7 text-[15px] font-semibold text-white hover:bg-terracotta-600 disabled:opacity-60"
         >
-          {state === "sending" && <Loader2 className="h-4 w-4 animate-spin" />} {state === "sending" ? t.sending : t.submit}
+          {state === "sending" && <Loader2 className="h-4 w-4 animate-spin" />} {state === "sending" ? t.sending : t.cta}
         </button>
       </div>
       {serverError && (

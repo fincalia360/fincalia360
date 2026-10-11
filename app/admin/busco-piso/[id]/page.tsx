@@ -14,7 +14,7 @@ import { PROVINCES, getProvince } from "@/services/study/geo";
 import { deleteSearchRequestAction, searchStatusAction, updateSearchRequestAction } from "../actions";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Solicitud Busco piso" };
+export const metadata = { title: "Solicitud Busco comprar" };
 
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
   if (value == null || value === "") return null;
@@ -90,7 +90,7 @@ export default async function SearchRequestAdminPage({ params }: { params: Promi
   return (
     <div>
       <Link href="/admin/busco-piso" className="mb-3 inline-flex items-center gap-1.5 text-sm text-ink-500 hover:text-ink-800">
-        <ArrowLeft className="h-4 w-4" /> Solicitudes Busco piso
+        <ArrowLeft className="h-4 w-4" /> Solicitudes Busco comprar
       </Link>
       <PageHeader title={`${what} · ${op} · ${places.join(", ")}`} description={`${r.reference} · recibida el ${formatDateTime(r.createdAt)}`} />
 

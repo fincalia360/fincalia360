@@ -1,22 +1,13 @@
 "use client";
-// Panel «Busco piso»: edición de la solicitud, cambios de estado y eliminación.
+// Panel «Busco comprar»: edición de la solicitud, cambios de estado y eliminación.
 import { useActionState } from "react";
 import { Loader2 } from "lucide-react";
 import type { SearchFormState } from "@/app/admin/busco-piso/actions";
+import { SEARCH_TYPES } from "@/services/searchRequests/catalog";
 
 type Action = (prev: SearchFormState, formData: FormData) => Promise<SearchFormState>;
 
-const TYPES: Record<string, string> = {
-  PISO: "Piso",
-  ATICO: "Ático",
-  CASA_CHALET: "Casa o chalet",
-  ADOSADA: "Casa adosada",
-  ESTUDIO: "Estudio",
-  TERRENO: "Terreno",
-  LOCAL: "Local comercial",
-  GARAJE: "Garaje",
-  OTRO: "Otro",
-};
+const TYPES: Record<string, string> = SEARCH_TYPES;
 const PREFS = { ANY: "Indiferente", YES: "Sí", NO: "No" };
 const CONDITIONS = { ANY: "Indiferente", NEW: "A estrenar", GOOD: "Buen estado", TO_REFORM: "Para reformar" };
 

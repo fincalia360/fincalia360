@@ -1,4 +1,4 @@
-// Coincidencias entre una solicitud «Busco piso» y los inmuebles publicados de FINCALIA360.
+// Coincidencias entre una solicitud «Busco comprar» y los inmuebles publicados de FINCALIA360.
 // Solo LEE los anuncios (nunca crea ni modifica nada) y no contacta con nadie.
 // Reglas transparentes:
 //  - Obligatorias (si no se cumplen, el inmueble no aparece): misma operación, misma provincia,
@@ -7,7 +7,7 @@
 //    terraza, ascensor, parking, exterior y estado. Si el anuncio no tiene el dato, se indica «no consta»
 //    y cuenta como medio punto: nunca se da por supuesto.
 import { prisma } from "@/db/client";
-import { CONDITIONS, PROPERTY_TYPES, formatPrice, listingPath } from "@/services/listings/catalog";
+import { CONDITIONS, PROPERTY_TYPES, RENT_PERIODS, formatPrice, listingPath, type RentPeriod } from "@/services/listings/catalog";
 import { publicVisibility } from "@/services/listings/listings";
 import {
   LISTING_TYPES_FOR,
@@ -15,7 +15,9 @@ import {
   RELATED_LISTING_TYPES,
   SEARCH_CONDITIONS,
   SEARCH_TYPES,
+  isDwellingSearch,
   normalizeMunicipality,
+  searchCategory,
   splitMunicipalities,
   type SearchType,
 } from "./catalog";
@@ -55,6 +57,7 @@ export interface MatchListing {
   usefulArea: number | null;
   condition: string | null;
   features: string;
+  rentPeriod?: string | null;
 }
 
 export type CheckResult = "ok" | "no" | "unknown";
@@ -76,18 +79,24 @@ export interface MatchResult {
 
 const eur = (n: number, op: string) => formatPrice(n, op);
 
+/** El precio del anuncio se puede comparar con el presupuesto (en alquiler, solo si es mensual). */
+function priceComparable(l: MatchListing) {
+  return l.operation !== "RENT" || !l.rentPeriod || l.rentPeriod === "MONTH";
+}
+
 /** Reglas obligatorias. Devuelve el motivo de exclusión o null si el inmueble puede encajar. */
 export function exclusionReason(req: MatchRequest, l: MatchListing): string | null {
-  if (l.category !== "HOME") return "No es una vivienda o inmueble (amarre)";
+  const category = searchCategory(req.propertyType);
+  if (l.category !== category) return category === "MOORING" ? "No es un amarre" : "Es un amarre";
   if (l.operation !== req.operation) return req.operation === "SALE" ? "Es un alquiler y se busca compra" : "Es una venta y se busca alquiler";
   if (l.provinceCode !== req.provinceCode) return "Otra provincia";
   const wanted = splitMunicipalities(req.municipalities).map(normalizeMunicipality);
   if (!wanted.includes(normalizeMunicipality(l.municipality))) return "Otra población";
-  if (l.price > req.maxPrice) return "Supera el presupuesto máximo";
+  if (priceComparable(l) && l.price > req.maxPrice) return "Supera el presupuesto máximo";
   const type = req.propertyType as SearchType;
   const exact = LISTING_TYPES_FOR[type] ?? [];
   const related = RELATED_LISTING_TYPES[type] ?? [];
-  if (exact.length && !exact.includes(l.propertyType) && !related.includes(l.propertyType)) return "Otro tipo de inmueble";
+  if (type !== "OTRO" && !exact.includes(l.propertyType) && !related.includes(l.propertyType)) return "Otro tipo de inmueble";
   return null;
 }
 
@@ -100,10 +109,18 @@ export function preferenceChecks(req: MatchRequest, l: MatchListing): Check[] {
   // Obligatorias que se cumplen (se muestran como motivos)
   checks.push({ label: "Operación", result: "ok", detail: req.operation === "RENT" ? "Alquiler" : "Compra" });
   checks.push({ label: "Ubicación", result: "ok", detail: l.municipality });
-  checks.push({ label: "Precio", result: "ok", detail: `${eur(l.price, l.operation)} (máximo ${eur(req.maxPrice, req.operation)})` });
+  if (priceComparable(l)) checks.push({ label: "Precio", result: "ok", detail: `${eur(l.price, l.operation)} (máximo ${eur(req.maxPrice, req.operation)})` });
+  else
+    checks.push({
+      label: "Precio",
+      result: "unknown",
+      detail: `${formatPrice(l.price, l.operation, l.rentPeriod)}: precio por ${RENT_PERIODS[l.rentPeriod as RentPeriod] ?? l.rentPeriod}, no comparable con un presupuesto mensual`,
+    });
 
   const exact = LISTING_TYPES_FOR[type] ?? [];
-  if (exact.length) {
+  if (type === "NAVE") {
+    checks.push({ label: "Tipo", result: "unknown", detail: `${listingType} (el anuncio no indica si es una nave industrial)` });
+  } else if (exact.length) {
     if (exact.includes(l.propertyType)) {
       checks.push({
         label: "Tipo",
@@ -128,8 +145,11 @@ export function preferenceChecks(req: MatchRequest, l: MatchListing): Check[] {
     if (value == null) checks.push({ label, result: "unknown", detail: "No consta en el anuncio" });
     else checks.push({ label, result: value >= wanted ? "ok" : "no", detail: `${value}${unit} (mínimo ${wanted}${unit})` });
   };
-  atLeast("Habitaciones", req.minBedrooms, l.bedrooms, "");
-  atLeast("Baños", req.minBathrooms, l.bathrooms, "");
+  const dwelling = isDwellingSearch(type);
+  if (dwelling) {
+    atLeast("Habitaciones", req.minBedrooms, l.bedrooms, "");
+    atLeast("Baños", req.minBathrooms, l.bathrooms, "");
+  }
 
   if (req.minArea != null || req.maxArea != null) {
     const area = l.builtArea ?? l.usefulArea;
@@ -145,16 +165,20 @@ export function preferenceChecks(req: MatchRequest, l: MatchListing): Check[] {
   const prefLabels = { terrace: "Terraza", elevator: "Ascensor", parking: "Parking", exterior: "Exterior" } as const;
   for (const key of Object.keys(PREFERENCE_FEATURES) as Array<keyof typeof PREFERENCE_FEATURES>) {
     const wanted = req[key];
-    if (wanted !== "YES" && wanted !== "NO") continue;
+    if (!dwelling || (wanted !== "YES" && wanted !== "NO")) continue;
     const has = features.has(PREFERENCE_FEATURES[key]);
     if (wanted === "YES") {
       checks.push(has ? { label: prefLabels[key], result: "ok", detail: "Sí" } : { label: prefLabels[key], result: "unknown", detail: "No consta en el anuncio" });
     } else {
-      checks.push(has ? { label: prefLabels[key], result: "no", detail: "El anuncio lo tiene y se busca sin" } : { label: prefLabels[key], result: "unknown", detail: "No consta en el anuncio" });
+      checks.push(
+        has
+          ? { label: prefLabels[key], result: "no", detail: "El anuncio lo tiene y se busca sin" }
+          : { label: prefLabels[key], result: "unknown", detail: "No consta en el anuncio" },
+      );
     }
   }
 
-  if (req.condition !== "ANY") {
+  if (dwelling && req.condition !== "ANY") {
     const wanted = SEARCH_CONDITIONS[req.condition as keyof typeof SEARCH_CONDITIONS];
     if (!l.condition) checks.push({ label: "Estado", result: "unknown", detail: "No consta en el anuncio" });
     else {
@@ -173,13 +197,13 @@ export function evaluateMatch(req: MatchRequest, l: MatchListing): MatchResult |
   const prefs = checks.filter((c) => !MANDATORY.has(c.label));
   const points = prefs.reduce((s, c) => s + (c.result === "ok" ? 1 : c.result === "unknown" ? 0.5 : 0), 0);
   const score = prefs.length ? Math.round((points / prefs.length) * 100) : 100;
-  return { listing: l, url: listingPath(l), score, full: prefs.every((c) => c.result === "ok"), checks };
+  return { listing: l, url: listingPath(l), score, full: checks.every((c) => c.result === "ok"), checks };
 }
 
 /** Inmuebles publicados que encajan con la solicitud, del más adecuado al menos (empate: más barato). */
 export async function findMatches(req: MatchRequest): Promise<MatchResult[]> {
   const candidates = await prisma.listing.findMany({
-    where: { ...publicVisibility("HOME"), operation: req.operation, provinceCode: req.provinceCode, price: { lte: req.maxPrice } },
+    where: { ...publicVisibility(searchCategory(req.propertyType)), operation: req.operation, provinceCode: req.provinceCode },
     select: {
       id: true,
       reference: true,
@@ -197,6 +221,7 @@ export async function findMatches(req: MatchRequest): Promise<MatchResult[]> {
       usefulArea: true,
       condition: true,
       features: true,
+      rentPeriod: true,
     },
     take: 2000,
   });
