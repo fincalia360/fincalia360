@@ -1,17 +1,31 @@
 /* eslint-disable @next/next/no-img-element -- planos generados en el servidor (PNG) */
 "use client";
 
+import { useStudyT } from "@/components/study/StudyI18n";
 import { useEffect, useRef, useState } from "react";
 import { MapPinned } from "lucide-react";
 import type { CatastroValueZone } from "@/services/study/types";
 
 const MAPS = [
-  { kind: "zona", title: "Plano de situación", attribution: "© Instituto Geográfico Nacional (IGN Base, CC BY 4.0)" },
-  { kind: "ortofoto", title: "Vista aérea con la parcela", attribution: "© IGN (PNOA, CC BY 4.0) · Parcelas: Dirección General del Catastro" },
-  { kind: "parcela", title: "Plano catastral de la parcela", attribution: "Dirección General del Catastro" },
+  {
+    kind: "zona",
+    title: "Plano de situación",
+    attribution: "© Instituto Geográfico Nacional (IGN Base, CC BY 4.0)",
+  },
+  {
+    kind: "ortofoto",
+    title: "Vista aérea con la parcela",
+    attribution: "© IGN (PNOA, CC BY 4.0) · Parcelas: Dirección General del Catastro",
+  },
+  {
+    kind: "parcela",
+    title: "Plano catastral de la parcela",
+    attribution: "Dirección General del Catastro",
+  },
 ] as const;
 
 function MapImage({ studyId, kind, title, attribution }: { studyId: string; kind: string; title: string; attribution: string }) {
+  const t = useStudyT();
   const [state, setState] = useState<"loading" | "ok" | "error">("loading");
   const ref = useRef<HTMLImageElement>(null);
   // La imagen puede terminar de cargarse antes de que React escuche «onLoad» (hidratación)
@@ -22,9 +36,11 @@ function MapImage({ studyId, kind, title, attribution }: { studyId: string; kind
   return (
     <figure className="overflow-hidden rounded-2xl border border-sand-200 bg-white shadow-soft">
       <div className="relative aspect-[900/620] bg-sand-100">
-        {state === "loading" && <p className="absolute inset-0 flex items-center justify-center text-sm text-ink-400">Cargando plano…</p>}
+        {state === "loading" && <p className="absolute inset-0 flex items-center justify-center text-sm text-ink-400">{t("Cargando plano…")}</p>}
         {state === "error" ? (
-          <p className="absolute inset-0 flex items-center justify-center px-6 text-center text-sm text-ink-500">El servicio cartográfico no ha respondido. Vuelve a intentarlo más tarde.</p>
+          <p className="absolute inset-0 flex items-center justify-center px-6 text-center text-sm text-ink-500">
+            {t("El servicio cartográfico no ha respondido. Vuelve a intentarlo más tarde.")}
+          </p>
         ) : (
           <img
             ref={ref}
@@ -46,13 +62,15 @@ function MapImage({ studyId, kind, title, attribution }: { studyId: string; kind
 }
 
 export function PropertyMapsPanel({ studyId, hasCadastralRef, valueZone }: { studyId: string; hasCadastralRef: boolean; valueZone: CatastroValueZone | null | undefined }) {
+  const t = useStudyT();
   if (!hasCadastralRef) {
     return (
       <div className="flex items-start gap-3 rounded-2xl border border-dashed border-sand-300 bg-white p-5 text-sm text-ink-600">
         <MapPinned className="mt-0.5 h-5 w-5 shrink-0 text-ink-400" />
         <p>
-          Para ver los planos de la zona y de la parcela, y el valor de mercado oficial de tu zona, haz el estudio buscando la vivienda por su dirección en el
-          Catastro (o indicando su referencia catastral).
+          {t(
+            "Para ver los planos de la zona y de la parcela, y el valor de mercado oficial de tu zona, haz el estudio buscando la vivienda por su dirección en el Catastro (o indicando su referencia catastral).",
+          )}
         </p>
       </div>
     );
@@ -62,34 +80,42 @@ export function PropertyMapsPanel({ studyId, hasCadastralRef, valueZone }: { stu
     <div className="space-y-4">
       {valueZone && (r || valueZone.garage) && (
         <div className="rounded-2xl border border-sand-200 bg-white p-5 shadow-soft">
-          <p className="text-xs font-medium uppercase tracking-wider text-ink-400">Valor de mercado oficial de tu zona · Catastro {valueZone.year}</p>
+          <p className="text-xs font-medium uppercase tracking-wider text-ink-400">
+            {t("Valor de mercado oficial de tu zona · Catastro")} {valueZone.year}
+          </p>
           <div className="mt-2 flex flex-wrap gap-x-10 gap-y-3">
             {r && (
               <div>
                 <p className="font-serif text-3xl text-ink-800">{r.mvmM2.toLocaleString("es-ES")} €/m²</p>
-                <p className="text-xs text-ink-500">Vivienda representativa · zona {valueZone.zone}</p>
+                <p className="text-xs text-ink-500">{t("Vivienda representativa · zona {0}", [valueZone.zone])}</p>
               </div>
             )}
             {valueZone.garage && (
               <div>
                 <p className="font-serif text-3xl text-ink-800">{valueZone.garage.value.toLocaleString("es-ES")} €</p>
-                <p className="text-xs text-ink-500">Plaza de garaje representativa</p>
+                <p className="text-xs text-ink-500">{t("Plaza de garaje representativa")}</p>
               </div>
             )}
           </div>
           {r && (
             <p className="mt-3 text-xs text-ink-500">
-              Vivienda representativa: {[r.typology, r.sqm ? `${r.sqm} m²` : null, r.category ? `calidad ${r.category.toLowerCase()}` : null, r.ageYears != null ? `${r.ageYears} años` : null, r.conservation ? `conservación ${r.conservation.toLowerCase()}` : null]
+              {t("Vivienda representativa:")}{" "}
+              {[
+                r.typology,
+                r.sqm ? `${r.sqm} m²` : null,
+                r.category ? t("calidad {0}", [r.category.toLowerCase()]) : null,
+                r.ageYears != null ? t("{0} años", [r.ageYears]) : null,
+                r.conservation ? t("conservación {0}", [r.conservation.toLowerCase()]) : null,
+              ]
                 .filter(Boolean)
                 .join(", ")}
-              {r.dwellings ? ` · ${r.dwellings.toLocaleString("es-ES")} viviendas en la zona` : ""}.
+              {r.dwellings ? t(" · {0} viviendas en la zona", [r.dwellings.toLocaleString("es-ES")]) : ""}.
             </p>
           )}
           <p className="mt-1 text-xs text-ink-400">
-            Módulo de valor medio calculado por la Dirección General del Catastro con los precios de las compraventas escrituradas (Informe Anual del Mercado
-            Inmobiliario).{" "}
+            {t("Módulo de valor medio calculado por la Dirección General del Catastro con los precios de las compraventas escrituradas (Informe Anual del Mercado Inmobiliario).")}{" "}
             <a href={valueZone.source.url} target="_blank" rel="noreferrer" className="underline">
-              Ver el mapa de valores
+              {t("Ver el mapa de valores")}
             </a>
             .
           </p>
@@ -97,10 +123,10 @@ export function PropertyMapsPanel({ studyId, hasCadastralRef, valueZone }: { stu
       )}
       <div className="grid gap-4 lg:grid-cols-3">
         {MAPS.map((m) => (
-          <MapImage key={m.kind} studyId={studyId} {...m} />
+          <MapImage key={m.kind} studyId={studyId} kind={m.kind} title={t(m.title)} attribution={t(m.attribution)} />
         ))}
       </div>
-      <p className="text-xs text-ink-400">El Catastro solo publica el contorno de la parcela y de las construcciones: el plano interior de la vivienda no es público.</p>
+      <p className="text-xs text-ink-400">{t("El Catastro solo publica el contorno de la parcela y de las construcciones: el plano interior de la vivienda no es público.")}</p>
     </div>
   );
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { useStudyT } from "@/components/study/StudyI18n";
 import { useState } from "react";
 import { AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -17,47 +18,55 @@ export function RiskPanel({
   onChange: (key: keyof StudyAssumptions, value: number) => void;
   propertyEmptyOrSecond: boolean;
 }) {
+  const t = useStudyT();
   const [type, setType] = useState<RiskType>("ARREARS");
   const [monthsIdx, setMonthsIdx] = useState(1);
   const a = report.assumptions;
-  if (!report.risk) return <p className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">No se pueden calcular escenarios de impago sin una renta mensual.</p>;
+  if (!report.risk)
+    return <p className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">{t("No se pueden calcular escenarios de impago sin una renta mensual.")}</p>;
   const row = report.risk.rows.find((x) => x.type === type)!;
   const r = row.results[monthsIdx];
   const info = RISK_INFO[type];
 
   return (
     <div className="rounded-2xl border border-sand-200 bg-white p-5 shadow-soft">
-      <div className="flex flex-wrap gap-2" role="tablist" aria-label="Tipo de situación">
-        {RISK_TYPES.map((t) => (
+      <div className="flex flex-wrap gap-2" role="tablist" aria-label={t("Tipo de situación")}>
+        {RISK_TYPES.map((rt) => (
           <button
-            key={t}
+            key={rt}
             type="button"
             role="tab"
-            aria-selected={type === t}
-            onClick={() => setType(t)}
-            className={cn("rounded-full border px-3 py-1.5 text-[13px]", type === t ? "border-ink-800 bg-ink-800 text-white" : "border-sand-300 text-ink-600 hover:border-ink-300")}
+            aria-selected={type === rt}
+            onClick={() => setType(rt)}
+            className={cn(
+              "rounded-full border px-3 py-1.5 text-[13px]",
+              type === rt ? "border-ink-800 bg-ink-800 text-white" : "border-sand-300 text-ink-600 hover:border-ink-300",
+            )}
           >
-            {RISK_INFO[t].title}
+            {t(RISK_INFO[rt].title)}
           </button>
         ))}
       </div>
-      <p className="mt-4 text-sm text-ink-700">{info.description}</p>
-      <p className="mt-1 text-xs text-ink-500">{info.legal}</p>
+      <p className="mt-4 text-sm text-ink-700">{t(info.description)}</p>
+      <p className="mt-1 text-xs text-ink-500">{t(info.legal)}</p>
       {type === "SQUATTING" && !propertyEmptyOrSecond && (
-        <p className="mt-2 text-xs text-amber-700">Con un inquilino con contrato se trataría de un impago, no de una ocupación sin título.</p>
+        <p className="mt-2 text-xs text-amber-700">{t("Con un inquilino con contrato se trataría de un impago, no de una ocupación sin título.")}</p>
       )}
 
       <div className="mt-4 flex items-center gap-2">
-        <span className="text-sm text-ink-600">Duración supuesta:</span>
+        <span className="text-sm text-ink-600">{t("Duración supuesta:")}</span>
         {RISK_MONTHS.map((m, i) => (
           <button
             key={m}
             type="button"
             aria-pressed={monthsIdx === i}
             onClick={() => setMonthsIdx(i)}
-            className={cn("rounded-lg border px-3 py-1 text-sm tabular-nums", monthsIdx === i ? "border-terracotta-500 bg-terracotta-50 text-terracotta-700" : "border-sand-300 text-ink-600")}
+            className={cn(
+              "rounded-lg border px-3 py-1 text-sm tabular-nums",
+              monthsIdx === i ? "border-terracotta-500 bg-terracotta-50 text-terracotta-700" : "border-sand-300 text-ink-600",
+            )}
           >
-            {m} meses
+            {m} {t("meses")}
           </button>
         ))}
       </div>
@@ -65,14 +74,14 @@ export function RiskPanel({
       <div className="mt-5 grid grid-cols-1 gap-5 md:grid-cols-2">
         <dl className="space-y-1.5 text-sm">
           {[
-            [type === "SQUATTING" ? "Renta de mercado no obtenida" : "Alquiler no cobrado", r.unpaidRent],
-            ["Fianza aplicada a la deuda", -r.depositApplied],
-            ["Meses hasta volver a alquilar", r.reletLoss],
-            ["= Ingresos perdidos", r.lostIncome],
-            ["Gastos ordinarios que sigues pagando", r.ordinaryExpenses],
-            ["Gastos jurídicos (hipótesis)", r.legalCosts],
-            ["Reparaciones (hipótesis)", r.repairs],
-            ["Otros costes (intereses y coste de oportunidad)", r.otherCosts],
+            [type === "SQUATTING" ? t("Renta de mercado no obtenida") : t("Alquiler no cobrado"), r.unpaidRent],
+            [t("Fianza aplicada a la deuda"), -r.depositApplied],
+            [t("Meses hasta volver a alquilar"), r.reletLoss],
+            [t("= Ingresos perdidos"), r.lostIncome],
+            [t("Gastos ordinarios que sigues pagando"), r.ordinaryExpenses],
+            [t("Gastos jurídicos (hipótesis)"), r.legalCosts],
+            [t("Reparaciones (hipótesis)"), r.repairs],
+            [t("Otros costes (intereses y coste de oportunidad)"), r.otherCosts],
           ].map(([l, v]) => (
             <div key={l as string} className={cn("flex justify-between gap-3", (l as string).startsWith("=") && "border-b border-sand-200 pb-1.5 font-medium")}>
               <dt className="text-ink-600">{(l as string).replace(/^= /, "")}</dt>
@@ -80,28 +89,35 @@ export function RiskPanel({
             </div>
           ))}
           <div className="flex justify-between gap-3 border-t border-sand-200 pt-2 font-semibold">
-            <dt>Coste total del periodo</dt>
+            <dt>{t("Coste total del periodo")}</dt>
             <dd className="tabular-nums text-red-700">{fmtEur(r.total)}</dd>
           </div>
           <div className="flex justify-between gap-3 text-ink-600">
-            <dt>Coste adicional frente a un alquiler normal</dt>
+            <dt>{t("Coste adicional frente a un alquiler normal")}</dt>
             <dd className="tabular-nums">{fmtEur(r.incrementalCost)}</dd>
           </div>
           <p className="pt-1 text-xs text-ink-400">
-            {r.note} El coste total es el dinero que sale de tu bolsillo durante el periodo; el coste adicional excluye los gastos ordinarios e intereses, que pagarías igualmente.
+            {t(r.note)}{" "}
+            {t("El coste total es el dinero que sale de tu bolsillo durante el periodo; el coste adicional excluye los gastos ordinarios e intereses, que pagarías igualmente.")}
           </p>
         </dl>
         <div className="space-y-3 rounded-xl bg-sand-50 p-4">
-          <p className="text-xs font-semibold uppercase tracking-wider text-ink-400">Hipótesis manuales (se usan también en el PDF)</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-ink-400">{t("Hipótesis manuales (se usan también en el PDF)")}</p>
           {[
-            [riskLegalKey(type), "Gastos jurídicos (abogado, procurador…)"],
-            [riskRepairsKey(type), "Reparaciones y daños"],
-            ["riskReletMonths", "Meses hasta volver a alquilar"],
-            ["riskDepositMonths", "Fianza y garantías (meses de renta)"],
+            [riskLegalKey(type), t("Gastos jurídicos (abogado, procurador…)")],
+            [riskRepairsKey(type), t("Reparaciones y daños")],
+            ["riskReletMonths", t("Meses hasta volver a alquilar")],
+            ["riskDepositMonths", t("Fianza y garantías (meses de renta)")],
           ].map(([key, label]) => (
             <label key={key} className="block text-[13px] text-ink-700">
               {label}
-              <input type="number" min={0} className="field mt-1" value={a[key as keyof StudyAssumptions] as number} onChange={(e) => onChange(key as keyof StudyAssumptions, Number(e.target.value) || 0)} />
+              <input
+                type="number"
+                min={0}
+                className="field mt-1"
+                value={a[key as keyof StudyAssumptions] as number}
+                onChange={(e) => onChange(key as keyof StudyAssumptions, Number(e.target.value) || 0)}
+              />
             </label>
           ))}
         </div>
@@ -111,10 +127,10 @@ export function RiskPanel({
         <table className="table-base">
           <thead>
             <tr>
-              <th>Coste total estimado</th>
+              <th>{t("Coste total estimado")}</th>
               {RISK_MONTHS.map((m) => (
                 <th key={m} className="text-right">
-                  {m} meses
+                  {m} {t("meses")}
                 </th>
               ))}
             </tr>
@@ -122,7 +138,7 @@ export function RiskPanel({
           <tbody>
             {report.risk.rows.map((rw) => (
               <tr key={rw.type}>
-                <td className="whitespace-normal">{RISK_INFO[rw.type].title}</td>
+                <td className="whitespace-normal">{t(RISK_INFO[rw.type].title)}</td>
                 {rw.results.map((x) => (
                   <td key={x.months} className="text-right tabular-nums">
                     {fmtEur(x.total)}
@@ -135,7 +151,7 @@ export function RiskPanel({
       </div>
       <p className="mt-4 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-800">
         <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-        {RISK_DISCLAIMER}
+        {t(RISK_DISCLAIMER)}
       </p>
     </div>
   );

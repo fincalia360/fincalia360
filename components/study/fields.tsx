@@ -1,5 +1,6 @@
 "use client";
 
+import { useStudyT } from "@/components/study/StudyI18n";
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -20,11 +21,12 @@ export function Field({
   children: React.ReactNode;
   className?: string;
 }) {
+  const t = useStudyT();
   return (
     <div className={className}>
       <label htmlFor={htmlFor} className="field-label">
         {label}
-        {optional && <span className="ml-1.5 text-xs font-normal text-ink-400">(opcional)</span>}
+        {optional && <span className="ml-1.5 text-xs font-normal text-ink-400">{t("(opcional)")}</span>}
       </label>
       {children}
       {hint && !error && <p className="mt-1 text-xs text-ink-400">{hint}</p>}

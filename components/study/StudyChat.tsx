@@ -1,5 +1,6 @@
 "use client";
 
+import { useStudyT } from "@/components/study/StudyI18n";
 import { useEffect, useRef, useState } from "react";
 import { ArrowRight, Loader2, MessageCircle, Send, X } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -23,6 +24,7 @@ export function openNextStep(interest: string) {
 }
 
 export function StudyChat({ studyId, demo = false }: { studyId: string; demo?: boolean }) {
+  const t = useStudyT();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [text, setText] = useState("");
@@ -32,7 +34,10 @@ export function StudyChat({ studyId, demo = false }: { studyId: string; demo?: b
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
+    listRef.current?.scrollTo({
+      top: listRef.current.scrollHeight,
+      behavior: "smooth",
+    });
   }, [messages, sending]);
   useEffect(() => {
     if (open) inputRef.current?.focus();
@@ -50,7 +55,9 @@ export function StudyChat({ studyId, demo = false }: { studyId: string; demo?: b
       const res = await fetch(`/api/estudio/${studyId}/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: next.map(({ role, content: c }) => ({ role, content: c })) }),
+        body: JSON.stringify({
+          messages: next.map(({ role, content: c }) => ({ role, content: c })),
+        }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error ?? "El asistente no ha podido responder.");
@@ -70,29 +77,28 @@ export function StudyChat({ studyId, demo = false }: { studyId: string; demo?: b
           onClick={() => setOpen(true)}
           className="fixed bottom-4 right-4 z-40 inline-flex items-center gap-2 rounded-full bg-ink-800 px-5 py-3 text-sm font-semibold text-white shadow-lg hover:bg-ink-700 sm:bottom-6 sm:right-6"
         >
-          <MessageCircle className="h-5 w-5" /> ¿Dudas? Pregunta al asistente
+          <MessageCircle className="h-5 w-5" /> {t("¿Dudas? Pregunta al asistente")}
         </button>
       )}
       {open && (
         <div
           role="dialog"
-          aria-label="Asistente virtual de FINCALIA360"
+          aria-label={t("Asistente virtual de FINCALIA360")}
           className="fixed inset-x-0 bottom-0 z-40 flex max-h-[85vh] flex-col rounded-t-2xl border border-sand-200 bg-white shadow-2xl sm:inset-x-auto sm:bottom-6 sm:right-6 sm:h-[600px] sm:w-[400px] sm:rounded-2xl"
         >
           <div className="flex items-center justify-between rounded-t-2xl bg-ink-800 px-4 py-3 text-white">
             <div>
-              <p className="text-sm font-semibold">Asistente FINCALIA360</p>
-              <p className="text-[11px] text-ink-200">Asistente automático con IA · en tu idioma</p>
+              <p className="text-sm font-semibold">{t("Asistente FINCALIA360")}</p>
+              <p className="text-[11px] text-ink-200">{t("Asistente automático con IA · en tu idioma")}</p>
             </div>
-            <button type="button" onClick={() => setOpen(false)} aria-label="Cerrar el asistente" className="rounded-full p-1 hover:bg-white/10">
+            <button type="button" onClick={() => setOpen(false)} aria-label={t("Cerrar el asistente")} className="rounded-full p-1 hover:bg-white/10">
               <X className="h-5 w-5" />
             </button>
           </div>
 
           {demo && (
             <p className="bg-amber-100 px-4 py-2 text-[12px] font-medium text-amber-900">
-              Modo demostración: respuestas de ejemplo con las cifras de tu estudio, no generadas por la IA. Con la clave de Anthropic, el asistente
-              responderá libremente.
+              {t("Modo demostración: respuestas de ejemplo con las cifras de tu estudio, no generadas por la IA. Con la clave de Anthropic, el asistente responderá libremente.")}
             </p>
           )}
           <div ref={listRef} className="flex-1 space-y-3 overflow-y-auto bg-sand-50 px-4 py-4" aria-live="polite">
@@ -100,8 +106,13 @@ export function StudyChat({ studyId, demo = false }: { studyId: string; demo?: b
             {messages.length === 0 && (
               <div className="flex flex-wrap gap-2">
                 {SUGGESTIONS.map((s) => (
-                  <button key={s} type="button" onClick={() => send(s)} className="rounded-full border border-sand-300 bg-white px-3 py-1.5 text-left text-[13px] text-ink-700 hover:border-terracotta-400">
-                    {s}
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => send(t(s))}
+                    className="rounded-full border border-sand-300 bg-white px-3 py-1.5 text-left text-[13px] text-ink-700 hover:border-terracotta-400"
+                  >
+                    {t(s)}
                   </button>
                 ))}
               </div>
@@ -121,7 +132,7 @@ export function StudyChat({ studyId, demo = false }: { studyId: string; demo?: b
                         }}
                         className="inline-flex items-center gap-1.5 rounded-full bg-terracotta-500 px-3.5 py-1.5 text-[13px] font-semibold text-white hover:bg-terracotta-600"
                       >
-                        {ACTION_LABELS[a] ?? a} <ArrowRight className="h-3.5 w-3.5" />
+                        {t(ACTION_LABELS[a] ?? a)} <ArrowRight className="h-3.5 w-3.5" />
                       </button>
                     ))}
                   </div>
@@ -130,7 +141,7 @@ export function StudyChat({ studyId, demo = false }: { studyId: string; demo?: b
             ))}
             {sending && (
               <p className="flex items-center gap-2 text-sm text-ink-400">
-                <Loader2 className="h-4 w-4 animate-spin" /> Escribiendo…
+                <Loader2 className="h-4 w-4 animate-spin" /> {t("Escribiendo…")}
               </p>
             )}
             {error && (
@@ -160,16 +171,21 @@ export function StudyChat({ studyId, demo = false }: { studyId: string; demo?: b
                     void send(text);
                   }
                 }}
-                placeholder="Escribe tu pregunta…"
-                aria-label="Tu mensaje"
+                placeholder={t("Escribe tu pregunta…")}
+                aria-label={t("Tu mensaje")}
                 className="field max-h-32 min-h-[42px] flex-1 resize-none py-2.5 text-sm"
               />
-              <button type="submit" disabled={sending || !text.trim()} aria-label="Enviar" className="grid h-[42px] w-[42px] place-items-center rounded-xl bg-terracotta-500 text-white disabled:opacity-40">
+              <button
+                type="submit"
+                disabled={sending || !text.trim()}
+                aria-label={t("Enviar")}
+                className="grid h-[42px] w-[42px] place-items-center rounded-xl bg-terracotta-500 text-white disabled:opacity-40"
+              >
                 <Send className="h-4 w-4" />
               </button>
             </div>
             <p className="mt-2 text-[11px] leading-snug text-ink-400">
-              Asistente automático: puede equivocarse, las cifras de referencia son las de tu estudio. No compartas datos personales aquí. No guardamos esta conversación.
+              {t("Asistente automático: puede equivocarse, las cifras de referencia son las de tu estudio. No compartas datos personales aquí. No guardamos esta conversación.")}
             </p>
           </form>
         </div>

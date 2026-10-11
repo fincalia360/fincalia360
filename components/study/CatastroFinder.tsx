@@ -1,5 +1,6 @@
 "use client";
 
+import { useStudyT } from "@/components/study/StudyI18n";
 import { useEffect, useState } from "react";
 import { Building2, Loader2, MapPin, Search } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -11,6 +12,7 @@ import type { CatastroProperty, CatastroStreet, CatastroUnit } from "@/services/
  * Al elegir el inmueble se consulta su ficha (referencia catastral, superficie, año, planta…).
  */
 export function CatastroFinder({ municipalityCode, onIdentified }: { municipalityCode: string; onIdentified: (p: CatastroProperty) => void }) {
+  const t = useStudyT();
   const [query, setQuery] = useState("");
   const [streets, setStreets] = useState<CatastroStreet[] | null>(null);
   const [street, setStreet] = useState<CatastroStreet | null>(null);
@@ -69,7 +71,9 @@ export function CatastroFinder({ municipalityCode, onIdentified }: { municipalit
     setSelected(null);
     setShowAll(false);
     try {
-      const res = await fetch(`/api/estudio/catastro/inmuebles?municipio=${municipalityCode}&tipo=${street.type}&via=${encodeURIComponent(street.name)}&numero=${encodeURIComponent(n)}`);
+      const res = await fetch(
+        `/api/estudio/catastro/inmuebles?municipio=${municipalityCode}&tipo=${street.type}&via=${encodeURIComponent(street.name)}&numero=${encodeURIComponent(n)}`,
+      );
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setUnits(data.units);
@@ -109,13 +113,13 @@ export function CatastroFinder({ municipalityCode, onIdentified }: { municipalit
       <div className="grid gap-3 sm:grid-cols-[1fr_120px_auto] sm:items-end">
         <div className="relative">
           <label htmlFor="cat-street" className="field-label">
-            Calle
+            {t("Calle")}
           </label>
           <input
             id="cat-street"
             className="field"
             autoComplete="off"
-            placeholder="Ej.: Alcalá, Mayor, Rambla…"
+            placeholder={t("Ej.: Alcalá, Mayor, Rambla…")}
             value={street ? street.label : query}
             onChange={(e) => {
               setStreet(null);
@@ -150,7 +154,7 @@ export function CatastroFinder({ municipalityCode, onIdentified }: { municipalit
         </div>
         <div>
           <label htmlFor="cat-number" className="field-label">
-            Número
+            {t("Número")}
           </label>
           <input
             id="cat-number"
@@ -168,14 +172,14 @@ export function CatastroFinder({ municipalityCode, onIdentified }: { municipalit
           />
         </div>
         <Button type="button" variant="primary" className="h-[42px] rounded-lg" disabled={!street || !number || status === "units"} onClick={() => findUnits()}>
-          {status === "units" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />} Buscar
+          {status === "units" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />} {t("Buscar")}
         </Button>
       </div>
 
       {message && <p className="text-sm text-amber-700">{message}</p>}
       {nearby.length > 0 && (
         <p className="flex flex-wrap items-center gap-2 text-sm text-ink-600">
-          Números cercanos en el Catastro:
+          {t("Números cercanos en el Catastro:")}
           {nearby.map((n) => (
             <button
               key={n}
@@ -195,7 +199,7 @@ export function CatastroFinder({ municipalityCode, onIdentified }: { municipalit
       {units && units.length > 1 && (
         <div>
           <p className="mb-2 text-sm font-medium text-ink-700">
-            {residential.length > 0 ? `Elige tu vivienda (${residential.length} viviendas en este número)` : `Elige el inmueble (${units.length})`}
+            {residential.length > 0 ? t("Elige tu vivienda ({0} viviendas en este número)", [residential.length]) : t("Elige el inmueble ({0})", [units.length])}
           </p>
           <ul className="grid max-h-72 gap-1.5 overflow-auto pr-1 sm:grid-cols-2">
             {visible.map((u) => (
@@ -225,7 +229,7 @@ export function CatastroFinder({ municipalityCode, onIdentified }: { municipalit
           </ul>
           {residential.length > 0 && residential.length < units.length && (
             <button type="button" className="mt-2 text-xs text-ink-500 underline" onClick={() => setShowAll(!showAll)}>
-              {showAll ? "Ver solo viviendas" : `Ver también locales, garajes y trasteros (${units.length - residential.length})`}
+              {showAll ? t("Ver solo viviendas") : t("Ver también locales, garajes y trasteros ({0})", [units.length - residential.length])}
             </button>
           )}
         </div>

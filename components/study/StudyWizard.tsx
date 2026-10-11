@@ -1,5 +1,6 @@
 "use client";
 
+import { useStudyT } from "@/components/study/StudyI18n";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { track } from "@/lib/analytics-client";
@@ -156,31 +157,55 @@ const INITIAL: Form = {
 const STEPS = ["Ubicación", "Características", "Situación económica", "Tu situación"];
 const num = (v: string) => (v.trim() === "" ? null : Number(v.replace(",", ".")));
 
-const FORAL: Record<string, string> = { "01": "Álava", "20": "Gipuzkoa", "31": "Navarra", "48": "Bizkaia" };
+const FORAL: Record<string, string> = {
+  "01": "Álava",
+  "20": "Gipuzkoa",
+  "31": "Navarra",
+  "48": "Bizkaia",
+};
 
 function CatastroSummary({ p }: { p: CatastroProperty }) {
-  const floor = p.floor && /^-?\d+$/.test(p.floor) ? (Number(p.floor) === 0 ? "planta baja" : `planta ${Number(p.floor)}`) : p.floor ? `planta ${p.floor}` : null;
+  const t = useStudyT();
+  const floor = p.floor && /^-?\d+$/.test(p.floor) ? (Number(p.floor) === 0 ? t("planta baja") : t("planta {0}", [Number(p.floor)])) : p.floor ? t("planta {0}", [p.floor]) : null;
   return (
     <div className="rounded-lg border border-terracotta-100 bg-white p-3 text-sm">
-      <p className="font-semibold text-terracotta-700">Vivienda identificada en el Catastro</p>
+      <p className="font-semibold text-terracotta-700">{t("Vivienda identificada en el Catastro")}</p>
       <p className="mt-1 text-ink-700">{p.address}</p>
       <ul className="mt-2 grid gap-1 text-[13px] text-ink-600 sm:grid-cols-2">
-        <li>Referencia catastral: <span className="font-mono">{p.cadastralRef}</span></li>
-        <li>Uso: {p.use}{p.typology ? ` · ${p.typology.toLowerCase()}` : ""}</li>
+        <li>
+          {t("Referencia catastral:")} <span className="font-mono">{p.cadastralRef}</span>
+        </li>
+        <li>
+          {t("Uso:")} {p.use}
+          {p.typology ? ` · ${p.typology.toLowerCase()}` : ""}
+        </li>
         {p.builtSqm != null && (
           <li>
-            Superficie construida: {p.builtSqm} m²
+            {t("Superficie construida:")} {p.builtSqm} m²
             {p.breakdown.length > 1 ? ` (${p.breakdown.map((b) => `${b.label.toLowerCase()} ${b.sqm} m²`).join(", ")})` : ""}
           </li>
         )}
-        {p.yearBuilt != null && <li>Año de construcción: {p.yearBuilt}</li>}
-        {(floor || p.door) && <li>Ubicación: {[p.stair ? `escalera ${p.stair}` : null, floor, p.door ? `puerta ${p.door}` : null].filter(Boolean).join(", ")}</li>}
+        {p.yearBuilt != null && (
+          <li>
+            {t("Año de construcción:")} {p.yearBuilt}
+          </li>
+        )}
+        {(floor || p.door) && (
+          <li>
+            {t("Ubicación:")} {[p.stair ? t("escalera {0}", [p.stair]) : null, floor, p.door ? t("puerta {0}", [p.door]) : null].filter(Boolean).join(", ")}
+          </li>
+        )}
       </ul>
-      {p.use !== "Residencial" && <p className="mt-2 text-amber-700">Atención: el uso catastral no es residencial.</p>}
+      {p.use !== "Residencial" && <p className="mt-2 text-amber-700">{t("Atención: el uso catastral no es residencial.")}</p>}
       <p className="mt-2 text-xs text-ink-400">
-        Datos públicos del Catastro consultados hoy. El Catastro no publica habitaciones, baños, ascensor ni estado de la vivienda: los indicas tú en el paso siguiente.{" "}
-        <a href={`https://www1.sedecatastro.gob.es/Cartografia/mapa.aspx?refcat=${p.cadastralRef.slice(0, 14)}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 underline">
-          Ver en el mapa del Catastro <ExternalLink className="h-3 w-3" />
+        {t("Datos públicos del Catastro consultados hoy. El Catastro no publica habitaciones, baños, ascensor ni estado de la vivienda: los indicas tú en el paso siguiente.")}{" "}
+        <a
+          href={`https://www1.sedecatastro.gob.es/Cartografia/mapa.aspx?refcat=${p.cadastralRef.slice(0, 14)}`}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center gap-1 underline"
+        >
+          {t("Ver en el mapa del Catastro")} <ExternalLink className="h-3 w-3" />
         </a>
       </p>
     </div>
@@ -188,13 +213,18 @@ function CatastroSummary({ p }: { p: CatastroProperty }) {
 }
 
 export function StudyWizard() {
+  const t = useStudyT();
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [form, setForm] = useState<Form>(INITIAL);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [municipalities, setMunicipalities] = useState<Municipality[] | null>(null);
   const [muniStatus, setMuniStatus] = useState<"idle" | "loading" | "error">("idle");
-  const [catastro, setCatastro] = useState<{ status: "idle" | "loading" | "ok" | "error"; message?: string; property?: CatastroProperty }>({ status: "idle" });
+  const [catastro, setCatastro] = useState<{
+    status: "idle" | "loading" | "ok" | "error";
+    message?: string;
+    property?: CatastroProperty;
+  }>({ status: "idle" });
   const [submitting, setSubmitting] = useState(false);
   const topRef = useRef<HTMLDivElement>(null);
   const firstRender = useRef(true);
@@ -267,7 +297,10 @@ export function StudyWizard() {
   async function lookupCatastro() {
     const rc = form.cadastralRef.trim().toUpperCase();
     if (!/^[0-9A-Z]{14}([0-9A-Z]{6})?$/.test(rc)) {
-      setCatastro({ status: "error", message: "La referencia catastral tiene 20 caracteres (letras y números)." });
+      setCatastro({
+        status: "error",
+        message: t("La referencia catastral tiene 20 caracteres (letras y números)."),
+      });
       return;
     }
     setCatastro({ status: "loading" });
@@ -277,37 +310,40 @@ export function StudyWizard() {
       if (!res.ok) throw new Error(data.error);
       applyCatastro(data as CatastroProperty);
     } catch (error) {
-      setCatastro({ status: "error", message: (error as Error).message || "No se pudo consultar el Catastro." });
+      setCatastro({
+        status: "error",
+        message: t((error as Error).message || "No se pudo consultar el Catastro."),
+      });
     }
   }
 
   function validate(s: number) {
     const e: Record<string, string> = {};
     if (s === 0) {
-      if (!form.provinceCode) e.provinceCode = "Selecciona la provincia (o escribe el código postal)";
-      if (!form.municipalityName.trim()) e.municipalityName = "Selecciona o escribe el municipio";
-      if (!/^\d{5}$/.test(form.postalCode)) e.postalCode = "Código postal de 5 cifras";
-      else if (!postalCodeMatchesProvince(form.postalCode, form.provinceCode)) e.postalCode = "Este código postal no pertenece a la provincia seleccionada";
+      if (!form.provinceCode) e.provinceCode = t("Selecciona la provincia (o escribe el código postal)");
+      if (!form.municipalityName.trim()) e.municipalityName = t("Selecciona o escribe el municipio");
+      if (!/^\d{5}$/.test(form.postalCode)) e.postalCode = t("Código postal de 5 cifras");
+      else if (!postalCodeMatchesProvince(form.postalCode, form.provinceCode)) e.postalCode = t("Este código postal no pertenece a la provincia seleccionada");
     }
     if (s === 1) {
-      if (!form.kind) e.kind = "Elige el tipo de inmueble";
+      if (!form.kind) e.kind = t("Elige el tipo de inmueble");
       const sqm = num(form.sqm);
-      if (!sqm || sqm < 15 || sqm > 5000) e.sqm = "Indica una superficie entre 15 y 5.000 m²";
-      if (form.bedrooms === "") e.bedrooms = "Obligatorio";
-      if (form.bathrooms === "") e.bathrooms = "Obligatorio";
-      if (!form.currentUse) e.currentUse = "Indica el estado actual";
+      if (!sqm || sqm < 15 || sqm > 5000) e.sqm = t("Indica una superficie entre 15 y 5.000 m²");
+      if (form.bedrooms === "") e.bedrooms = t("Obligatorio");
+      if (form.bathrooms === "") e.bathrooms = t("Obligatorio");
+      if (!form.currentUse) e.currentUse = t("Indica el estado actual");
     }
     if (s === 2) {
       const land = num(form.cadastralValueLand);
       const total = num(form.cadastralValueTotal);
-      if (land != null && total != null && land > total) e.cadastralValueLand = "No puede superar el valor catastral total";
-      if (form.ownerValuationKind && !num(form.ownerValuationValue)) e.ownerValuationValue = "Indica el importe";
+      if (land != null && total != null && land > total) e.cadastralValueLand = t("No puede superar el valor catastral total");
+      if (form.ownerValuationKind && !num(form.ownerValuationValue)) e.ownerValuationValue = t("Indica el importe");
       const year = num(form.purchaseYear);
-      if (year != null && (year < 1950 || year > new Date().getFullYear())) e.purchaseYear = "Año no válido";
+      if (year != null && (year < 1950 || year > new Date().getFullYear())) e.purchaseYear = t("Año no válido");
     }
     if (s === 3) {
-      if (!form.goal) e.goal = "Elige una opción";
-      if (form.currentUse === "RENTED" && !num(form.currentRent)) e.currentRent = "Indica la renta mensual actual";
+      if (!form.goal) e.goal = t("Elige una opción");
+      if (form.currentUse === "RENTED" && !num(form.currentRent)) e.currentRent = t("Indica la renta mensual actual");
     }
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -368,7 +404,12 @@ export function StudyWizard() {
         otherCostsYear: num(form.otherCostsYear),
         cadastralValueTotal: num(form.cadastralValueTotal),
         cadastralValueLand: num(form.cadastralValueLand),
-        ownerValuation: form.ownerValuationKind ? { kind: form.ownerValuationKind, value: num(form.ownerValuationValue) } : null,
+        ownerValuation: form.ownerValuationKind
+          ? {
+              kind: form.ownerValuationKind,
+              value: num(form.ownerValuationValue),
+            }
+          : null,
       },
       owner: {
         goal: form.goal,
@@ -385,12 +426,18 @@ export function StudyWizard() {
       },
     };
     try {
-      const res = await fetch("/api/estudio", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      const res = await fetch("/api/estudio", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Error");
       router.push(`/estudio/${data.id}`);
     } catch (error) {
-      setErrors({ form: (error as Error).message || "No hemos podido generar el estudio." });
+      setErrors({
+        form: t((error as Error).message || "No hemos podido generar el estudio."),
+      });
       setSubmitting(false);
     }
   }
@@ -401,11 +448,11 @@ export function StudyWizard() {
       <div className="mb-7">
         <div className="flex items-center justify-between text-xs font-medium uppercase tracking-[0.16em] text-ink-400">
           <span>
-            Paso {step + 1} de {STEPS.length} · {STEPS[step]}
+            {t("Paso {0} de {1}", [step + 1, STEPS.length])} · {t(STEPS[step])}
           </span>
           {step > 0 && (
             <button type="button" onClick={() => setStep((s) => s - 1)} className="inline-flex items-center gap-1 normal-case tracking-normal text-ink-500 hover:text-ink-800">
-              <ArrowLeft className="h-3.5 w-3.5" /> Atrás
+              <ArrowLeft className="h-3.5 w-3.5" /> {t("Atrás")}
             </button>
           )}
         </div>
@@ -416,7 +463,7 @@ export function StudyWizard() {
               type="button"
               disabled={i > step}
               onClick={() => i < step && setStep(i)}
-              aria-label={`Ir al paso ${i + 1}: ${label}`}
+              aria-label={t("Ir al paso {0}: {1}", [i + 1, t(label)])}
               className={cn("h-1.5 rounded-full transition-colors", i <= step ? "bg-terracotta-500" : "bg-sand-200", i < step && "cursor-pointer")}
             />
           ))}
@@ -425,9 +472,9 @@ export function StudyWizard() {
 
       {step === 0 && (
         <div className="space-y-5">
-          <h2 className="font-serif text-3xl font-medium text-ink-800">¿Dónde está la vivienda?</h2>
+          <h2 className="font-serif text-3xl font-medium text-ink-800">{t("¿Dónde está la vivienda?")}</h2>
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Código postal" htmlFor="cp" error={errors.postalCode} hint="Rellena automáticamente la provincia y la comunidad.">
+            <Field label={t("Código postal")} htmlFor="cp" error={errors.postalCode} hint={t("Rellena automáticamente la provincia y la comunidad.")}>
               <input
                 id="cp"
                 inputMode="numeric"
@@ -441,14 +488,26 @@ export function StudyWizard() {
                   const prov = cp.length >= 2 ? PROVINCES.find((p) => p.code === cp.slice(0, 2)) : undefined;
                   setForm((f) =>
                     prov && prov.code !== f.provinceCode
-                      ? { ...f, postalCode: cp, provinceCode: prov.code, ccaaCode: prov.ccaa, municipalityCode: "", municipalityName: "", ineValueId: null }
+                      ? {
+                          ...f,
+                          postalCode: cp,
+                          provinceCode: prov.code,
+                          ccaaCode: prov.ccaa,
+                          municipalityCode: "",
+                          municipalityName: "",
+                          ineValueId: null,
+                        }
                       : { ...f, postalCode: cp },
                   );
-                  setErrors((er) => ({ ...er, postalCode: "", provinceCode: "" }));
+                  setErrors((er) => ({
+                    ...er,
+                    postalCode: "",
+                    provinceCode: "",
+                  }));
                 }}
               />
             </Field>
-            <Field label="Comunidad autónoma" htmlFor="ccaa">
+            <Field label={t("Comunidad autónoma")} htmlFor="ccaa">
               <select
                 id="ccaa"
                 className="field"
@@ -458,10 +517,17 @@ export function StudyWizard() {
                   const inCcaa = PROVINCES.filter((p) => p.ccaa === ccaa);
                   // Si la comunidad solo tiene una provincia, se selecciona directamente
                   const provinceCode = inCcaa.length === 1 ? inCcaa[0].code : "";
-                  setForm((f) => ({ ...f, ccaaCode: ccaa, provinceCode, municipalityCode: "", municipalityName: "", ineValueId: null }));
+                  setForm((f) => ({
+                    ...f,
+                    ccaaCode: ccaa,
+                    provinceCode,
+                    municipalityCode: "",
+                    municipalityName: "",
+                    ineValueId: null,
+                  }));
                 }}
               >
-                <option value="">Selecciona…</option>
+                <option value="">{t("Selecciona…")}</option>
                 {CCAA.map((c) => (
                   <option key={c.code} value={c.code}>
                     {c.name}
@@ -469,18 +535,25 @@ export function StudyWizard() {
                 ))}
               </select>
             </Field>
-            <Field label="Provincia" htmlFor="province" error={errors.provinceCode}>
+            <Field label={t("Provincia")} htmlFor="province" error={errors.provinceCode}>
               <select
                 id="province"
                 className="field"
                 value={form.provinceCode}
                 onChange={(e) => {
                   const prov = PROVINCES.find((p) => p.code === e.target.value);
-                  setForm((f) => ({ ...f, provinceCode: e.target.value, ccaaCode: prov?.ccaa ?? f.ccaaCode, municipalityCode: "", municipalityName: "", ineValueId: null }));
+                  setForm((f) => ({
+                    ...f,
+                    provinceCode: e.target.value,
+                    ccaaCode: prov?.ccaa ?? f.ccaaCode,
+                    municipalityCode: "",
+                    municipalityName: "",
+                    ineValueId: null,
+                  }));
                   setErrors((er) => ({ ...er, provinceCode: "" }));
                 }}
               >
-                <option value="">Selecciona…</option>
+                <option value="">{t("Selecciona…")}</option>
                 {provinces.map((p) => (
                   <option key={p.code} value={p.code}>
                     {p.name}
@@ -489,13 +562,19 @@ export function StudyWizard() {
               </select>
             </Field>
             <Field
-              label="Municipio"
+              label={t("Municipio")}
               htmlFor="municipality"
               error={errors.municipalityName}
-              hint={muniStatus === "loading" ? "Cargando municipios oficiales del INE…" : muniStatus === "error" ? "No se pudo cargar la lista del INE: escribe el nombre." : "Lista oficial del INE."}
+              hint={
+                muniStatus === "loading"
+                  ? t("Cargando municipios oficiales del INE…")
+                  : muniStatus === "error"
+                    ? t("No se pudo cargar la lista del INE: escribe el nombre.")
+                    : t("Lista oficial del INE.")
+              }
             >
               {!form.provinceCode ? (
-                <input id="municipality" className="field" disabled value="" readOnly placeholder="Elige antes la provincia o escribe el código postal" />
+                <input id="municipality" className="field" disabled value="" readOnly placeholder={t("Elige antes la provincia o escribe el código postal")} />
               ) : municipalities && muniStatus === "idle" ? (
                 <select
                   id="municipality"
@@ -503,11 +582,16 @@ export function StudyWizard() {
                   value={form.municipalityCode}
                   onChange={(e) => {
                     const m = municipalities.find((x) => x.code === e.target.value);
-                    setForm((f) => ({ ...f, municipalityCode: m?.code ?? "", municipalityName: m?.name ?? "", ineValueId: m?.ineValueId ?? null }));
+                    setForm((f) => ({
+                      ...f,
+                      municipalityCode: m?.code ?? "",
+                      municipalityName: m?.name ?? "",
+                      ineValueId: m?.ineValueId ?? null,
+                    }));
                     setErrors((er) => ({ ...er, municipalityName: "" }));
                   }}
                 >
-                  <option value="">Selecciona…</option>
+                  <option value="">{t("Selecciona…")}</option>
                   {municipalities.map((m) => (
                     <option key={m.code} value={m.code}>
                       {m.name}
@@ -515,41 +599,47 @@ export function StudyWizard() {
                   ))}
                 </select>
               ) : (
-                <input id="municipality" className="field" value={form.municipalityName} onChange={(e) => set("municipalityName", e.target.value)} placeholder="Municipio" />
+                <input id="municipality" className="field" value={form.municipalityName} onChange={(e) => set("municipalityName", e.target.value)} placeholder={t("Municipio")} />
               )}
             </Field>
-            <Field label="Dirección" htmlFor="address" optional hint="Solo la usa el especialista si solicitas una valoración.">
+            <Field label={t("Dirección")} htmlFor="address" optional hint={t("Solo la usa el especialista si solicitas una valoración.")}>
               <input id="address" className="field" value={form.address} onChange={(e) => set("address", e.target.value)} autoComplete="street-address" />
             </Field>
           </div>
 
           <div className="space-y-4 rounded-xl border border-sand-200 bg-sand-50 p-4">
             <div>
-              <p className="text-sm font-semibold text-ink-800">Encuentra tu vivienda en el Catastro</p>
+              <p className="text-sm font-semibold text-ink-800">{t("Encuentra tu vivienda en el Catastro")}</p>
               <p className="mt-0.5 text-xs text-ink-500">
-                Busca por dirección y elige tu piso: completamos la referencia catastral, la superficie, el año y la planta con los datos públicos del Catastro.
+                {t("Busca por dirección y elige tu piso: completamos la referencia catastral, la superficie, el año y la planta con los datos públicos del Catastro.")}
               </p>
             </div>
             {!form.municipalityCode ? (
-              <p className="text-sm text-ink-500">Elige primero el municipio para buscar la dirección.</p>
+              <p className="text-sm text-ink-500">{t("Elige primero el municipio para buscar la dirección.")}</p>
             ) : FORAL[form.provinceCode] ? (
               <p className="text-sm text-amber-700">
-                {FORAL[form.provinceCode]} tiene catastro foral propio y su servicio no está conectado: introduce la referencia catastral si la tienes, o los datos a mano.
+                {FORAL[form.provinceCode]} {t("tiene catastro foral propio y su servicio no está conectado: introduce la referencia catastral si la tienes, o los datos a mano.")}
               </p>
             ) : (
               <CatastroFinder municipalityCode={form.municipalityCode} onIdentified={applyCatastro} />
             )}
             <Field
-              label="¿Ya tienes la referencia catastral?"
+              label={t("¿Ya tienes la referencia catastral?")}
               htmlFor="rc"
               optional
-              hint="Aparece en el recibo del IBI (20 caracteres). También puedes introducirla directamente."
+              hint={t("Aparece en el recibo del IBI (20 caracteres). También puedes introducirla directamente.")}
             >
               <div className="flex gap-2">
-                <input id="rc" className="field uppercase" maxLength={20} value={form.cadastralRef} onChange={(e) => set("cadastralRef", e.target.value.toUpperCase().replace(/\s/g, ""))} />
+                <input
+                  id="rc"
+                  className="field uppercase"
+                  maxLength={20}
+                  value={form.cadastralRef}
+                  onChange={(e) => set("cadastralRef", e.target.value.toUpperCase().replace(/\s/g, ""))}
+                />
                 <Button type="button" variant="outline" onClick={lookupCatastro} disabled={!form.cadastralRef || catastro.status === "loading"} className="rounded-lg">
                   {catastro.status === "loading" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-                  <span className="hidden sm:inline">Catastro</span>
+                  <span className="hidden sm:inline">{t("Catastro")}</span>
                 </Button>
               </div>
             </Field>
@@ -561,110 +651,110 @@ export function StudyWizard() {
 
       {step === 1 && (
         <div className="space-y-5">
-          <h2 className="font-serif text-3xl font-medium text-ink-800">Características de la vivienda</h2>
-          <Field label="Tipo de inmueble" error={errors.kind}>
+          <h2 className="font-serif text-3xl font-medium text-ink-800">{t("Características de la vivienda")}</h2>
+          <Field label={t("Tipo de inmueble")} error={errors.kind}>
             <ChoiceGroup
-              name="Tipo de inmueble"
-              options={(Object.keys(PROPERTY_KIND_LABELS) as PropertyKind[]).map((k) => ({ value: k, label: PROPERTY_KIND_LABELS[k] }))}
+              name={t("Tipo de inmueble")}
+              options={(Object.keys(PROPERTY_KIND_LABELS) as PropertyKind[]).map((k) => ({ value: k, label: t(PROPERTY_KIND_LABELS[k]) }))}
               value={form.kind}
               onChange={(v) => set("kind", v)}
             />
           </Field>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-            <Field label="Superficie construida" htmlFor="sqm" error={errors.sqm}>
+            <Field label={t("Superficie construida")} htmlFor="sqm" error={errors.sqm}>
               <NumberInput id="sqm" value={form.sqm} onChange={(v) => set("sqm", v)} suffix="m²" />
             </Field>
-            <Field label="Habitaciones" htmlFor="bedrooms" error={errors.bedrooms}>
+            <Field label={t("Habitaciones")} htmlFor="bedrooms" error={errors.bedrooms}>
               <NumberInput id="bedrooms" value={form.bedrooms} onChange={(v) => set("bedrooms", v)} />
             </Field>
-            <Field label="Baños" htmlFor="bathrooms" error={errors.bathrooms}>
+            <Field label={t("Baños")} htmlFor="bathrooms" error={errors.bathrooms}>
               <NumberInput id="bathrooms" value={form.bathrooms} onChange={(v) => set("bathrooms", v)} />
             </Field>
-            <Field label="Planta" htmlFor="floor" optional hint="0 = bajo">
+            <Field label={t("Planta")} htmlFor="floor" optional hint={t("0 = bajo")}>
               <NumberInput id="floor" value={form.floor} onChange={(v) => set("floor", v)} min={-2} />
             </Field>
-            <Field label="Año de construcción" htmlFor="year" optional>
+            <Field label={t("Año de construcción")} htmlFor="year" optional>
               <NumberInput id="year" value={form.yearBuilt} onChange={(v) => set("yearBuilt", v)} min={1700} />
             </Field>
-            <Field label="Ascensor" htmlFor="elevator" className="col-span-1">
+            <Field label={t("Ascensor")} htmlFor="elevator" className="col-span-1">
               <select id="elevator" className="field" value={form.elevator} onChange={(e) => set("elevator", e.target.value as Form["elevator"])}>
-                <option value="">No aplica / no sé</option>
-                <option value="YES">Sí</option>
-                <option value="NO">No</option>
+                <option value="">{t("No aplica / no sé")}</option>
+                <option value="YES">{t("Sí")}</option>
+                <option value="NO">{t("No")}</option>
               </select>
             </Field>
           </div>
-          <Field label="Balcón, terraza o jardín">
+          <Field label={t("Balcón, terraza o jardín")}>
             <ChoiceGroup
-              name="Exterior"
+              name={t("Exterior")}
               columns="grid-cols-2 sm:grid-cols-4"
-              options={(Object.keys(OUTDOOR_LABELS) as Array<keyof typeof OUTDOOR_LABELS>).map((k) => ({ value: k, label: OUTDOOR_LABELS[k] }))}
+              options={(Object.keys(OUTDOOR_LABELS) as Array<keyof typeof OUTDOOR_LABELS>).map((k) => ({ value: k, label: t(OUTDOOR_LABELS[k]) }))}
               value={form.outdoor}
               onChange={(v) => set("outdoor", v)}
             />
           </Field>
           <div className="space-y-3 rounded-2xl border border-sand-200 bg-sand-50/60 p-4">
             <div>
-              <p className="text-sm font-semibold text-ink-800">Anexos que se venden con la vivienda</p>
-              <p className="mt-0.5 text-[13px] text-ink-500">Se valoran aparte. Si conoces su valor, indícalo: usaremos tu dato.</p>
+              <p className="text-sm font-semibold text-ink-800">{t("Anexos que se venden con la vivienda")}</p>
+              <p className="mt-0.5 text-[13px] text-ink-500">{t("Se valoran aparte. Si conoces su valor, indícalo: usaremos tu dato.")}</p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Toggle label="Plaza de garaje" checked={form.parking} onChange={(v) => set("parking", v)} />
-              <Toggle label="Trastero" checked={form.storage} onChange={(v) => set("storage", v)} />
-              <Toggle label="Amarre" checked={form.mooring} onChange={(v) => set("mooring", v)} />
+              <Toggle label={t("Plaza de garaje")} checked={form.parking} onChange={(v) => set("parking", v)} />
+              <Toggle label={t("Trastero")} checked={form.storage} onChange={(v) => set("storage", v)} />
+              <Toggle label={t("Amarre")} checked={form.mooring} onChange={(v) => set("mooring", v)} />
             </div>
             {form.parking && (
               <div className="grid grid-cols-2 gap-4 sm:max-w-md">
-                <Field label="Nº de plazas" htmlFor="parkingSpaces">
+                <Field label={t("Nº de plazas")} htmlFor="parkingSpaces">
                   <NumberInput id="parkingSpaces" value={form.parkingSpaces} onChange={(v) => set("parkingSpaces", v)} min={1} />
                 </Field>
-                <Field label="Valor de las plazas" htmlFor="parkingValue" optional hint="Si no lo sabes, usamos el valor oficial de la zona">
+                <Field label={t("Valor de las plazas")} htmlFor="parkingValue" optional hint={t("Si no lo sabes, usamos el valor oficial de la zona")}>
                   <NumberInput id="parkingValue" value={form.parkingValue} onChange={(v) => set("parkingValue", v)} suffix="€" />
                 </Field>
               </div>
             )}
             {form.storage && (
               <div className="grid grid-cols-2 gap-4 sm:max-w-md">
-                <Field label="Superficie del trastero" htmlFor="storageSqm" optional>
+                <Field label={t("Superficie del trastero")} htmlFor="storageSqm" optional>
                   <NumberInput id="storageSqm" value={form.storageSqm} onChange={(v) => set("storageSqm", v)} suffix="m²" />
                 </Field>
-                <Field label="Valor del trastero" htmlFor="storageValue" optional>
+                <Field label={t("Valor del trastero")} htmlFor="storageValue" optional>
                   <NumberInput id="storageValue" value={form.storageValue} onChange={(v) => set("storageValue", v)} suffix="€" />
                 </Field>
               </div>
             )}
             {form.mooring && (
               <div className="grid grid-cols-2 gap-4 sm:max-w-md">
-                <Field label="Eslora máxima del amarre" htmlFor="mooringLengthM" optional>
+                <Field label={t("Eslora máxima del amarre")} htmlFor="mooringLengthM" optional>
                   <NumberInput id="mooringLengthM" value={form.mooringLengthM} onChange={(v) => set("mooringLengthM", v)} suffix="m" />
                 </Field>
-                <Field label="Valor del amarre" htmlFor="mooringValue" optional hint="No hay precios oficiales de amarres: sin tu dato no se suma">
+                <Field label={t("Valor del amarre")} htmlFor="mooringValue" optional hint={t("No hay precios oficiales de amarres: sin tu dato no se suma")}>
                   <NumberInput id="mooringValue" value={form.mooringValue} onChange={(v) => set("mooringValue", v)} suffix="€" />
                 </Field>
               </div>
             )}
           </div>
-          <Field label="Piscina">
+          <Field label={t("Piscina")}>
             <ChoiceGroup
-              name="Piscina"
+              name={t("Piscina")}
               columns="grid-cols-1 sm:grid-cols-3"
-              options={(Object.keys(POOL_LABELS) as Array<keyof typeof POOL_LABELS>).map((k) => ({ value: k, label: POOL_LABELS[k] }))}
+              options={(Object.keys(POOL_LABELS) as Array<keyof typeof POOL_LABELS>).map((k) => ({ value: k, label: t(POOL_LABELS[k]) }))}
               value={form.pool}
               onChange={(v) => set("pool", v)}
             />
           </Field>
-          <Field label="Estado de conservación">
+          <Field label={t("Estado de conservación")}>
             <ChoiceGroup
-              name="Estado"
-              options={(Object.keys(CONDITION_LABELS) as Array<keyof typeof CONDITION_LABELS>).map((k) => ({ value: k, label: CONDITION_LABELS[k] }))}
+              name={t("Estado")}
+              options={(Object.keys(CONDITION_LABELS) as Array<keyof typeof CONDITION_LABELS>).map((k) => ({ value: k, label: t(CONDITION_LABELS[k]) }))}
               value={form.condition}
               onChange={(v) => set("condition", v)}
             />
           </Field>
-          <Field label="Estado actual de la vivienda" error={errors.currentUse}>
+          <Field label={t("Estado actual de la vivienda")} error={errors.currentUse}>
             <ChoiceGroup
-              name="Estado actual"
-              options={(Object.keys(CURRENT_USE_LABELS) as CurrentUse[]).map((k) => ({ value: k, label: CURRENT_USE_LABELS[k] }))}
+              name={t("Estado actual")}
+              options={(Object.keys(CURRENT_USE_LABELS) as CurrentUse[]).map((k) => ({ value: k, label: t(CURRENT_USE_LABELS[k]) }))}
               value={form.currentUse}
               onChange={(v) => set("currentUse", v)}
             />
@@ -675,80 +765,80 @@ export function StudyWizard() {
       {step === 2 && (
         <div className="space-y-6">
           <div>
-            <h2 className="font-serif text-3xl font-medium text-ink-800">Situación económica</h2>
+            <h2 className="font-serif text-3xl font-medium text-ink-800">{t("Situación económica")}</h2>
             <p className="mt-2 flex items-start gap-2 rounded-xl bg-sand-50 p-3 text-sm text-ink-500">
               <Info className="mt-0.5 h-4 w-4 shrink-0" />
-              Todos los campos son opcionales. Si no conoces un importe, déjalo en blanco: usaremos una estimación marcada como «hipótesis» que podrás cambiar después.
+              {t("Todos los campos son opcionales. Si no conoces un importe, déjalo en blanco: usaremos una estimación marcada como «hipótesis» que podrás cambiar después.")}
             </p>
           </div>
           <fieldset className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-            <legend className="col-span-full mb-1 text-sm font-semibold text-ink-700">Compra y reformas</legend>
-            <Field label="Precio de compra" htmlFor="pp">
+            <legend className="col-span-full mb-1 text-sm font-semibold text-ink-700">{t("Compra y reformas")}</legend>
+            <Field label={t("Precio de compra")} htmlFor="pp">
               <NumberInput id="pp" value={form.purchasePrice} onChange={(v) => set("purchasePrice", v)} suffix="€" />
             </Field>
-            <Field label="Año de compra" htmlFor="py" error={errors.purchaseYear}>
+            <Field label={t("Año de compra")} htmlFor="py" error={errors.purchaseYear}>
               <NumberInput id="py" value={form.purchaseYear} onChange={(v) => set("purchaseYear", v)} min={1950} />
             </Field>
-            <Field label="Gastos de compra" htmlFor="pc" hint="Impuestos, notaría…">
+            <Field label={t("Gastos de compra")} htmlFor="pc" hint={t("Impuestos, notaría…")}>
               <NumberInput id="pc" value={form.purchaseCosts} onChange={(v) => set("purchaseCosts", v)} suffix="€" />
             </Field>
-            <Field label="Reformas realizadas" htmlFor="imp">
+            <Field label={t("Reformas realizadas")} htmlFor="imp">
               <NumberInput id="imp" value={form.improvementsCost} onChange={(v) => set("improvementsCost", v)} suffix="€" />
             </Field>
           </fieldset>
           <fieldset className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-            <legend className="col-span-full mb-1 text-sm font-semibold text-ink-700">Hipoteca</legend>
-            <Field label="Capital pendiente" htmlFor="mb">
+            <legend className="col-span-full mb-1 text-sm font-semibold text-ink-700">{t("Hipoteca")}</legend>
+            <Field label={t("Capital pendiente")} htmlFor="mb">
               <NumberInput id="mb" value={form.mortgageBalance} onChange={(v) => set("mortgageBalance", v)} suffix="€" />
             </Field>
-            <Field label="Tipo de interés" htmlFor="mr">
+            <Field label={t("Tipo de interés")} htmlFor="mr">
               <NumberInput id="mr" value={form.mortgageRate} onChange={(v) => set("mortgageRate", v)} suffix="%" step="0.01" />
             </Field>
-            <Field label="Años pendientes" htmlFor="my">
+            <Field label={t("Años pendientes")} htmlFor="my">
               <NumberInput id="my" value={form.mortgageYearsLeft} onChange={(v) => set("mortgageYearsLeft", v)} />
             </Field>
-            <Field label="Cuota mensual" htmlFor="mm">
+            <Field label={t("Cuota mensual")} htmlFor="mm">
               <NumberInput id="mm" value={form.mortgageMonthlyPayment} onChange={(v) => set("mortgageMonthlyPayment", v)} suffix="€" />
             </Field>
           </fieldset>
           <fieldset className="grid grid-cols-2 gap-4 sm:grid-cols-5">
-            <legend className="col-span-full mb-1 text-sm font-semibold text-ink-700">Gastos anuales</legend>
-            <Field label="Comunidad" htmlFor="cf">
-              <NumberInput id="cf" value={form.communityFeesYear} onChange={(v) => set("communityFeesYear", v)} suffix="€/año" />
+            <legend className="col-span-full mb-1 text-sm font-semibold text-ink-700">{t("Gastos anuales")}</legend>
+            <Field label={t("Comunidad")} htmlFor="cf">
+              <NumberInput id="cf" value={form.communityFeesYear} onChange={(v) => set("communityFeesYear", v)} suffix={t("€/año")} />
             </Field>
-            <Field label="IBI" htmlFor="ibi">
-              <NumberInput id="ibi" value={form.ibiYear} onChange={(v) => set("ibiYear", v)} suffix="€/año" />
+            <Field label={t("IBI")} htmlFor="ibi">
+              <NumberInput id="ibi" value={form.ibiYear} onChange={(v) => set("ibiYear", v)} suffix={t("€/año")} />
             </Field>
-            <Field label="Seguro" htmlFor="ins">
-              <NumberInput id="ins" value={form.insuranceYear} onChange={(v) => set("insuranceYear", v)} suffix="€/año" />
+            <Field label={t("Seguro")} htmlFor="ins">
+              <NumberInput id="ins" value={form.insuranceYear} onChange={(v) => set("insuranceYear", v)} suffix={t("€/año")} />
             </Field>
-            <Field label="Mantenimiento" htmlFor="mnt">
-              <NumberInput id="mnt" value={form.maintenanceYear} onChange={(v) => set("maintenanceYear", v)} suffix="€/año" />
+            <Field label={t("Mantenimiento")} htmlFor="mnt">
+              <NumberInput id="mnt" value={form.maintenanceYear} onChange={(v) => set("maintenanceYear", v)} suffix={t("€/año")} />
             </Field>
-            <Field label="Otros" htmlFor="oth">
-              <NumberInput id="oth" value={form.otherCostsYear} onChange={(v) => set("otherCostsYear", v)} suffix="€/año" />
+            <Field label={t("Otros")} htmlFor="oth">
+              <NumberInput id="oth" value={form.otherCostsYear} onChange={(v) => set("otherCostsYear", v)} suffix={t("€/año")} />
             </Field>
           </fieldset>
           <fieldset className="grid gap-4 sm:grid-cols-2">
-            <legend className="col-span-full mb-1 text-sm font-semibold text-ink-700">Datos para impuestos y valoración</legend>
-            <Field label="Valor catastral total" htmlFor="vct" hint="Recibo del IBI">
+            <legend className="col-span-full mb-1 text-sm font-semibold text-ink-700">{t("Datos para impuestos y valoración")}</legend>
+            <Field label={t("Valor catastral total")} htmlFor="vct" hint={t("Recibo del IBI")}>
               <NumberInput id="vct" value={form.cadastralValueTotal} onChange={(v) => set("cadastralValueTotal", v)} suffix="€" />
             </Field>
-            <Field label="Valor catastral del suelo" htmlFor="vcs" hint="Necesario para la plusvalía municipal" error={errors.cadastralValueLand}>
+            <Field label={t("Valor catastral del suelo")} htmlFor="vcs" hint={t("Necesario para la plusvalía municipal")} error={errors.cadastralValueLand}>
               <NumberInput id="vcs" value={form.cadastralValueLand} onChange={(v) => set("cadastralValueLand", v)} suffix="€" />
             </Field>
-            <Field label="¿Tienes una valoración de la vivienda?" htmlFor="ovk">
+            <Field label={t("¿Tienes una valoración de la vivienda?")} htmlFor="ovk">
               <select id="ovk" className="field" value={form.ownerValuationKind} onChange={(e) => set("ownerValuationKind", e.target.value as Form["ownerValuationKind"])}>
-                <option value="">No</option>
+                <option value="">{t("No")}</option>
                 {(Object.keys(OWNER_VALUATION_LABELS) as Array<keyof typeof OWNER_VALUATION_LABELS>).map((k) => (
                   <option key={k} value={k}>
-                    {OWNER_VALUATION_LABELS[k]}
+                    {t(OWNER_VALUATION_LABELS[k])}
                   </option>
                 ))}
               </select>
             </Field>
             {form.ownerValuationKind && (
-              <Field label="Importe de esa valoración" htmlFor="ovv" error={errors.ownerValuationValue}>
+              <Field label={t("Importe de esa valoración")} htmlFor="ovv" error={errors.ownerValuationValue}>
                 <NumberInput id="ovv" value={form.ownerValuationValue} onChange={(v) => set("ownerValuationValue", v)} suffix="€" />
               </Field>
             )}
@@ -758,91 +848,111 @@ export function StudyWizard() {
 
       {step === 3 && (
         <div className="space-y-6">
-          <h2 className="font-serif text-3xl font-medium text-ink-800">Tu situación</h2>
-          <Field label="¿Qué te interesa más?" error={errors.goal}>
+          <h2 className="font-serif text-3xl font-medium text-ink-800">{t("Tu situación")}</h2>
+          <Field label={t("¿Qué te interesa más?")} error={errors.goal}>
             <ChoiceGroup
-              name="Objetivo"
+              name={t("Objetivo")}
               columns="grid-cols-1 sm:grid-cols-2"
-              options={(Object.keys(GOAL_LABELS) as Array<keyof typeof GOAL_LABELS>).map((k) => ({ value: k, label: GOAL_LABELS[k] }))}
+              options={(Object.keys(GOAL_LABELS) as Array<keyof typeof GOAL_LABELS>).map((k) => ({ value: k, label: t(GOAL_LABELS[k]) }))}
               value={form.goal}
               onChange={(v) => set("goal", v)}
             />
           </Field>
-          <Field label="Horizonte temporal de la decisión">
+          <Field label={t("Horizonte temporal de la decisión")}>
             <ChoiceGroup
-              name="Horizonte"
+              name={t("Horizonte")}
               columns="grid-cols-4"
-              options={HORIZONS.map((h) => ({ value: String(h), label: `${h} ${h === 1 ? "año" : "años"}` }))}
+              options={HORIZONS.map((h) => ({
+                value: String(h),
+                label: t(h === 1 ? "{0} año" : "{0} años", [h]),
+              }))}
               value={String(form.horizon)}
               onChange={(v) => set("horizon", Number(v))}
             />
           </Field>
           {form.currentUse === "RENTED" && (
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Renta mensual actual" htmlFor="rent" error={errors.currentRent}>
-                <NumberInput id="rent" value={form.currentRent} onChange={(v) => set("currentRent", v)} suffix="€/mes" />
+              <Field label={t("Renta mensual actual")} htmlFor="rent" error={errors.currentRent}>
+                <NumberInput id="rent" value={form.currentRent} onChange={(v) => set("currentRent", v)} suffix={t("€/mes")} />
               </Field>
-              <Field label="¿Hay incidencias con el inquilino?" htmlFor="issue">
+              <Field label={t("¿Hay incidencias con el inquilino?")} htmlFor="issue">
                 <select id="issue" className="field" value={form.tenancyIssue} onChange={(e) => set("tenancyIssue", e.target.value as Form["tenancyIssue"])}>
                   {(Object.keys(TENANCY_ISSUE_LABELS) as Array<keyof typeof TENANCY_ISSUE_LABELS>).map((k) => (
                     <option key={k} value={k}>
-                      {TENANCY_ISSUE_LABELS[k]}
+                      {t(TENANCY_ISSUE_LABELS[k])}
                     </option>
                   ))}
                 </select>
               </Field>
-              <Field label="Fecha de firma del contrato" htmlFor="cstart" optional hint="Determina la reducción del IRPF aplicable (contratos anteriores o posteriores al 26-05-2023).">
+              <Field
+                label={t("Fecha de firma del contrato")}
+                htmlFor="cstart"
+                optional
+                hint={t("Determina la reducción del IRPF aplicable (contratos anteriores o posteriores al 26-05-2023).")}
+              >
                 <input id="cstart" type="month" className="field" value={form.rentalContractStart} onChange={(e) => set("rentalContractStart", e.target.value)} />
               </Field>
             </div>
           )}
           {form.currentUse !== "RENTED" && (
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="¿Ha estado alquilada como vivienda habitual en los últimos 5 años?" htmlFor="r5" optional hint="En zona tensionada, la renta de un contrato nuevo puede quedar limitada a la del contrato anterior.">
+              <Field
+                label={t("¿Ha estado alquilada como vivienda habitual en los últimos 5 años?")}
+                htmlFor="r5"
+                optional
+                hint={t("En zona tensionada, la renta de un contrato nuevo puede quedar limitada a la del contrato anterior.")}
+              >
                 <select id="r5" className="field" value={form.rentedLast5Years} onChange={(e) => set("rentedLast5Years", e.target.value as Form["rentedLast5Years"])}>
-                  <option value="UNKNOWN">No lo sé / prefiero no indicarlo</option>
-                  <option value="YES">Sí</option>
-                  <option value="NO">No</option>
+                  <option value="UNKNOWN">{t("No lo sé / prefiero no indicarlo")}</option>
+                  <option value="YES">{t("Sí")}</option>
+                  <option value="NO">{t("No")}</option>
                 </select>
               </Field>
               {form.rentedLast5Years === "YES" && (
-                <Field label="Renta mensual del último contrato" htmlFor="prent" optional>
-                  <NumberInput id="prent" value={form.previousRent} onChange={(v) => set("previousRent", v)} suffix="€/mes" />
+                <Field label={t("Renta mensual del último contrato")} htmlFor="prent" optional>
+                  <NumberInput id="prent" value={form.previousRent} onChange={(v) => set("previousRent", v)} suffix={t("€/mes")} />
                 </Field>
               )}
             </div>
           )}
-          <Field label="¿Cuántas viviendas tienes en propiedad (para alquilar)?" htmlFor="landl" optional hint="Solo sirve para saber qué límite legal de renta podría aplicarse (grandes tenedores, Ley 12/2023).">
+          <Field
+            label={t("¿Cuántas viviendas tienes en propiedad (para alquilar)?")}
+            htmlFor="landl"
+            optional
+            hint={t("Solo sirve para saber qué límite legal de renta podría aplicarse (grandes tenedores, Ley 12/2023).")}
+          >
             <select id="landl" className="field max-w-sm" value={form.landlordBracket} onChange={(e) => set("landlordBracket", e.target.value as LandlordBracket)}>
               {(Object.keys(LANDLORD_LABELS) as LandlordBracket[]).map((k) => (
                 <option key={k} value={k}>
-                  {LANDLORD_LABELS[k]}
+                  {t(LANDLORD_LABELS[k])}
                 </option>
               ))}
             </select>
           </Field>
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Residencia fiscal" htmlFor="res" hint="Cambia los impuestos de la venta y del alquiler.">
+            <Field label={t("Residencia fiscal")} htmlFor="res" hint={t("Cambia los impuestos de la venta y del alquiler.")}>
               <select id="res" className="field" value={form.taxResidence} onChange={(e) => set("taxResidence", e.target.value as TaxResidence)}>
                 {(Object.keys(TAX_RESIDENCE_LABELS) as TaxResidence[]).map((k) => (
                   <option key={k} value={k}>
-                    {TAX_RESIDENCE_LABELS[k]}
+                    {t(TAX_RESIDENCE_LABELS[k])}
                   </option>
                 ))}
               </select>
             </Field>
-            <Field label="Tu tipo marginal de IRPF" htmlFor="mrg" optional hint="Si no lo sabes, usaremos un 30 % como hipótesis.">
+            <Field label={t("Tu tipo marginal de IRPF")} htmlFor="mrg" optional hint={t("Si no lo sabes, usaremos un 30 % como hipótesis.")}>
               <NumberInput id="mrg" value={form.marginalRate} onChange={(v) => set("marginalRate", v)} suffix="%" />
             </Field>
           </div>
           {form.taxResidence === "ES" && form.currentUse === "OWNER_PRIMARY" && (
             <Field
-              label="¿Tienes 65 años o más?"
+              label={t("¿Tienes 65 años o más?")}
               optional
-              hint="Solo se usa para comprobar la exención del IRPF al vender tu vivienda habitual (art. 33.4 de la Ley del IRPF). No la usamos para ningún otro fin ni para valorar riesgos."
+              hint={t(
+                "Solo se usa para comprobar la exención del IRPF al vender tu vivienda habitual (art. 33.4 de la Ley del IRPF). No la usamos para ningún otro fin ni para valorar riesgos.",
+              )}
             >
               <ChoiceGroup
-                name="Mayor de 65"
+                name={t("Mayor de 65")}
                 options={[
                   { value: "YES", label: "Sí" },
                   { value: "NO", label: "No" },
@@ -854,8 +964,9 @@ export function StudyWizard() {
             </Field>
           )}
           <p className="rounded-xl bg-sand-50 p-3 text-xs leading-relaxed text-ink-500">
-            No te pedimos datos personales para generar el estudio. Guardamos los datos de la vivienda y los cálculos para mostrarte el resultado; solo tú puedes verlo desde este
-            navegador. Si después solicitas una valoración profesional, te pediremos tus datos de contacto y tu consentimiento.
+            {t(
+              "No te pedimos datos personales para generar el estudio. Guardamos los datos de la vivienda y los cálculos para mostrarte el resultado; solo tú puedes verlo desde este navegador. Si después solicitas una valoración profesional, te pediremos tus datos de contacto y tu consentimiento.",
+            )}
           </p>
           {errors.form && (
             <p className="text-sm text-red-600" role="alert">
@@ -868,19 +979,19 @@ export function StudyWizard() {
       <div className="mt-8 flex items-center justify-between gap-3 border-t border-sand-200 pt-6">
         {step > 0 ? (
           <Button type="button" variant="ghost" onClick={() => setStep((s) => s - 1)}>
-            <ArrowLeft className="h-4 w-4" /> Atrás
+            <ArrowLeft className="h-4 w-4" /> {t("Atrás")}
           </Button>
         ) : (
           <span />
         )}
         {step < STEPS.length - 1 ? (
           <Button type="button" size="lg" onClick={next}>
-            Continuar <ArrowRight className="h-4 w-4" />
+            {t("Continuar")} <ArrowRight className="h-4 w-4" />
           </Button>
         ) : (
           <Button type="button" size="lg" variant="accent" onClick={submit} disabled={submitting}>
             {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-            {submitting ? "Consultando fuentes oficiales…" : "Ver mi estudio"}
+            {submitting ? t("Consultando fuentes oficiales…") : t("Ver mi estudio")}
           </Button>
         )}
       </div>

@@ -7,95 +7,57 @@ import { PortalHome, ValuationIntro } from "@/components/landing/PortalShortcuts
 import { ButtonLink } from "@/components/ui/Button";
 import { getDictionary } from "@/lib/i18n";
 import { getRequestLanguage } from "@/lib/i18n/server";
+import { portalDict } from "@/lib/i18n/site";
+import { getSiteLang } from "@/lib/i18n/siteServer";
+import { valuationHomeTexts, type ValuationHomeTexts } from "@/lib/i18n/valuation/home";
 
 type Props = { searchParams: Promise<{ lang?: string }> };
 
-export const metadata: Metadata = {
-  title: { absolute: "FINCALIA360 · ¿Vender o alquilar tu vivienda?" },
-  description:
-    "Descubre cuánto vale tu inmueble, qué alquiler máximo legal le corresponde y qué opción puede convenirte más. Estudio gratuito para propietarios de toda España.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const h = valuationHomeTexts(await getSiteLang());
+  return { title: { absolute: h.metaTitle }, description: h.metaDescription };
+}
 
 const STUDY = "/estudio";
 
-const SERVICES = [
-  {
-    title: "Valoración estimada de la vivienda",
-    text: "Un rango de precio con su método y su nivel de confianza. Si no hay datos suficientes, te lo decimos en lugar de inventar una cifra.",
-    source: "Fuentes: Catastro, INE y los datos que tú aportes.",
-  },
-  {
-    title: "Alquiler máximo legal aplicable",
-    text: "Comprobamos si tu vivienda está en una zona de mercado tensionado y qué límite podría aplicarse a un contrato nuevo, indicando qué está verificado y qué falta.",
-    source: "Fuentes: Ministerio de Vivienda, SERPAVI y BOE.",
-  },
-  {
-    title: "Vender, alquilar o mantener",
-    text: "Comparamos ingresos, gastos, impuestos y riesgos a 1, 3, 5 y 10 años con las mismas hipótesis, que puedes modificar.",
-    source: "Cálculos explicados paso a paso en el informe.",
-  },
-];
-
-const STEPS = [
-  ["Identifica tu vivienda", "Con el código postal, el municipio y, si la tienes, la referencia catastral."],
-  ["Cuéntanos tu situación", "Uso actual, hipoteca y objetivos. Solo lo necesario."],
-  ["Revisa los resultados", "Ajusta las hipótesis y observa cómo cambia cada escenario."],
-  ["Descarga tu informe", "En PDF y, si quieres, pide una valoración profesional."],
-];
-
-const NEEDED = [
-  ["Código postal y municipio", "La provincia se rellena sola a partir del código postal."],
-  ["Referencia catastral (opcional)", "Aparece en el recibo del IBI. Completa superficie y año desde el Catastro."],
-  ["Precio y año de compra", "Opcional: mejora la valoración y el cálculo de impuestos."],
-  ["Contrato de alquiler anterior", "Si lo hubo en los últimos 5 años: determina el límite legal en zona tensionada."],
-  ["Hipoteca pendiente", "Opcional: para calcular el dinero neto real."],
-];
-
-const LEGEND = [
-  ["Verificado", "bg-terracotta-50 text-terracotta-700", "Dato oficial o aportado por ti"],
-  ["Estimación", "bg-ink-50 text-ink-600", "Calculado con un método explicado"],
-  ["Hipótesis", "bg-amber-50 text-amber-800", "Supuesto que puedes modificar"],
-  ["Pendiente", "bg-red-50 text-red-700", "Falta un dato para confirmarlo"],
-];
-
-const TRUST = [
-  ["Fuentes oficiales", "Catastro, INE, Ministerio de Vivienda y BOE, citados con su fecha de consulta."],
-  ["Sin cifras inventadas", "Si no podemos calcular algo, lo indicamos y explicamos qué dato falta."],
-  ["Tus datos, protegidos", "Tu estudio solo es visible desde tu navegador. No contactamos sin tu consentimiento."],
-  ["Orientativo, no vinculante", "No sustituye una tasación oficial ni el asesoramiento fiscal o jurídico."],
-];
-
-const FAQ = [
-  ["¿Funciona en cualquier lugar de España?", "Sí. Usamos la lista oficial de municipios del INE y fuentes estatales. En Navarra y el País Vasco el Catastro y parte de la fiscalidad son forales: te indicaremos qué datos no podemos calcular."],
-  ["¿Es una tasación oficial?", "No. Es una estimación orientativa con su método y su intervalo. Para una hipoteca o una herencia necesitarás una tasación de una sociedad homologada."],
-  ["¿Cómo se calcula el alquiler máximo legal?", "Depende de si la vivienda está en zona tensionada, del contrato anterior y del tipo de propietario. Si falta algún dato, el informe lo marca como pendiente."],
-  ["¿Tiene algún coste?", "El estudio y el informe son gratuitos. Solo si lo solicitas, un especialista puede contactarte para una valoración presencial."],
-  ["¿Qué hacéis con mis datos?", "Los usamos únicamente para elaborar tu estudio. No los compartimos ni te enviamos publicidad sin tu consentimiento expreso."],
-];
+/** Colores de la leyenda, en el mismo orden que los textos: verificado, estimación, hipótesis, pendiente. */
+const LEGEND_CLS = ["bg-terracotta-50 text-terracotta-700", "bg-ink-50 text-ink-600", "bg-amber-50 text-amber-800", "bg-red-50 text-red-700"];
 
 function Eyebrow({ children }: { children: React.ReactNode }) {
   return <p className="text-[12px] font-bold uppercase tracking-[0.14em] text-terracotta-600">{children}</p>;
 }
 
-function ExampleReport() {
+function ExampleReport({ x, chips, locale }: { x: ValuationHomeTexts["example"]; chips: string[]; locale: string }) {
+  const num = (n: number) =>
+    new Intl.NumberFormat(locale, {
+      maximumFractionDigits: 0,
+      useGrouping: "always",
+    }).format(n);
+  const eur = (n: number) =>
+    new Intl.NumberFormat(locale, {
+      style: "currency",
+      currency: "EUR",
+      maximumFractionDigits: 0,
+      useGrouping: "always",
+    }).format(n);
   const bars = [
-    ["Vender hoy", "365.200 €", "78%", "bg-ink-700"],
-    ["Alquilar y vender", "402.900 €", "86%", "bg-terracotta-500"],
-    ["Mantener", "438.100 €", "94%", "bg-ink-300"],
+    [x.sellToday, eur(365200), "78%", "bg-ink-700"],
+    [x.rentThenSell, eur(402900), "86%", "bg-terracotta-500"],
+    [x.keep, eur(438100), "94%", "bg-ink-300"],
   ];
   return (
-    <div aria-label="Ejemplo de informe con datos ficticios" className="overflow-hidden rounded-2xl border border-sand-200 bg-white shadow-[0_24px_48px_-28px_rgba(20,43,69,0.35)]">
+    <div aria-label={x.aria} className="overflow-hidden rounded-2xl border border-sand-200 bg-white shadow-[0_24px_48px_-28px_rgba(20,43,69,0.35)]">
       <div className="flex flex-wrap items-center justify-between gap-2 bg-ink-800 px-5 py-4 text-white">
-        <p className="text-sm font-semibold">Resumen del estudio</p>
-        <span className="rounded-md bg-white/15 px-2 py-1 text-[11px] font-bold tracking-wide">EJEMPLO · DATOS FICTICIOS</span>
+        <p className="text-sm font-semibold">{x.title}</p>
+        <span className="rounded-md bg-white/15 px-2 py-1 text-[11px] font-bold tracking-wide">{x.badge}</span>
       </div>
       <div className="grid gap-4 p-5">
         <div className="grid grid-cols-2 gap-3">
           {[
-            ["Valor estimado", "Estimación", "bg-ink-50 text-ink-600", "300.000 €", "Intervalo 276.000 – 324.000 €"],
-            ["Neto si vendes hoy", null, "", "271.750 €", "Tras gastos e impuestos"],
-            ["Alquiler máx. legal", "Pendiente", "bg-red-50 text-red-700", "850 €/mes", "Falta confirmar el contrato anterior"],
-            ["Flujo de caja año 1", "Hipótesis", "bg-amber-50 text-amber-800", "7.880 €", "Renta − gastos − impuestos"],
+            [x.estimated, chips[1], "bg-ink-50 text-ink-600", eur(300000), `${x.interval} ${num(276000)} – ${eur(324000)}`],
+            [x.netSell, null, "", eur(271750), x.netSellNote],
+            [x.maxRent, chips[3], "bg-red-50 text-red-700", `${eur(850)}${x.perMonth}`, x.maxRentNote],
+            [x.cashflow, chips[2], "bg-amber-50 text-amber-800", eur(7880), x.cashflowNote],
           ].map(([label, chip, chipCls, value, note]) => (
             <div key={label} className="rounded-xl bg-sand-50 p-3">
               <p className="text-[10.5px] font-bold uppercase tracking-wider text-ink-400">
@@ -107,7 +69,7 @@ function ExampleReport() {
           ))}
         </div>
         <div className="grid gap-2 text-[13px]">
-          <p className="text-[10.5px] font-bold uppercase tracking-wider text-ink-400">Patrimonio a 10 años</p>
+          <p className="text-[10.5px] font-bold uppercase tracking-wider text-ink-400">{x.wealth}</p>
           {bars.map(([label, value, width, color]) => (
             <div key={label} className="grid grid-cols-[112px_1fr_76px] items-center gap-2.5">
               <span className="text-ink-600">{label}</span>
@@ -126,9 +88,12 @@ function ExampleReport() {
 export default async function LandingPage({ searchParams }: Props) {
   const lang = await getRequestLanguage((await searchParams).lang);
   const dict = getDictionary(lang);
+  const siteLang = await getSiteLang();
+  const h = valuationHomeTexts(siteLang);
+  const locale = portalDict(siteLang).locale;
 
   return (
-    <div lang="es">
+    <div lang={siteLang}>
       <TrackOnMount type="landing_view" payload={{ lang }} />
       <SiteHeader dict={dict} lang={lang} />
 
@@ -143,21 +108,19 @@ export default async function LandingPage({ searchParams }: Props) {
         <section className="py-14 sm:py-20">
           <div className="container-page grid items-center gap-12 lg:grid-cols-[1.05fr_0.95fr] lg:gap-14">
             <div>
-              <Eyebrow>Estudio gratuito para propietarios de toda España</Eyebrow>
-              <h1 className="mt-4 text-[40px] font-extrabold leading-[1.05] tracking-tight text-ink-800 sm:text-6xl">¿Vender o alquilar tu vivienda?</h1>
-              <p className="mt-5 max-w-xl text-lg text-ink-500 sm:text-xl">
-                Descubre cuánto vale tu inmueble, qué alquiler máximo legal le corresponde y qué opción puede convenirte más.
-              </p>
+              <Eyebrow>{h.heroEyebrow}</Eyebrow>
+              <h1 className="mt-4 text-[40px] font-extrabold leading-[1.05] tracking-tight text-ink-800 sm:text-6xl">{h.heroTitle}</h1>
+              <p className="mt-5 max-w-xl text-lg text-ink-500 sm:text-xl">{h.heroText}</p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <ButtonLink href={STUDY} variant="accent" size="lg" className="w-full sm:w-auto">
-                  Analizar mi vivienda <ArrowRight className="h-4 w-4" />
+                  {h.analyze} <ArrowRight className="h-4 w-4" />
                 </ButtonLink>
                 <ButtonLink href="#ejemplo" variant="outline" size="lg" className="w-full sm:w-auto">
-                  Ver un informe de ejemplo
+                  {h.seeExample}
                 </ButtonLink>
               </div>
               <ul className="mt-5 flex flex-wrap gap-x-5 gap-y-1.5 text-sm text-ink-400">
-                {["Gratis y sin compromiso", "Datos oficiales citados", "Informe en PDF"].map((t) => (
+                {h.heroBullets.map((t) => (
                   <li key={t} className="flex items-center gap-1.5">
                     <Check className="h-4 w-4 text-terracotta-500" /> {t}
                   </li>
@@ -165,7 +128,7 @@ export default async function LandingPage({ searchParams }: Props) {
               </ul>
             </div>
             <div id="ejemplo" className="scroll-mt-24">
-              <ExampleReport />
+              <ExampleReport x={h.example} chips={h.legend.map(([c]) => c)} locale={locale} />
             </div>
           </div>
         </section>
@@ -173,10 +136,10 @@ export default async function LandingPage({ searchParams }: Props) {
         {/* Servicios */}
         <section id="servicios" className="scroll-mt-20 border-y border-sand-200 bg-white py-16 sm:py-20">
           <div className="container-page">
-            <Eyebrow>Qué obtienes</Eyebrow>
-            <h2 className="mt-3 text-3xl font-extrabold tracking-tight text-ink-800 sm:text-4xl">Tres respuestas para decidir con datos</h2>
+            <Eyebrow>{h.servicesEyebrow}</Eyebrow>
+            <h2 className="mt-3 text-3xl font-extrabold tracking-tight text-ink-800 sm:text-4xl">{h.servicesTitle}</h2>
             <div className="mt-12 grid gap-10 md:grid-cols-3">
-              {SERVICES.map((s, i) => (
+              {h.services.map((s, i) => (
                 <div key={s.title}>
                   <span className="grid h-10 w-10 place-items-center rounded-xl bg-terracotta-50 font-extrabold text-terracotta-700">{i + 1}</span>
                   <h3 className="mt-4 text-lg font-bold text-ink-800">{s.title}</h3>
@@ -191,13 +154,13 @@ export default async function LandingPage({ searchParams }: Props) {
         {/* Cómo funciona */}
         <section id="como-funciona" className="scroll-mt-20 py-16 sm:py-20">
           <div className="container-page">
-            <Eyebrow>Cómo funciona</Eyebrow>
-            <h2 className="mt-3 text-3xl font-extrabold tracking-tight text-ink-800 sm:text-4xl">Tu estudio en unos minutos</h2>
+            <Eyebrow>{h.stepsEyebrow}</Eyebrow>
+            <h2 className="mt-3 text-3xl font-extrabold tracking-tight text-ink-800 sm:text-4xl">{h.stepsTitle}</h2>
             <ol className="mt-12 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
-              {STEPS.map(([title, text], i) => (
+              {h.steps.map(([title, text], i) => (
                 <li key={title} className="relative">
                   <span className="relative z-10 grid h-9 w-9 place-items-center rounded-full bg-ink-800 text-sm font-bold text-white">{i + 1}</span>
-                  {i < STEPS.length - 1 && <span aria-hidden className="absolute left-9 right-0 top-[17px] hidden h-0.5 bg-sand-200 lg:block" />}
+                  {i < h.steps.length - 1 && <span aria-hidden className="absolute left-9 right-0 top-[17px] hidden h-0.5 bg-sand-200 lg:block" />}
                   <h3 className="mt-4 font-bold text-ink-800">{title}</h3>
                   <p className="mt-1.5 text-sm text-ink-500">{text}</p>
                 </li>
@@ -210,10 +173,10 @@ export default async function LandingPage({ searchParams }: Props) {
         <section id="transparencia" className="scroll-mt-20 border-y border-sand-200 bg-white py-16 sm:py-20">
           <div className="container-page grid items-start gap-12 lg:grid-cols-2">
             <div>
-              <Eyebrow>Qué información necesitas</Eyebrow>
-              <h2 className="mt-3 text-3xl font-extrabold tracking-tight text-ink-800 sm:text-4xl">Ten a mano estos datos</h2>
+              <Eyebrow>{h.neededEyebrow}</Eyebrow>
+              <h2 className="mt-3 text-3xl font-extrabold tracking-tight text-ink-800 sm:text-4xl">{h.neededTitle}</h2>
               <ul className="mt-7 grid gap-4">
-                {NEEDED.map(([title, note]) => (
+                {h.needed.map(([title, note]) => (
                   <li key={title} className="flex gap-3">
                     <span className="mt-0.5 grid h-[22px] w-[22px] shrink-0 place-items-center rounded-md bg-terracotta-50">
                       <Check className="h-3.5 w-3.5 text-terracotta-700" strokeWidth={3} />
@@ -227,14 +190,12 @@ export default async function LandingPage({ searchParams }: Props) {
               </ul>
             </div>
             <div className="rounded-2xl bg-ink-800 p-6 text-white sm:p-8">
-              <h3 className="text-lg font-bold">Transparencia en cada cifra</h3>
-              <p className="mt-2.5 text-[15px] text-ink-200">
-                Cada resultado indica su origen y su fecha. Nunca presentamos una estimación como una tasación ni una hipótesis como un dato verificado.
-              </p>
+              <h3 className="text-lg font-bold">{h.transparencyTitle}</h3>
+              <p className="mt-2.5 text-[15px] text-ink-200">{h.transparencyText}</p>
               <ul className="mt-6 grid gap-2.5 text-sm text-ink-100">
-                {LEGEND.map(([chip, cls, text]) => (
+                {h.legend.map(([chip, text], i) => (
                   <li key={chip} className="flex items-center gap-2.5">
-                    <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${cls}`}>{chip}</span> {text}
+                    <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${LEGEND_CLS[i]}`}>{chip}</span> {text}
                   </li>
                 ))}
               </ul>
@@ -245,10 +206,10 @@ export default async function LandingPage({ searchParams }: Props) {
         {/* Compromiso */}
         <section className="py-16 sm:py-20">
           <div className="container-page">
-            <Eyebrow>Nuestro compromiso</Eyebrow>
-            <h2 className="mt-3 text-3xl font-extrabold tracking-tight text-ink-800 sm:text-4xl">Información clara antes de decidir</h2>
+            <Eyebrow>{h.trustEyebrow}</Eyebrow>
+            <h2 className="mt-3 text-3xl font-extrabold tracking-tight text-ink-800 sm:text-4xl">{h.trustTitle}</h2>
             <div className="mt-11 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
-              {TRUST.map(([title, text]) => (
+              {h.trust.map(([title, text]) => (
                 <div key={title}>
                   <span className="block h-[3px] w-8 rounded bg-terracotta-500" />
                   <h3 className="mt-4 font-bold text-ink-800">{title}</h3>
@@ -262,10 +223,10 @@ export default async function LandingPage({ searchParams }: Props) {
         {/* Preguntas frecuentes */}
         <section id="preguntas" className="scroll-mt-20 border-y border-sand-200 bg-white py-16 sm:py-20">
           <div className="container-page">
-            <Eyebrow>Preguntas frecuentes</Eyebrow>
-            <h2 className="mt-3 text-3xl font-extrabold tracking-tight text-ink-800 sm:text-4xl">Lo que suelen preguntarnos</h2>
+            <Eyebrow>{h.faqEyebrow}</Eyebrow>
+            <h2 className="mt-3 text-3xl font-extrabold tracking-tight text-ink-800 sm:text-4xl">{h.faqTitle}</h2>
             <div className="mt-8 max-w-3xl">
-              {FAQ.map(([q, a], i) => (
+              {h.faq.map(([q, a], i) => (
                 <details key={q} open={i === 0} className="group border-b border-sand-200 py-5">
                   <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-[17px] font-bold text-ink-800 [&::-webkit-details-marker]:hidden">
                     {q}
@@ -282,10 +243,10 @@ export default async function LandingPage({ searchParams }: Props) {
         {/* Llamada final */}
         <section className="bg-ink-800 py-16 text-center text-white sm:py-20">
           <div className="container-page">
-            <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl">Toma la decisión con números claros</h2>
-            <p className="mx-auto mt-3.5 max-w-xl text-[17px] text-ink-200">Obtén tu estudio personalizado gratuito: valor, alquiler legal y comparativa de escenarios.</p>
+            <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl">{h.finalTitle}</h2>
+            <p className="mx-auto mt-3.5 max-w-xl text-[17px] text-ink-200">{h.finalText}</p>
             <ButtonLink href={STUDY} variant="accent" size="lg" className="mt-7">
-              Analizar mi vivienda <ArrowRight className="h-4 w-4" />
+              {h.analyze} <ArrowRight className="h-4 w-4" />
             </ButtonLink>
           </div>
         </section>
