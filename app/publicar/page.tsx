@@ -9,7 +9,7 @@ import { PUBLICATION_MARKETING_TEXT, PUBLICATION_OWNER_TEXT, PUBLICATION_PRIVACY
 import { PROVINCES } from "@/services/study/geo";
 
 export const metadata = portalMetadata({
-  title: "Publica tu vivienda gratis",
+  title: "Publica tu inmueble gratis",
   description: "Anuncia gratis tu piso, tu casa o tu amarre en Cataluña: envíanos los datos y las fotos, lo revisamos y lo publicamos sin coste.",
   path: "/publicar",
 });
@@ -29,10 +29,10 @@ export default async function PublishPage({ searchParams }: { searchParams: Prom
           <div className="container-page py-8 sm:py-12">
             <p className="eyebrow">Para propietarios</p>
             <h1 className="mt-3 font-serif text-[34px] font-medium leading-tight tracking-tight text-ink-800 sm:text-5xl">
-              {mooring ? "Publica tu amarre gratis" : "Publica tu vivienda gratis"}
+              Publica tu inmueble gratis
             </h1>
             <p className="mt-3 max-w-2xl text-[15.5px] text-ink-500">
-              Envíanos los datos y las fotos de tu vivienda o de tu amarre en Cataluña. Revisamos la solicitud, te contactamos y preparamos el anuncio. Sin coste.
+              Pisos, casas, locales, oficinas, garajes, terrenos o amarres en Cataluña. Envíanos los datos y las fotos: revisamos la solicitud, te contactamos y preparamos el anuncio. Sin coste.
             </p>
             <ul className="mt-5 flex flex-wrap gap-x-6 gap-y-1.5 text-sm text-ink-500">
               {["Publicación gratuita", "Revisamos cada anuncio", "Tus datos de contacto no se publican"].map((t) => (

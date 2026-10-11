@@ -148,7 +148,7 @@ export async function PortalSearchPage({
     ? `Amarres ${rent ? "en alquiler" : "en venta"} en puertos deportivos de Cataluña. Cada anuncio se revisa antes de publicarse.`
     : `Inmuebles ${rent ? "en alquiler" : "en venta"} en Barcelona, Girona, Lleida y Tarragona, publicados por FINCALIA360 y por inmobiliarias colaboradoras. Cada anuncio se revisa antes de publicarse.`;
   const featureOptions = (groupKind && FILTER_FEATURES[groupKind]) || [];
-  const sectionName = mooring ? (rent ? "Alquilar amarre" : "Comprar amarre") : rent ? "Alquilar vivienda" : "Comprar vivienda";
+  const sectionName = mooring ? (rent ? "Amarres en alquiler" : "Amarres en venta") : rent ? "Alquiler" : "Venta";
   const crumbs = [
     { name: "Inicio", path: "/" },
     { name: sectionName, path: base },
@@ -171,7 +171,7 @@ export async function PortalSearchPage({
                 › <span className="text-ink-600">{city.name}</span>
               </nav>
             )}
-            <p className="eyebrow">{mooring ? (rent ? "Alquilar amarre" : "Comprar amarre") : rent ? "Alquilar" : "Comprar"}</p>
+            <p className="eyebrow">{mooring ? (rent ? "Alquiler · Amarres" : "Venta · Amarres") : rent ? "Alquiler" : "Venta"}</p>
             <h1 className="mt-3 font-serif text-[34px] font-medium leading-tight tracking-tight text-ink-800 sm:text-5xl">{title}</h1>
             <p className="mt-3 hidden max-w-2xl text-[15.5px] text-ink-500 sm:block">{intro}</p>
           </div>
@@ -456,11 +456,11 @@ export async function PortalSearchPage({
               <div className="rounded-2xl border border-dashed border-sand-300 bg-white px-6 py-14 text-center">
                 {mooring ? <Anchor className="mx-auto h-9 w-9 text-ink-200" /> : <Home className="mx-auto h-9 w-9 text-ink-200" />}
                 <h2 className="mt-4 text-lg font-semibold text-ink-800">
-                  {anyFilter ? (mooring ? "No hay amarres con estos filtros" : "No hay inmuebles con estos filtros") : mooring ? "Todavía no hay amarres publicados" : "Todavía no hay inmuebles publicados"}
+                  {anyFilter ? (mooring ? "No hemos encontrado amarres con estos criterios" : "No hemos encontrado inmuebles con estos criterios") : mooring ? "Todavía no hay amarres publicados" : "Todavía no hay inmuebles publicados"}
                 </h2>
                 <p className="mx-auto mt-2 max-w-md text-sm text-ink-500">
                   {anyFilter
-                    ? "Prueba a ampliar la búsqueda o quitar algún filtro."
+                    ? "Prueba a modificar los filtros o a buscar en otra población."
                     : mooring
                       ? `Muy pronto encontrarás aquí amarres ${rent ? "en alquiler" : "en venta"}. ¿Tienes uno? Publícalo gratis.`
                       : rent
@@ -474,7 +474,7 @@ export async function PortalSearchPage({
                     </ButtonLink>
                   )}
                   <ButtonLink href={mooring ? "/publicar?tipo=amarre" : "/publicar"} variant="accent">
-                    {mooring ? "Publica tu amarre gratis" : "Publica tu vivienda gratis"}
+                    Publica tu inmueble gratis
                   </ButtonLink>
                 </div>
               </div>
@@ -507,7 +507,7 @@ export async function PortalSearchPage({
             {cities.length > 0 && (
               <nav aria-label="Buscar por población" className="mt-10 rounded-2xl border border-sand-200 bg-white p-5">
                 <h2 className="text-[15px] font-semibold text-ink-800">
-                  {mooring ? (rent ? "Amarres en alquiler por población" : "Amarres en venta por población") : rent ? "Viviendas en alquiler por población" : "Viviendas en venta por población"}
+                  {mooring ? (rent ? "Amarres en alquiler por población" : "Amarres en venta por población") : rent ? "Inmuebles en alquiler por población" : "Inmuebles en venta por población"}
                 </h2>
                 <ul className="mt-3 flex flex-wrap gap-2">
                   {cities.slice(0, 40).map((c) => (
@@ -550,7 +550,7 @@ export async function PortalSearchPage({
                 <p className="text-sm text-ink-500">Envíanos los datos y las fotos: revisamos tu anuncio y lo publicamos sin coste.</p>
               </div>
               <ButtonLink href={mooring ? "/publicar?tipo=amarre" : "/publicar"} variant="accent" className="shrink-0">
-                {mooring ? "Publica tu amarre gratis" : "Publica tu vivienda gratis"}
+                Publica tu inmueble gratis
               </ButtonLink>
             </div>
 

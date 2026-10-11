@@ -144,7 +144,7 @@ export function PublishRequestForm({
             <span className="field-label">Tipo</span>
             <div className="grid grid-cols-2 rounded-full bg-sand-100 p-1 text-sm font-medium">
               <button type="button" onClick={() => setCategory("HOME")} className={segment(!mooring)} aria-pressed={!mooring}>
-                Vivienda o local
+                Inmueble
               </button>
               <button type="button" onClick={() => setCategory("MOORING")} className={segment(mooring)} aria-pressed={mooring}>
                 Amarre

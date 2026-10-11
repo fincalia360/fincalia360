@@ -1,4 +1,4 @@
-// «Publica tu vivienda gratis»: recibe la solicitud del propietario (datos + fotos).
+// «Publica tu inmueble gratis»: recibe la solicitud del propietario (datos + fotos).
 import { NextResponse } from "next/server";
 import { clientKey, rateLimit } from "@/lib/rateLimit";
 import { MAX_REQUEST_BODY_BYTES, PublicationRequestError, submitPublicationRequest } from "@/services/listings/publicationRequests";

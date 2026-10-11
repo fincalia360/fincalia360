@@ -1,4 +1,4 @@
-// «Publica tu vivienda gratis»: solicitudes de propietarios para anunciar una vivienda o un amarre.
+// «Publica tu inmueble gratis»: solicitudes de propietarios para anunciar una vivienda o un amarre.
 // - No crean ningún anuncio: llegan al administrador, que las revisa y, si procede, crea el borrador.
 // - Las fotos se guardan PRIVADAS (sin metadatos ni GPS) y solo las ve el administrador.
 // - Consentimientos explícitos y nunca premarcados; se guarda el texto exacto aceptado.

@@ -101,7 +101,7 @@ export function listingBreadcrumbs(l: { category: string; operation: string; mun
   const category = (l.category === "MOORING" ? "MOORING" : "HOME") as Category;
   const operation = (l.operation === "RENT" ? "RENT" : "SALE") as Operation;
   const section =
-    category === "MOORING" ? (operation === "RENT" ? "Alquilar amarre" : "Comprar amarre") : operation === "RENT" ? "Alquilar vivienda" : "Comprar vivienda";
+    category === "MOORING" ? (operation === "RENT" ? "Amarres en alquiler" : "Amarres en venta") : operation === "RENT" ? "Alquiler" : "Venta";
   return [
     { name: "Inicio", path: "/" },
     { name: section, path: searchPath(category, operation) },

@@ -3,54 +3,53 @@ import { Logo } from "@/components/brand/Logo";
 import type { Dictionary } from "@/lib/i18n";
 import type { Language } from "@/types";
 
+const link = "w-fit rounded hover:text-white hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white";
+
 export function SiteFooter({ dict, lang }: { dict: Dictionary; lang: Language }) {
   return (
     <footer className="bg-ink-800 text-ink-100">
-      <div className="container-page grid gap-8 py-12 md:grid-cols-[1.4fr_1fr_1fr]">
-        <div>
+      <div className="container-page grid gap-10 py-12 sm:grid-cols-2 lg:grid-cols-[1.5fr_1fr_1fr]">
+        <div className="sm:col-span-2 lg:col-span-1">
           <Logo light />
-          <p className="mt-4 max-w-sm text-sm text-ink-200">
-            Plataforma para propietarios de toda España: valor estimado de la vivienda, alquiler máximo legal y comparativa entre vender, alquilar o mantener. Compra y alquiler de inmuebles en Cataluña.
+          <p className="mt-4 max-w-sm text-sm leading-relaxed text-ink-200">
+            Portal inmobiliario en Cataluña: inmuebles y amarres en venta y en alquiler, publicación gratuita para propietarios y valoración de viviendas en toda España.
           </p>
         </div>
-        <div className="flex flex-col gap-2 text-sm">
-          <p className="font-semibold text-white">Portal en Cataluña</p>
-          <Link href="/comprar" className="hover:text-white">
-            Comprar vivienda
-          </Link>
-          <Link href="/alquilar" className="hover:text-white">
-            Alquilar vivienda
-          </Link>
-          <Link href="/amarres/comprar" className="hover:text-white">
-            Comprar amarre
-          </Link>
-          <Link href="/amarres/alquilar" className="hover:text-white">
-            Alquilar amarre
-          </Link>
-          <Link href="/publicar" className="hover:text-white">
-            Publica tu vivienda gratis
-          </Link>
-        </div>
-        <div className="flex flex-col gap-2 text-sm md:items-end">
-          <Link href="/estudio" className="hover:text-white">
-            Analizar mi vivienda
-          </Link>
-          <Link href={`/privacy?lang=${lang}`} className="hover:text-white">
-            {dict.footer.privacy}
-          </Link>
-          <Link href={`/legal?lang=${lang}`} className="hover:text-white">
+        <nav aria-label="Portal" className="flex flex-col gap-2.5 text-sm">
+          <p className="font-semibold text-white">FINCALIA360</p>
+          {(
+            [
+              ["Inicio", "/"],
+              ["Venta", "/comprar"],
+              ["Alquiler", "/alquilar"],
+              ["Valorar vivienda", "/estudio"],
+              ["Publica tu inmueble gratis", "/publicar"],
+              ["Contacto", "/contacto"],
+            ] as const
+          ).map(([label, href]) => (
+            <Link key={href} href={href} className={link}>
+              {label}
+            </Link>
+          ))}
+        </nav>
+        <nav aria-label="Información legal" className="flex flex-col gap-2.5 text-sm">
+          <p className="font-semibold text-white">Información legal</p>
+          <Link href={`/legal?lang=${lang}`} className={link}>
             {dict.footer.legal}
           </Link>
-          <Link href="/cookies" className="hover:text-white">
+          <Link href={`/privacy?lang=${lang}`} className={link}>
+            {dict.footer.privacy}
+          </Link>
+          <Link href="/cookies" className={link}>
             Política de cookies
           </Link>
-          <Link href="/condiciones" className="hover:text-white">
+          <Link href="/condiciones" className={link}>
             Condiciones de uso
           </Link>
-          <Link href="/admin" className="text-ink-300 hover:text-white">
+          <Link href="/admin" className={`${link} text-ink-300`}>
             Acceso del equipo ↗
           </Link>
-        </div>
+        </nav>
       </div>
       <div className="border-t border-white/10">
         <p className="container-page py-4 text-xs text-ink-300">

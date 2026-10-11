@@ -25,5 +25,8 @@ export async function GET(request: Request) {
     const params = new URLSearchParams({ ...(homeGroup ? { grupo: homeGroup } : {}), municipio: typed });
     target = `${searchPath(category, op)}?${params.toString()}`;
   } else target = homeGroup ? groupPath(op, homeGroup) : searchPath(category, op);
+  // Precio máximo del buscador de la portada (si se indica)
+  const max = Number(url.searchParams.get("max"));
+  if (Number.isInteger(max) && max > 0) target += `${target.includes("?") ? "&" : "?"}max=${max}`;
   return NextResponse.redirect(new URL(target, url.origin), 303);
 }

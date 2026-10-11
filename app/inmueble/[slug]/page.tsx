@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import { notFound, permanentRedirect, redirect } from "next/navigation";
 import Link from "next/link";
-import { BedDouble, Bath, Ruler, MapPin, Check, ArrowLeft, Building2 } from "lucide-react";
+import { BedDouble, Bath, Ruler, MapPin, Check, ArrowLeft, Building2, Layers, Sparkles, MoveHorizontal, LandPlot } from "lucide-react";
 import { SiteFooter } from "@/components/landing/SiteFooter";
 import { SiteHeader } from "@/components/landing/SiteHeader";
 import { Gallery } from "@/components/portal/Gallery";
 import { InquiryForm } from "@/components/portal/InquiryForm";
+import { KeyFacts, MobileContactBar } from "@/components/portal/KeyFacts";
 import { ListingBreadcrumbs, SimilarListings } from "@/components/portal/ListingExtras";
 import { getDictionary } from "@/lib/i18n";
 import { publicSiteUrl } from "@/lib/site";
@@ -130,7 +131,7 @@ export default async function ListingPage({ params }: Props) {
         <div className="container-page py-6 sm:py-8">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <Link href={rent ? "/alquilar" : "/comprar"} className="inline-flex items-center gap-1.5 text-sm text-ink-500 hover:text-ink-800">
-              <ArrowLeft className="h-4 w-4" /> {rent ? "Viviendas en alquiler" : "Viviendas en venta"}
+              <ArrowLeft className="h-4 w-4" /> {rent ? "Inmuebles en alquiler" : "Inmuebles en venta"}
             </Link>
             <ListingBreadcrumbs l={l} />
           </div>
@@ -153,23 +154,18 @@ export default async function ListingPage({ params }: Props) {
                 <p className="mt-4 text-[32px] font-semibold tracking-tight text-ink-800">{formatPrice(l.price, l.operation)}</p>
                 {l.communityFee ? <p className="text-sm text-ink-500">Gastos de comunidad: {formatPrice(l.communityFee, "RENT")}</p> : null}
 
-                <div className="mt-5 flex flex-wrap gap-x-6 gap-y-2 text-[15px] text-ink-700">
-                  {l.builtArea != null && (
-                    <span className="inline-flex items-center gap-1.5">
-                      <Ruler className="h-4 w-4 text-ink-400" /> {l.builtArea} m² construidos
-                    </span>
-                  )}
-                  {l.bedrooms != null && (
-                    <span className="inline-flex items-center gap-1.5">
-                      <BedDouble className="h-4 w-4 text-ink-400" /> {l.bedrooms} habitaciones
-                    </span>
-                  )}
-                  {l.bathrooms != null && (
-                    <span className="inline-flex items-center gap-1.5">
-                      <Bath className="h-4 w-4 text-ink-400" /> {l.bathrooms} {l.bathrooms === 1 ? "baño" : "baños"}
-                    </span>
-                  )}
-                </div>
+                <KeyFacts
+                  items={[
+                    { icon: Ruler, label: kind === "LAND" ? "Terreno" : "Superficie", value: l.builtArea != null ? `${l.builtArea.toLocaleString("es-ES")} m²` : null },
+                    { icon: MoveHorizontal, label: "Medidas", value: kind === "GARAGE" && l.berthLength ? `${formatMeters(l.berthLength)}${l.berthWidth ? ` × ${formatMeters(l.berthWidth)}` : ""}` : null },
+                    { icon: BedDouble, label: "Habitaciones", value: l.bedrooms != null ? String(l.bedrooms) : null },
+                    { icon: Bath, label: kind === "COMMERCIAL" ? "Aseos" : "Baños", value: l.bathrooms != null ? String(l.bathrooms) : null },
+                    { icon: Layers, label: "Planta", value: l.floor },
+                    { icon: Sparkles, label: "Estado", value: l.condition ? CONDITIONS[l.condition as keyof typeof CONDITIONS] : null },
+                    { icon: LandPlot, label: "Clasificación", value: l.landClassification ? LAND_CLASSIFICATIONS[l.landClassification as keyof typeof LAND_CLASSIFICATIONS] : null },
+                    { icon: Layers, label: "Uso", value: l.landUse ? LAND_USES[l.landUse as keyof typeof LAND_USES] : null },
+                  ]}
+                />
               </div>
 
               {l.description && (
@@ -252,7 +248,7 @@ export default async function ListingPage({ params }: Props) {
             </div>
 
             <aside className="lg:sticky lg:top-24 lg:self-start">
-              <div className="rounded-2xl border border-sand-200 bg-white p-5 shadow-soft">
+              <div id="contacto" className="scroll-mt-24 rounded-2xl border border-sand-200 bg-white p-5 shadow-soft">
                 <h2 className="text-lg font-semibold text-ink-800">¿Te interesa?</h2>
                 <p className="mt-1 text-sm text-ink-500">Pide más información o concierta una visita.</p>
                 <div className="mt-4">
@@ -272,6 +268,9 @@ export default async function ListingPage({ params }: Props) {
           </div>
           <SimilarListings l={l} />
         </div>
+        {/* Espacio para la barra de contacto fija del móvil */}
+        <div className="h-20 lg:hidden" aria-hidden />
+        <MobileContactBar price={formatPrice(l.price, l.operation)} />
       </main>
       <SiteFooter dict={dict} lang="es" />
     </div>

@@ -37,7 +37,7 @@ export default function ContactPage() {
               </a>
             )}
             <Link href="/publicar" className="flex items-center gap-3 rounded-2xl border border-sand-200 bg-white p-4 text-ink-700 hover:border-ink-200">
-              <Megaphone className="h-5 w-5 text-terracotta-500" /> Publica tu vivienda gratis
+              <Megaphone className="h-5 w-5 text-terracotta-500" /> Publica tu inmueble gratis
             </Link>
             <Link href="/estudio" className="flex items-center gap-3 rounded-2xl border border-sand-200 bg-white p-4 text-ink-700 hover:border-ink-200">
               <Calculator className="h-5 w-5 text-terracotta-500" /> Valora tu vivienda gratis
