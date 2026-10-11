@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { notFound, permanentRedirect } from "next/navigation";
+import { notFound, permanentRedirect, redirect } from "next/navigation";
 import Link from "next/link";
 import { Anchor, ArrowLeft, Building2, CalendarDays, Check, MapPin, Ruler, Ship } from "lucide-react";
 import { SiteFooter } from "@/components/landing/SiteFooter";
@@ -24,7 +24,8 @@ import {
   type MooringTypeCode,
   type RentPeriod,
 } from "@/services/listings/catalog";
-import { getPublicListing } from "@/services/listings/listings";
+import { getPublicListing, goneListingTarget } from "@/services/listings/listings";
+import { cityPath, citiesWithListings, searchPath } from "@/services/listings/seo";
 import { inquiryConsentText } from "@/services/listings/inquiries";
 
 export const dynamic = "force-dynamic";
@@ -52,11 +53,11 @@ function summary(l: Loaded) {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const l = await load((await params).slug);
   if (!l || l.category !== "MOORING") return { title: "Amarre no disponible" };
-  const description = `${summary(l)}. ${l.description.slice(0, 150).replace(/\s+/g, " ")}`.slice(0, 200);
+  const description = l.seoDescription || `${summary(l)}. ${l.description.slice(0, 150).replace(/\s+/g, " ")}`.slice(0, 200);
   const photo = l.photos[0];
   const price = formatPrice(l.price, l.operation, l.rentPeriod);
   return {
-    title: `${l.title} · ${price}`,
+    title: l.seoTitle || `${l.title} · ${price}`,
     description,
     alternates: { canonical: listingPath(l) },
     openGraph: {
@@ -86,7 +87,16 @@ const longDate = (d: Date) => d.toLocaleDateString("es-ES", { day: "numeric", mo
 export default async function MooringPage({ params }: Props) {
   const { slug } = await params;
   const l = await load(slug);
-  if (!l) notFound();
+  if (!l) {
+    // Vendido, alquilado o retirado: a su población o a su sección, en vez de dar error
+    const ref = referenceFromSlug(slug);
+    const t = ref ? await goneListingTarget(ref) : null;
+    if (t) {
+      const cities = await citiesWithListings(t.category, t.operation);
+      redirect(cities.some((c) => c.name === t.municipality) ? cityPath(t.category, t.operation, t.municipality) : searchPath(t.category, t.operation));
+    }
+    notFound();
+  }
   // Una vivienda tiene su propia ficha (/inmueble/…)
   if (l.slug !== slug || l.category !== "MOORING") permanentRedirect(listingPath(l));
 

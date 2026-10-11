@@ -10,7 +10,7 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/db/client";
 import { getProvince } from "@/services/study/geo";
 import { audit, type Actor } from "@/services/audit";
-import { deleteFile, newKey, putFile } from "@/services/storage/storage";
+import { deleteFile, getFile, newKey, putFile } from "@/services/storage/storage";
 import {
   ACTIVE_STATUSES,
   PORTAL_PROVINCE_CODES,
@@ -18,9 +18,16 @@ import {
   AUTHORIZATION_TYPES,
   CONDITIONS,
   ENERGY_RATINGS,
-  FEATURES,
   MOORING_FEATURES,
   MOORING_PROPERTY_TYPE,
+  ALL_FEATURE_LABELS,
+  FEATURES_BY_KIND,
+  LAND_CLASSIFICATIONS,
+  LAND_USES,
+  PROPERTY_GROUPS,
+  HOME_SEARCH_GROUPS,
+  kindOf,
+  needsEnergyCertificate,
   MOORING_TYPES,
   RENT_PERIODS,
   MAX_DOC_BYTES,
@@ -84,7 +91,7 @@ export const listingSchema = z
     floor: optText(30),
     yearBuilt: optInt(2100),
     condition: z.preprocess((v) => (v === "" ? null : v), z.enum(keys(CONDITIONS)).nullable().optional()),
-    features: z.array(z.enum([...keys(FEATURES), ...keys(MOORING_FEATURES)])).default([]),
+    features: z.array(z.enum(keys(ALL_FEATURE_LABELS as Record<string, string>))).default([]),
     energyRating: z.preprocess((v) => (v === "" ? null : v), z.enum(keys(ENERGY_RATINGS)).nullable().optional()),
     energyConsumption: optFloat,
     energyEmissions: optFloat,
@@ -112,6 +119,14 @@ export const listingSchema = z
     rentPeriod: z.preprocess((v) => (v === "" ? null : v), z.enum(keys(RENT_PERIODS)).nullable().optional()),
     concessionEnd: z.preprocess((v) => (v === "" || v == null ? null : v), z.coerce.number().int().min(2000, "Año no válido").max(2150, "Año no válido").nullable()),
     extraInfo: optText(3000),
+    // Locales, oficinas y terrenos
+    distribution: optText(1000),
+    landClassification: z.preprocess((v) => (v === "" ? null : v), z.enum(keys(LAND_CLASSIFICATIONS)).nullable().optional()),
+    landUse: z.preprocess((v) => (v === "" ? null : v), z.enum(keys(LAND_USES)).nullable().optional()),
+    // SEO
+    seoTitle: optText(70),
+    seoDescription: optText(170),
+    slugText: optText(90),
   })
   .superRefine((v, ctx) => {
     if (v.category === "MOORING") {
@@ -121,7 +136,11 @@ export const listingSchema = z
       if (v.features.some((f) => !(f in MOORING_FEATURES))) ctx.addIssue({ code: "custom", path: ["features"], message: "Característica no válida para un amarre" });
     } else {
       if (v.propertyType === MOORING_PROPERTY_TYPE) ctx.addIssue({ code: "custom", path: ["propertyType"], message: "Elige el tipo de inmueble" });
-      if (v.features.some((f) => !(f in FEATURES))) ctx.addIssue({ code: "custom", path: ["features"], message: "Característica no válida para una vivienda" });
+      const kind = kindOf(v);
+      const allowed = FEATURES_BY_KIND[kind];
+      if (v.features.some((f) => !(f in allowed))) {
+        ctx.addIssue({ code: "custom", path: ["features"], message: kind === "DWELLING" ? "Característica no válida para una vivienda" : "Característica no válida para este tipo de inmueble" });
+      }
     }
     if (v.postalCode && getProvince(v.postalCode.slice(0, 2))?.code !== v.provinceCode) {
       ctx.addIssue({ code: "custom", path: ["postalCode"], message: "El código postal no corresponde a la provincia elegida" });
@@ -137,6 +156,8 @@ export function listingFormToObject(formData: FormData) {
   const obj: Record<string, unknown> = {};
   for (const [k, v] of formData.entries()) if (typeof v === "string" && k !== "features") obj[k] = v;
   obj.features = formData.getAll("features").map(String);
+  // El tipo «Amarre» es la sección de amarres; el resto, viviendas e inmuebles
+  if (typeof obj.propertyType === "string") obj.category = obj.propertyType === MOORING_PROPERTY_TYPE ? "MOORING" : "HOME";
   return obj;
 }
 
@@ -176,27 +197,44 @@ function dataFromInput(input: ListingInput) {
       rentConditions: rent ? (input.rentConditions ?? null) : null,
     };
   }
+  // Cada tipo guarda solo sus campos: lo que no le corresponde se vacía
+  const kind = kindOf(input);
+  const dwelling = kind === "DWELLING";
+  const energy = needsEnergyCertificate(kind) || kind === "OTHER";
   return {
     ...rest,
     propertyType: input.propertyType,
     portName: null,
-    berthLength: null,
-    berthWidth: null,
+    berthLength: kind === "GARAGE" ? (input.berthLength ?? null) : null,
+    berthWidth: kind === "GARAGE" ? (input.berthWidth ?? null) : null,
     maxBoatLength: null,
     maxBoatBeam: null,
     berthDepth: null,
     mooringType: null,
     rentPeriod: null,
     concessionEnd: null,
-    extraInfo: null,
     features: features.join(","),
-    rentalType: rent ? (input.rentalType ?? null) : null,
+    bedrooms: dwelling || kind === "OTHER" ? (input.bedrooms ?? null) : null,
+    bathrooms: kind === "GARAGE" || kind === "LAND" ? null : (input.bathrooms ?? null),
+    usefulArea: kind === "GARAGE" || kind === "LAND" ? null : (input.usefulArea ?? null),
+    floor: kind === "LAND" ? null : (input.floor ?? null),
+    yearBuilt: kind === "LAND" ? null : (input.yearBuilt ?? null),
+    condition: kind === "LAND" ? null : (input.condition ?? null),
+    energyRating: energy ? (input.energyRating ?? null) : null,
+    energyConsumption: energy ? (input.energyConsumption ?? null) : null,
+    energyEmissions: energy ? (input.energyEmissions ?? null) : null,
+    checkEnergy: energy ? input.checkEnergy : false,
+    distribution: kind === "COMMERCIAL" ? (input.distribution ?? null) : null,
+    landClassification: kind === "LAND" ? (input.landClassification ?? null) : null,
+    landUse: kind === "LAND" ? (input.landUse ?? null) : null,
+    // Alquiler: el régimen de vivienda (tipo, registro, normativa) solo aplica a viviendas
+    rentalType: rent && dwelling ? (input.rentalType ?? null) : null,
     depositMonths: rent ? (input.depositMonths ?? null) : null,
     minTermMonths: rent ? (input.minTermMonths ?? null) : null,
     availableFrom: rent ? (input.availableFrom ?? null) : null,
     rentConditions: rent ? (input.rentConditions ?? null) : null,
-    rentalRegistry: rent ? (input.rentalRegistry ?? null) : null,
-    checkLegalRent: rent ? input.checkLegalRent : false,
+    rentalRegistry: rent && dwelling ? (input.rentalRegistry ?? null) : null,
+    checkLegalRent: rent && dwelling ? input.checkLegalRent : false,
   };
 }
 
@@ -307,17 +345,20 @@ export function publishProblems(l: {
     if (!l.checkData) p.push("Confirma que has comprobado los datos del amarre");
     return p;
   }
+  const kind = kindOf(l);
   if (l.description.trim().length < 80) p.push("Escribe una descripción de al menos 80 caracteres");
   if (!l.price) p.push("Indica el precio");
   if (!l.municipality) p.push("Indica el municipio");
-  if (!l.builtArea && !["GARAJE", "TERRENO"].includes(l.propertyType)) p.push("Indica la superficie construida");
+  if (!l.builtArea && kind !== "GARAGE") p.push(kind === "LAND" ? "Indica la superficie del terreno" : "Indica la superficie construida");
   if (photoCount < 1) p.push("Añade al menos una fotografía");
-  if (!l.energyRating) p.push("Indica la calificación energética (o «En trámite» / «Exento»)");
+  if (needsEnergyCertificate(kind) && !l.energyRating) p.push("Indica la calificación energética (o «En trámite» / «Exento»)");
   if (!l.authorizationType || !l.authorizationDate) p.push("Indica el tipo y la fecha de la autorización del propietario");
   if (!l.checkAuthorization) p.push("Confirma que tienes la autorización del propietario para publicar");
-  if (!l.checkEnergy) p.push("Confirma que el certificado energético es correcto (o que está en trámite o exento)");
+  if (needsEnergyCertificate(kind) && !l.checkEnergy) p.push("Confirma que el certificado energético es correcto (o que está en trámite o exento)");
   if (!l.checkData) p.push("Confirma que has comprobado los datos del inmueble");
-  if (l.operation === "RENT") {
+  if (l.operation === "RENT" && kind !== "DWELLING") {
+    if (l.depositMonths == null) p.push("Indica la fianza (meses)");
+  } else if (l.operation === "RENT") {
     if (!l.rentalType) p.push("Indica el tipo de alquiler");
     if (l.depositMonths == null) p.push("Indica la fianza (meses)");
     if (l.rentalType === "SEASONAL" && !l.rentalRegistry) p.push("Indica el número del Registro Único de Arrendamientos (obligatorio en alquiler de temporada)");
@@ -405,6 +446,74 @@ export async function transitionListing(actor: ListingActor, id: string, transit
   const updated = await prisma.listing.update({ where: { id: l.id }, data });
   await audit(auditActor(actor), `listing.${transition}`, "Listing", l.id, `${l.status} → ${updated.status}`, l.agencyId);
   return updated;
+}
+
+/**
+ * Duplica un anuncio como BORRADOR nuevo (con copia de sus fotos), para crear otro parecido sin
+ * empezar de cero. No copia las solicitudes, el documento de autorización ni las comprobaciones.
+ */
+export async function duplicateListing(actor: ListingActor, id: string) {
+  const l = await getListing(actor, id);
+  const agency = await assertAgencyActive(actor);
+  if (agency) {
+    const active = await prisma.listing.count({ where: { agencyId: agency.id, status: { in: ACTIVE_STATUSES } } });
+    if (active >= agency.maxListings) throw new ListingError(`Has alcanzado el límite de ${agency.maxListings} inmuebles activos de tu plan`);
+  }
+  let reference = newReference();
+  while (await prisma.listing.findUnique({ where: { reference } })) reference = newReference();
+  const {
+    id: _id,
+    createdAt: _c,
+    updatedAt: _u,
+    reference: _r,
+    slug: _s,
+    status: _st,
+    photos,
+    agency: _a,
+    authorizationDoc: _d,
+    reviewRequestedAt: _rr,
+    reviewNote: _rn,
+    publishedAt: _p,
+    publishedBy: _pb,
+    ...copy
+  } = l;
+  void [_id, _c, _u, _r, _s, _st, _a, _d, _rr, _rn, _p, _pb];
+  const title = `Copia de ${l.title}`.slice(0, 110);
+  const created = await prisma.listing.create({
+    data: {
+      ...copy,
+      title,
+      reference,
+      slug: buildSlug({ ...copy, slugText: null, reference }),
+      slugText: null,
+      status: "DRAFT",
+      checkData: false,
+      checkAuthorization: false,
+      authorizationType: null,
+      authorizationDate: null,
+    },
+  });
+  for (const ph of photos) {
+    const file = await getFile(ph.key);
+    if (!file) continue;
+    const key = newKey("public", "listings", "webp");
+    await putFile(key, file);
+    const thumb = await getFile(ph.key.replace(/\.webp$/, "-thumb.webp"));
+    if (thumb) await putFile(key.replace(/\.webp$/, "-thumb.webp"), thumb);
+    await prisma.listingPhoto.create({ data: { listingId: created.id, key, width: ph.width, height: ph.height, position: ph.position, isMain: ph.isMain, alt: ph.alt } });
+  }
+  await audit(auditActor(actor), "listing.duplicate", "Listing", created.id, `${l.reference} → ${reference}`, created.agencyId);
+  return created;
+}
+
+/**
+ * Anuncio que ya no está a la vista (vendido, alquilado, retirado): adónde redirigir su dirección
+ * para no dar un error (la página de su población o, si no queda ninguna, la de su sección).
+ */
+export async function goneListingTarget(reference: string) {
+  const l = await prisma.listing.findUnique({ where: { reference }, select: { category: true, operation: true, municipality: true, provinceCode: true } });
+  if (!l || !PORTAL_PROVINCE_CODES.includes(l.provinceCode)) return null;
+  return { category: (l.category === "MOORING" ? "MOORING" : "HOME") as "HOME" | "MOORING", operation: (l.operation === "RENT" ? "RENT" : "SALE") as "SALE" | "RENT", municipality: l.municipality };
 }
 
 /**
@@ -565,6 +674,13 @@ export const searchSchema = z.object({
   eslora: z.coerce.number().min(0).max(200).optional(),
   manga: z.coerce.number().min(0).max(100).optional(),
   tipoAmarre: z.enum(keys(MOORING_TYPES)).optional(),
+  /** Grupo del menú: pisos, casas, locales, oficinas, garajes, terrenos, otros */
+  grupo: z.enum(HOME_SEARCH_GROUPS as [string, ...string[]]).optional(),
+  clas: z.enum(keys(LAND_CLASSIFICATIONS)).optional(),
+  estado: z.enum(keys(CONDITIONS)).optional(),
+  uso: z.enum(keys(LAND_USES)).optional(),
+  /** Disponible ya (amarres) */
+  disp: z.enum(["ya"]).optional(),
   zona: z.string().trim().max(80).optional(),
   provincia: z.string().regex(/^\d{2}$/).optional(),
   tipo: z.enum(keys(PROPERTY_TYPES)).optional(),
@@ -638,6 +754,11 @@ export const PUBLIC_SELECT = {
   rentPeriod: true,
   concessionEnd: true,
   extraInfo: true,
+  distribution: true,
+  landClassification: true,
+  landUse: true,
+  seoTitle: true,
+  seoDescription: true,
   publishedAt: true,
   updatedAt: true,
   agency: { select: { name: true } },
@@ -669,8 +790,13 @@ export async function searchPublic(operation: "SALE" | "RENT", f: SearchFilters,
     if (f.eslora) and.push({ OR: [{ maxBoatLength: { gte: f.eslora } }, { maxBoatLength: null, berthLength: { gte: f.eslora } }] });
     if (f.manga) and.push({ OR: [{ maxBoatBeam: { gte: f.manga } }, { maxBoatBeam: null, berthWidth: { gte: f.manga } }] });
     if (f.tipoAmarre) where.mooringType = f.tipoAmarre;
-  } else if (f.banos) {
-    where.bathrooms = { gte: f.banos };
+    if (f.disp === "ya") and.push({ OR: [{ availableFrom: null }, { availableFrom: { lte: new Date() } }] });
+  } else {
+    if (f.banos) where.bathrooms = { gte: f.banos };
+    if (f.grupo) where.propertyType = { in: [...PROPERTY_GROUPS[f.grupo as keyof typeof PROPERTY_GROUPS].types] };
+    if (f.clas) where.landClassification = f.clas;
+    if (f.estado) where.condition = f.estado;
+    if (f.uso) where.landUse = f.uso;
   }
   if (and.length) where.AND = and;
   if (f.provincia) where.provinceCode = f.provincia;

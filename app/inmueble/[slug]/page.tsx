@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { notFound, permanentRedirect } from "next/navigation";
+import { notFound, permanentRedirect, redirect } from "next/navigation";
 import Link from "next/link";
 import { BedDouble, Bath, Ruler, MapPin, Check, ArrowLeft, Building2 } from "lucide-react";
 import { SiteFooter } from "@/components/landing/SiteFooter";
@@ -12,19 +12,24 @@ import { publicSiteUrl } from "@/lib/site";
 import { csv } from "@/lib/utils";
 import { getProvince } from "@/services/study/geo";
 import {
+  ALL_FEATURE_LABELS,
   CONDITIONS,
   ENERGY_RATINGS,
-  FEATURES,
+  LAND_CLASSIFICATIONS,
+  LAND_USES,
   PROPERTY_TYPES,
+  formatMeters,
+  kindOf,
+  needsEnergyCertificate,
   RENTAL_TYPES,
   formatPrice,
   listingPath,
   photoUrl,
   referenceFromSlug,
-  type FeatureCode,
   type PropertyTypeCode,
 } from "@/services/listings/catalog";
-import { getPublicListing } from "@/services/listings/listings";
+import { getPublicListing, goneListingTarget } from "@/services/listings/listings";
+import { cityPath, citiesWithListings, searchPath } from "@/services/listings/seo";
 import { inquiryConsentText } from "@/services/listings/inquiries";
 
 export const dynamic = "force-dynamic";
@@ -34,6 +39,15 @@ type Props = { params: Promise<{ slug: string }> };
 async function load(slug: string) {
   const ref = referenceFromSlug(slug);
   return ref ? getPublicListing(ref) : null;
+}
+
+/** Anuncio vendido, alquilado o retirado: redirige a su población (o a su sección) en vez de dar error. */
+async function redirectGone(slug: string) {
+  const ref = referenceFromSlug(slug);
+  const t = ref ? await goneListingTarget(ref) : null;
+  if (!t) return;
+  const cities = await citiesWithListings(t.category, t.operation);
+  redirect(cities.some((c) => c.name === t.municipality) ? cityPath(t.category, t.operation, t.municipality) : searchPath(t.category, t.operation));
 }
 
 function summary(l: NonNullable<Awaited<ReturnType<typeof load>>>) {
@@ -51,10 +65,10 @@ function summary(l: NonNullable<Awaited<ReturnType<typeof load>>>) {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const l = await load((await params).slug);
   if (!l) return { title: "Inmueble no disponible" };
-  const description = `${summary(l)}. ${l.description.slice(0, 150).replace(/\s+/g, " ")}`.slice(0, 200);
+  const description = l.seoDescription || `${summary(l)}. ${l.description.slice(0, 150).replace(/\s+/g, " ")}`.slice(0, 200);
   const photo = l.photos[0];
   return {
-    title: `${l.title} · ${formatPrice(l.price, l.operation)}`,
+    title: l.seoTitle || `${l.title} · ${formatPrice(l.price, l.operation)}`,
     description,
     alternates: { canonical: listingPath(l) },
     openGraph: {
@@ -82,13 +96,17 @@ function Fact({ label, value }: { label: string; value: React.ReactNode }) {
 export default async function ListingPage({ params }: Props) {
   const { slug } = await params;
   const l = await load(slug);
-  if (!l) notFound();
+  if (!l) {
+    await redirectGone(slug);
+    notFound();
+  }
   // Los amarres tienen su propia ficha (/amarre/…)
   if (l.slug !== slug || l.category === "MOORING") permanentRedirect(listingPath(l));
 
   const dict = getDictionary("es");
   const rent = l.operation === "RENT";
-  const features = csv(l.features) as FeatureCode[];
+  const features = csv(l.features);
+  const kind = kindOf(l);
   const province = getProvince(l.provinceCode)?.name;
   const advertiser = l.agency?.name ?? null;
   const site = publicSiteUrl();
@@ -161,13 +179,20 @@ export default async function ListingPage({ params }: Props) {
                 </section>
               )}
 
+              {l.distribution && (
+                <section className="mt-5 rounded-2xl border border-sand-200 bg-white p-5 sm:p-6">
+                  <h2 className="text-lg font-semibold text-ink-800">Distribución</h2>
+                  <p className="mt-3 whitespace-pre-line text-[15px] leading-relaxed text-ink-600">{l.distribution}</p>
+                </section>
+              )}
+
               {features.length > 0 && (
                 <section className="mt-5 rounded-2xl border border-sand-200 bg-white p-5 sm:p-6">
                   <h2 className="text-lg font-semibold text-ink-800">Características</h2>
                   <ul className="mt-3 grid gap-2 sm:grid-cols-2">
                     {features.map((f) => (
                       <li key={f} className="flex items-center gap-2 text-[15px] text-ink-700">
-                        <Check className="h-4 w-4 text-pine-600" /> {FEATURES[f] ?? f}
+                        <Check className="h-4 w-4 text-pine-600" /> {ALL_FEATURE_LABELS[f] ?? f}
                       </li>
                     ))}
                   </ul>
@@ -179,7 +204,11 @@ export default async function ListingPage({ params }: Props) {
                   <h2 className="text-lg font-semibold text-ink-800">Datos básicos</h2>
                   <dl className="mt-2">
                     <Fact label="Tipo" value={PROPERTY_TYPES[l.propertyType as PropertyTypeCode]} />
-                    {l.builtArea != null && <Fact label="Superficie construida" value={`${l.builtArea} m²`} />}
+                    {l.builtArea != null && <Fact label={kind === "LAND" ? "Superficie del terreno" : "Superficie construida"} value={`${l.builtArea.toLocaleString("es-ES")} m²`} />}
+                    {kind === "GARAGE" && l.berthLength != null && <Fact label="Largo de la plaza" value={formatMeters(l.berthLength)} />}
+                    {kind === "GARAGE" && l.berthWidth != null && <Fact label="Ancho de la plaza" value={formatMeters(l.berthWidth)} />}
+                    {l.landClassification && <Fact label="Clasificación urbanística" value={LAND_CLASSIFICATIONS[l.landClassification as keyof typeof LAND_CLASSIFICATIONS]} />}
+                    {l.landUse && <Fact label="Uso permitido" value={LAND_USES[l.landUse as keyof typeof LAND_USES]} />}
                     {l.usefulArea != null && <Fact label="Superficie útil" value={`${l.usefulArea} m²`} />}
                     {l.floor && <Fact label="Planta" value={l.floor} />}
                     {l.yearBuilt && <Fact label="Año de construcción" value={l.yearBuilt} />}
@@ -187,15 +216,24 @@ export default async function ListingPage({ params }: Props) {
                     <Fact label="Referencia" value={l.reference} />
                   </dl>
                 </div>
-                <div className="rounded-2xl border border-sand-200 bg-white p-5">
-                  <h2 className="text-lg font-semibold text-ink-800">Certificado energético</h2>
-                  <dl className="mt-2">
-                    <Fact label="Calificación" value={l.energyRating ? ENERGY_RATINGS[l.energyRating as keyof typeof ENERGY_RATINGS] : "—"} />
-                    {l.energyConsumption != null && <Fact label="Consumo" value={`${l.energyConsumption} kWh/m² año`} />}
-                    {l.energyEmissions != null && <Fact label="Emisiones" value={`${l.energyEmissions} kg CO₂/m² año`} />}
-                  </dl>
-                </div>
+                {(needsEnergyCertificate(kind) || l.energyRating) && (
+                  <div className="rounded-2xl border border-sand-200 bg-white p-5">
+                    <h2 className="text-lg font-semibold text-ink-800">Certificado energético</h2>
+                    <dl className="mt-2">
+                      <Fact label="Calificación" value={l.energyRating ? ENERGY_RATINGS[l.energyRating as keyof typeof ENERGY_RATINGS] : "—"} />
+                      {l.energyConsumption != null && <Fact label="Consumo" value={`${l.energyConsumption} kWh/m² año`} />}
+                      {l.energyEmissions != null && <Fact label="Emisiones" value={`${l.energyEmissions} kg CO₂/m² año`} />}
+                    </dl>
+                  </div>
+                )}
               </section>
+
+              {l.extraInfo && (
+                <section className="mt-5 rounded-2xl border border-sand-200 bg-white p-5 sm:p-6">
+                  <h2 className="text-lg font-semibold text-ink-800">Información adicional</h2>
+                  <p className="mt-3 whitespace-pre-line text-[15px] leading-relaxed text-ink-600">{l.extraInfo}</p>
+                </section>
+              )}
 
               {rent && (
                 <section className="mt-5 rounded-2xl border border-sand-200 bg-white p-5 sm:p-6">

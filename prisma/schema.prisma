@@ -461,8 +461,8 @@ model Listing {
 
   // Amarres náuticos (category = MOORING). Medidas en metros.
   portName      String? // puerto deportivo o instalación náutica
-  berthLength   Float? // longitud del amarre
-  berthWidth    Float? // anchura del amarre
+  berthLength   Float? // longitud del amarre (o de la plaza de garaje)
+  berthWidth    Float? // anchura del amarre (o de la plaza de garaje)
   maxBoatLength Float? // eslora máxima admitida
   maxBoatBeam   Float? // manga máxima admitida
   berthDepth    Float? // calado
@@ -470,6 +470,16 @@ model Listing {
   rentPeriod    String? // DAY | WEEK | MONTH | SEASON | YEAR (alquiler de amarre)
   concessionEnd Int? // año de fin de la concesión o del derecho de uso
   extraInfo     String? // información adicional para el comprador o arrendatario
+
+  // Locales, oficinas y terrenos
+  distribution       String? // distribución (locales y oficinas)
+  landClassification String? // URBAN | DEVELOPABLE | RUSTIC (solo si está verificada)
+  landUse            String? // RESIDENTIAL | INDUSTRIAL | COMMERCIAL | AGRICULTURAL | MIXED | OTHER
+
+  // SEO (lo edita el administrador; la IA solo propone)
+  seoTitle       String? // título para Google (meta title)
+  seoDescription String? // descripción para Google (meta description)
+  slugText       String? // texto de la dirección: /inmueble/<slugText>-<referencia>
 
   ownerContactId String? // propietario en el CRM de la inmobiliaria
   ownerContact   AgencyContact? @relation("ListingOwner", fields: [ownerContactId], references: [id], onDelete: SetNull)
@@ -718,6 +728,38 @@ model PublicationRequest {
 
   adminNote String?
   listingId String? // anuncio creado a partir de la solicitud
+
+  @@index([status, createdAt])
+}
+
+// Uso de la IA de redacción de anuncios (control de límites y costes).
+model AiUsage {
+  id           String   @id @default(cuid())
+  createdAt    DateTime @default(now())
+  kind         String // LISTING_COPY | LISTING_TITLE | LISTING_DESCRIPTION
+  adminId      String?
+  listingId    String?
+  model        String
+  inputTokens  Int      @default(0)
+  outputTokens Int      @default(0)
+  ok           Boolean  @default(true)
+  error        String?
+
+  @@index([createdAt])
+}
+
+// Mensajes del formulario de contacto de la web.
+model ContactMessage {
+  id             String   @id @default(cuid())
+  createdAt      DateTime @default(now())
+  status         String   @default("NEW") // NEW | HANDLED | DISCARDED
+  name           String
+  email          String
+  phone          String?
+  subject        String?
+  message        String
+  consentVersion String
+  consentText    String
 
   @@index([status, createdAt])
 }

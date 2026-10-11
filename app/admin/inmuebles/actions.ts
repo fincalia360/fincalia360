@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/auth";
+import { generateListingCopy } from "@/services/listings/aiCopy";
 import { prisma } from "@/db/client";
 import type { FormState } from "@/components/listings/ListingForm";
 import {
@@ -12,6 +13,7 @@ import {
   TRANSITIONS,
   createListing,
   deleteListing,
+  duplicateListing,
   deletePhoto,
   listingFormToObject,
   movePhoto,
@@ -76,6 +78,24 @@ export async function deleteListingAction(id: string): Promise<FormState> {
     return { error: message(e) };
   }
   redirect("/admin/inmuebles");
+}
+
+export async function duplicateListingAction(id: string): Promise<FormState> {
+  const a = await actor();
+  let newId: string;
+  try {
+    newId = (await duplicateListing(a, id)).id;
+  } catch (e) {
+    return { error: message(e) };
+  }
+  redirect(`/admin/inmuebles/${newId}?duplicado=1`);
+}
+
+/** IA de redacción: propone textos a partir de los datos del formulario (no guarda ni publica nada). */
+export async function aiCopyAction(raw: Record<string, unknown>, mode: "ALL" | "TITLE" | "DESCRIPTION", listingId?: string | null) {
+  const user = await requireAdmin();
+  const m = z.enum(["ALL", "TITLE", "DESCRIPTION"]).parse(mode);
+  return generateListingCopy({ raw, mode: m, adminId: user.id, listingId: listingId ?? null });
 }
 
 export async function mainPhotoAction(photoId: string) {

@@ -81,6 +81,103 @@ export const FEATURES = {
 } as const;
 export type FeatureCode = keyof typeof FEATURES;
 
+/** Locales comerciales y oficinas. */
+export const COMMERCIAL_FEATURES = {
+  STREET_LEVEL: "A pie de calle",
+  SHOP_WINDOW: "Escaparate",
+  CORNER: "Haciendo esquina",
+  SMOKE_OUTLET: "Salida de humos",
+  ACTIVITY_LICENSE: "Licencia de actividad",
+  FITTED_OUT: "Acondicionado, listo para usar",
+  STOREROOM: "Almacén",
+  MEETING_ROOM: "Sala de reuniones",
+  RECEPTION: "Recepción",
+  AC: "Aire acondicionado",
+  HEATING: "Calefacción",
+  ELEVATOR: "Ascensor",
+  ACCESSIBLE: "Accesible",
+  PARKING: "Plaza de garaje",
+  SECURITY: "Vigilancia o alarma",
+} as const;
+
+/** Garajes y plazas de aparcamiento. */
+export const GARAGE_FEATURES = {
+  COVERED: "Cubierta",
+  CLOSED_BOX: "Plaza cerrada (box)",
+  AUTO_DOOR: "Puerta automática",
+  EASY_ACCESS: "Fácil maniobra",
+  EV_CHARGER: "Punto de carga eléctrica",
+  MOTORBIKE: "Apta para moto",
+  SECURITY: "Vigilancia o alarma",
+  STORAGE: "Trastero",
+} as const;
+
+/** Terrenos y solares. */
+export const LAND_FEATURES = {
+  WATER_SUPPLY: "Acometida de agua",
+  POWER_SUPPLY: "Acometida de luz",
+  SEWER: "Alcantarillado",
+  PAVED_ACCESS: "Acceso asfaltado",
+  FENCED: "Vallado",
+  VIEWS: "Vistas",
+} as const;
+
+/** Clasificación urbanística (solo si consta en información verificada). */
+export const LAND_CLASSIFICATIONS = { URBAN: "Suelo urbano", DEVELOPABLE: "Suelo urbanizable", RUSTIC: "Suelo rústico (no urbanizable)" } as const;
+export const LAND_USES = {
+  RESIDENTIAL: "Residencial",
+  COMMERCIAL: "Terciario o comercial",
+  INDUSTRIAL: "Industrial",
+  AGRICULTURAL: "Agrícola",
+  MIXED: "Mixto",
+  OTHER: "Otro",
+} as const;
+
+/**
+ * Qué campos tiene cada tipo de inmueble. El formulario del panel, los filtros y la ficha
+ * muestran solo los que corresponden.
+ */
+export type FieldKind = "DWELLING" | "COMMERCIAL" | "GARAGE" | "LAND" | "MOORING" | "OTHER";
+
+/** Grupos del menú VENTA / ALQUILER (submenús y filtro «tipo de inmueble»). */
+export const PROPERTY_GROUPS = {
+  pisos: { label: "Pisos y apartamentos", types: ["PISO", "ATICO", "DUPLEX", "ESTUDIO"], kind: "DWELLING" },
+  casas: { label: "Casas y chalets", types: ["CASA", "CHALET"], kind: "DWELLING" },
+  locales: { label: "Locales comerciales", types: ["LOCAL"], kind: "COMMERCIAL" },
+  oficinas: { label: "Oficinas", types: ["OFICINA"], kind: "COMMERCIAL" },
+  garajes: { label: "Garajes y plazas de aparcamiento", types: ["GARAJE"], kind: "GARAGE" },
+  terrenos: { label: "Terrenos y solares", types: ["TERRENO"], kind: "LAND" },
+  amarres: { label: "Amarres náuticos", types: ["AMARRE"], kind: "MOORING" },
+  otros: { label: "Otros inmuebles", types: ["OTRO"], kind: "OTHER" },
+} as const satisfies Record<string, { label: string; types: readonly string[]; kind: FieldKind }>;
+export type PropertyGroup = keyof typeof PROPERTY_GROUPS;
+/** Grupos que se buscan en /comprar y /alquilar (los amarres tienen su propia búsqueda, con el mismo diseño). */
+export const HOME_SEARCH_GROUPS = (Object.keys(PROPERTY_GROUPS) as PropertyGroup[]).filter((g) => g !== "amarres");
+
+export function kindOf(l: { category?: string | null; propertyType: string }): FieldKind {
+  if (l.category === "MOORING" || l.propertyType === MOORING_PROPERTY_TYPE) return "MOORING";
+  return (Object.values(PROPERTY_GROUPS).find((g) => (g.types as readonly string[]).includes(l.propertyType))?.kind ?? "OTHER") as FieldKind;
+}
+
+export function groupOfType(propertyType: string): PropertyGroup | null {
+  return (Object.keys(PROPERTY_GROUPS) as PropertyGroup[]).find((g) => (PROPERTY_GROUPS[g].types as readonly string[]).includes(propertyType)) ?? null;
+}
+
+export const FEATURES_BY_KIND: Record<FieldKind, Record<string, string>> = {
+  DWELLING: FEATURES,
+  COMMERCIAL: COMMERCIAL_FEATURES,
+  GARAGE: GARAGE_FEATURES,
+  LAND: LAND_FEATURES,
+  MOORING: MOORING_FEATURES,
+  OTHER: FEATURES,
+};
+
+/** Todas las etiquetas de características (para mostrarlas en fichas y filtros). */
+export const ALL_FEATURE_LABELS: Record<string, string> = { ...FEATURES, ...COMMERCIAL_FEATURES, ...GARAGE_FEATURES, ...LAND_FEATURES, ...MOORING_FEATURES };
+
+/** El certificado energético es obligatorio en viviendas, locales y oficinas (no en garajes, terrenos ni amarres). */
+export const needsEnergyCertificate = (kind: FieldKind) => kind === "DWELLING" || kind === "COMMERCIAL";
+
 export const ENERGY_RATINGS = {
   A: "A",
   B: "B",
@@ -157,7 +254,20 @@ export function slugify(text: string) {
 }
 
 /** Dirección clara: /inmueble/piso-3-habitaciones-girona-f360-ab12cd · /amarre/amarre-venta-12-m-port-de-roses-f360-ab12cd */
-export function buildSlug(l: { category?: string | null; propertyType: string; bedrooms?: number | null; municipality: string; operation: string; reference: string; berthLength?: number | null; portName?: string | null }) {
+export function buildSlug(l: {
+  category?: string | null;
+  propertyType: string;
+  bedrooms?: number | null;
+  municipality: string;
+  operation: string;
+  reference: string;
+  berthLength?: number | null;
+  portName?: string | null;
+  slugText?: string | null;
+}) {
+  // Texto de la dirección elegido por el administrador (SEO); la referencia final la mantiene estable
+  const custom = l.slugText ? slugify(l.slugText) : "";
+  if (custom) return `${custom}-${l.reference.toLowerCase()}`;
   if (l.category === "MOORING") {
     const parts = ["amarre", l.operation === "RENT" ? "alquiler" : "venta", l.berthLength ? `${String(l.berthLength).replace(".", "-")} m` : "", l.portName ?? "", l.municipality];
     return `${slugify(parts.filter(Boolean).join(" "))}-${l.reference.toLowerCase()}`;

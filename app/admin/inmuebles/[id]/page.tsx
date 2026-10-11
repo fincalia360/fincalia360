@@ -13,12 +13,22 @@ import { PROVINCES } from "@/services/study/geo";
 import { isPortalProvince } from "@/services/listings/catalog";
 import { INQUIRY_STATUSES, PUBLIC_STATUSES, listingPath, type ListingStatus } from "@/services/listings/catalog";
 import { ListingError, availableTransitions, getListing, publishProblems } from "@/services/listings/listings";
-import { deleteListingAction, deletePhotoAction, mainPhotoAction, movePhotoAction, transitionAction, updateListingAction } from "../actions";
+import { DuplicateButton } from "@/components/listings/DuplicateButton";
+import {
+  aiCopyAction,
+  deleteListingAction,
+  deletePhotoAction,
+  duplicateListingAction,
+  mainPhotoAction,
+  movePhotoAction,
+  transitionAction,
+  updateListingAction,
+} from "../actions";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Inmueble" };
 
-export default async function AdminListingPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ creado?: string }> }) {
+export default async function AdminListingPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ creado?: string; duplicado?: string }> }) {
   const user = await requireAdmin();
   const { id } = await params;
   const actor = { kind: "admin" as const, id: user.id };
@@ -26,7 +36,9 @@ export default async function AdminListingPage({ params, searchParams }: { param
     if (e instanceof ListingError) notFound();
     throw e;
   });
-  const created = (await searchParams).creado === "1";
+  const sp = await searchParams;
+  const created = sp.creado === "1";
+  const duplicated = sp.duplicado === "1";
   const [inquiries, inquiryCount] = await Promise.all([
     // Las solicitudes de anuncios de inmobiliarias las gestiona la inmobiliaria (datos de su CRM)
     listing.agencyId ? Promise.resolve([]) : prisma.listingInquiry.findMany({ where: { listingId: listing.id }, orderBy: { createdAt: "desc" }, take: 100 }),
@@ -45,6 +57,11 @@ export default async function AdminListingPage({ params, searchParams }: { param
         description={`${listing.category === "MOORING" ? "Amarre" : "Vivienda o inmueble"} · ${listing.reference} · Anunciante: ${listing.agency?.name ?? "FINCALIA360"}`}
       />
       {created && <p className="mb-5 rounded-xl bg-pine-50 px-4 py-3 text-sm text-pine-700">Borrador creado. Ahora sube las fotos y el documento de autorización.</p>}
+      {duplicated && (
+        <p className="mb-5 rounded-xl bg-pine-50 px-4 py-3 text-sm text-pine-700">
+          Copia creada como borrador, con las mismas fotos. Cambia lo que haga falta, revisa la autorización y publícala cuando esté lista.
+        </p>
+      )}
 
       <div className="grid gap-6 xl:grid-cols-[1fr_340px]">
         <div className="min-w-0 space-y-5">
@@ -56,7 +73,15 @@ export default async function AdminListingPage({ params, searchParams }: { param
             onDelete={deletePhotoAction}
           />
           <AuthorizationDocUpload uploadUrl={`/api/admin/inmuebles/${listing.id}/autorizacion`} downloadUrl={`/api/admin/inmuebles/${listing.id}/autorizacion`} hasDoc={Boolean(listing.authorizationDoc)} />
-          <ListingForm key={listing.updatedAt.toISOString()} action={updateListingAction.bind(null, listing.id)} values={listing} provinces={provinces} submitLabel="Guardar cambios" category={listing.category === "MOORING" ? "MOORING" : "HOME"} />
+          <ListingForm key={listing.updatedAt.toISOString()} action={updateListingAction.bind(null, listing.id)} values={listing}
+            provinces={provinces}
+            submitLabel="Guardar cambios"
+            category={listing.category === "MOORING" ? "MOORING" : "HOME"}
+            aiAction={async (raw, mode) => {
+              "use server";
+              return aiCopyAction(raw, mode, listing.id);
+            }}
+          />
         </div>
 
         <aside className="space-y-5 xl:sticky xl:top-6 xl:self-start">
@@ -71,6 +96,7 @@ export default async function AdminListingPage({ params, searchParams }: { param
             isAdmin
             onDelete={deleteListingAction.bind(null, listing.id)}
           />
+          <DuplicateButton action={duplicateListingAction.bind(null, listing.id)} />
           <div className="rounded-2xl border border-sand-200 bg-white p-5">
             <h2 className="text-[15px] font-semibold text-ink-800">Solicitudes recibidas ({inquiryCount})</h2>
             {listing.agencyId ? (

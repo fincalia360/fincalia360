@@ -1,25 +1,35 @@
 "use client";
 
-// Formulario de alta y edición de inmuebles. Lo usan el panel de FINCALIA360 y la Zona inmobiliarias
+// Formulario de alta y edición de anuncios. Lo usan el panel de FINCALIA360 y la Zona inmobiliarias
 // (cada uno le pasa su propia acción de servidor, que es la que comprueba los permisos).
-import { useEffect, useState } from "react";
+// Los campos cambian según el tipo de inmueble: vivienda, local u oficina, garaje, terreno, amarre u otros.
+import { useEffect, useRef, useState } from "react";
 import { useActionForm } from "@/lib/useActionForm";
-import { Loader2 } from "lucide-react";
+import { Loader2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import {
   AUTHORIZATION_TYPES,
   CONDITIONS,
   ENERGY_RATINGS,
-  FEATURES,
-  MOORING_FEATURES,
+  FEATURES_BY_KIND,
+  LAND_CLASSIFICATIONS,
+  LAND_USES,
   MOORING_TYPES,
+  PROPERTY_GROUPS,
   PROPERTY_TYPES,
   RENTAL_TYPES,
   RENT_PERIODS,
+  kindOf,
+  needsEnergyCertificate,
+  type FieldKind,
 } from "@/services/listings/catalog";
 
 export type FormState = { ok?: boolean; error?: string; field?: string; notice?: string };
 type Action = (prev: FormState, formData: FormData) => Promise<FormState>;
+export type AiCopyAction = (
+  raw: Record<string, unknown>,
+  mode: "ALL" | "TITLE" | "DESCRIPTION",
+) => Promise<{ ok: boolean; error?: string; warnings?: string[]; copy?: Partial<Record<"title" | "description" | "seoTitle" | "seoDescription" | "slugText", string>> }>;
 
 export interface ListingValues {
   category?: string;
@@ -33,6 +43,12 @@ export interface ListingValues {
   rentPeriod?: string | null;
   concessionEnd?: number | null;
   extraInfo?: string | null;
+  distribution?: string | null;
+  landClassification?: string | null;
+  landUse?: string | null;
+  seoTitle?: string | null;
+  seoDescription?: string | null;
+  slugText?: string | null;
   operation?: string;
   title?: string;
   description?: string;
@@ -104,6 +120,28 @@ function Check({ name, defaultChecked, children }: { name: string; defaultChecke
   );
 }
 
+function Select({ name, value, options, empty = "Sin indicar" }: { name: string; value?: string | null; options: Record<string, string>; empty?: string }) {
+  return (
+    <select name={name} defaultValue={value ?? ""} className="field">
+      <option value="">{empty}</option>
+      {Object.entries(options).map(([k, v]) => (
+        <option key={k} value={k}>
+          {v}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+const FEATURES_TITLE: Record<FieldKind, string> = {
+  DWELLING: "Equipamiento",
+  COMMERCIAL: "Características comerciales",
+  GARAGE: "Características de la plaza",
+  LAND: "Servicios del terreno",
+  MOORING: "Servicios e instalaciones",
+  OTHER: "Equipamiento",
+};
+
 export function ListingForm({
   action,
   values = {},
@@ -112,7 +150,9 @@ export function ListingForm({
   submitLabel,
   agencyMode = false,
   category = "HOME",
+  aiAction,
 }: {
+  /** Tipo inicial al crear (los amarres se crean desde «Nuevo amarre»). */
   category?: "HOME" | "MOORING";
   action: Action;
   values?: ListingValues;
@@ -120,14 +160,23 @@ export function ListingForm({
   ownerContacts?: { id: string; name: string }[];
   submitLabel: string;
   agencyMode?: boolean;
+  /** IA de redacción (solo en el panel de administración). */
+  aiAction?: AiCopyAction;
 }) {
   const [state, onSubmit, pending] = useActionForm(action, {});
-  const mooring = category === "MOORING";
+  const formRef = useRef<HTMLFormElement>(null);
   const [operation, setOperation] = useState(values.operation ?? "SALE");
+  const [propertyType, setPropertyType] = useState(values.propertyType ?? (category === "MOORING" ? "AMARRE" : "PISO"));
+  const kind = kindOf({ propertyType });
+  const mooring = kind === "MOORING";
+  const rent = operation === "RENT";
+  const energy = needsEnergyCertificate(kind) || kind === "OTHER";
   const features = new Set((values.features ?? "").split(",").filter(Boolean));
   // Municipios oficiales (INE) de la provincia elegida: el nombre coincide con el del buscador del portal
   const [provinceCode, setProvinceCode] = useState(values.provinceCode ?? "");
   const [municipalityOptions, setMunicipalityOptions] = useState<string[]>([]);
+  const [ai, setAi] = useState<{ busy: "ALL" | "TITLE" | "DESCRIPTION" | null; error?: string; warnings?: string[]; done?: boolean }>({ busy: null });
+
   useEffect(() => {
     setMunicipalityOptions([]);
     if (!provinceCode) return;
@@ -143,9 +192,34 @@ export function ListingForm({
     };
   }, [provinceCode]);
 
+  async function runAi(mode: "ALL" | "TITLE" | "DESCRIPTION") {
+    if (!aiAction || !formRef.current) return;
+    const fd = new FormData(formRef.current);
+    const raw: Record<string, unknown> = {};
+    for (const [k, v] of fd.entries()) if (typeof v === "string" && k !== "features") raw[k] = v;
+    raw.features = fd.getAll("features").map(String);
+    setAi({ busy: mode });
+    try {
+      const res = await aiAction(raw, mode);
+      if (!res.ok || !res.copy) return setAi({ busy: null, error: res.error ?? "No se ha podido generar el texto" });
+      const form = formRef.current;
+      for (const [name, value] of Object.entries(res.copy)) {
+        const el = form.elements.namedItem(name);
+        if (value && (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement)) el.value = value;
+      }
+      setAi({ busy: null, warnings: res.warnings, done: true });
+    } catch {
+      setAi({ busy: null, error: "El servicio de IA no ha respondido. Inténtalo de nuevo o redacta el anuncio a mano." });
+    }
+  }
+
+  const sizeLabel = kind === "LAND" ? "Superficie del terreno (m²)" : kind === "GARAGE" ? "Superficie (m²)" : "Superficie construida (m²)";
+  const featureOptions = FEATURES_BY_KIND[kind];
+
   return (
-    <form onSubmit={onSubmit} className="space-y-5">
-      <Section title="Operación y precio">
+    <form ref={formRef} onSubmit={onSubmit} className="space-y-5">
+      <input type="hidden" name="category" value={mooring ? "MOORING" : "HOME"} />
+      <Section title="Operación, tipo y precio">
         <div className="sm:col-span-2">
           <span className="field-label">Operación</span>
           <div className="inline-flex rounded-full bg-sand-100 p-1 text-sm font-medium">
@@ -157,11 +231,23 @@ export function ListingForm({
             ))}
           </div>
         </div>
-        <input type="hidden" name="category" value={category} />
-        <Field label={operation === "RENT" ? (mooring ? "Precio del alquiler (€)" : "Renta mensual (€)") : "Precio de venta (€)"}>
+        <Field label="Tipo de inmueble" hint="Los campos del formulario se adaptan al tipo elegido">
+          <select name="propertyType" value={propertyType} onChange={(e) => setPropertyType(e.target.value)} className="field">
+            {Object.entries(PROPERTY_GROUPS).map(([g, group]) => (
+              <optgroup key={g} label={group.label}>
+                {group.types.map((t) => (
+                  <option key={t} value={t}>
+                    {t === "AMARRE" ? "Amarre náutico" : PROPERTY_TYPES[t as keyof typeof PROPERTY_TYPES]}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+        </Field>
+        <Field label={rent ? (mooring ? "Precio del alquiler (€)" : "Renta mensual (€)") : "Precio de venta (€)"}>
           <input name="price" type="number" min={1} step={1} required defaultValue={num(values.price)} className="field" />
         </Field>
-        {mooring && operation === "RENT" ? (
+        {mooring && rent && (
           <Field label="Periodicidad del alquiler">
             <select name="rentPeriod" defaultValue={values.rentPeriod ?? "MONTH"} className="field">
               {Object.entries(RENT_PERIODS).map(([k, v]) => (
@@ -171,59 +257,34 @@ export function ListingForm({
               ))}
             </select>
           </Field>
-        ) : (
-          <Field label={mooring ? "Gastos de mantenimiento (€/mes)" : "Gastos de comunidad (€/mes)"} hint="Opcional">
-            <input name="communityFee" type="number" min={0} step={1} defaultValue={num(values.communityFee)} className="field" />
-          </Field>
         )}
-        {mooring && operation === "RENT" && (
-          <Field label="Gastos de mantenimiento (€/mes)" hint="Opcional">
+        {kind !== "LAND" && (
+          <Field label={mooring ? "Gastos de mantenimiento (€/mes)" : "Gastos de comunidad (€/mes)"} hint="Opcional">
             <input name="communityFee" type="number" min={0} step={1} defaultValue={num(values.communityFee)} className="field" />
           </Field>
         )}
         {mooring ? (
           <>
-            <input type="hidden" name="propertyType" value="AMARRE" />
             <Field label="Tipo de amarre">
-              <select name="mooringType" defaultValue={values.mooringType ?? ""} className="field">
-                <option value="">Sin indicar</option>
-                {Object.entries(MOORING_TYPES).map(([k, v]) => (
-                  <option key={k} value={k}>
-                    {v}
-                  </option>
-                ))}
-              </select>
+              <Select name="mooringType" value={values.mooringType} options={MOORING_TYPES} />
             </Field>
             <Field label="Fin de la concesión o del derecho de uso" hint="Año. Opcional, pero muy útil para el comprador">
               <input name="concessionEnd" type="number" min={2000} max={2150} defaultValue={num(values.concessionEnd)} className="field" />
             </Field>
           </>
         ) : (
-        <>
-        <Field label="Tipo de inmueble">
-          <select name="propertyType" defaultValue={values.propertyType ?? "PISO"} className="field">
-            {Object.entries(PROPERTY_TYPES).map(([k, v]) => (
-              <option key={k} value={k}>
-                {v}
-              </option>
-            ))}
-          </select>
-        </Field>
-        <Field label="Estado del inmueble">
-          <select name="condition" defaultValue={values.condition ?? ""} className="field">
-            <option value="">Sin indicar</option>
-            {Object.entries(CONDITIONS).map(([k, v]) => (
-              <option key={k} value={k}>
-                {v}
-              </option>
-            ))}
-          </select>
-        </Field>
-        </>
+          kind !== "LAND" && (
+            <Field label="Estado">
+              <Select name="condition" value={values.condition} options={CONDITIONS} />
+            </Field>
+          )
         )}
       </Section>
 
-      <Section title="Ubicación" description={mooring ? "El número exacto del amarre es privado: no se muestra en la web." : "La dirección exacta y la referencia catastral son privadas: no se muestran en la web."}>
+      <Section
+        title="Ubicación"
+        description={mooring ? "El número exacto del amarre es privado: no se muestra en la web." : "La dirección exacta y la referencia catastral son privadas: no se muestran en la web."}
+      >
         {mooring && (
           <Field label="Puerto deportivo o instalación náutica" wide hint="Ej.: Port de Roses, Marina Port Vell, Club Nàutic L'Escala">
             <input name="portName" required maxLength={100} defaultValue={values.portName ?? ""} className="field" />
@@ -247,7 +308,7 @@ export function ListingForm({
             ))}
           </datalist>
         </Field>
-        <Field label={mooring ? "Ubicación en el puerto" : "Zona o barrio"} hint={mooring ? "Ej.: pantalán 3, dársena norte. Se muestra en el anuncio" : "Se muestra en el anuncio"}>
+        <Field label={mooring ? "Ubicación en el puerto" : "Zona o barrio"} hint="Se muestra en el anuncio">
           <input name="zone" maxLength={80} defaultValue={values.zone ?? ""} className="field" />
         </Field>
         <Field label="Código postal">
@@ -263,67 +324,86 @@ export function ListingForm({
         )}
       </Section>
 
-      {mooring ? (
-        <Section title="Medidas y características del amarre" description="En metros. Usa coma o punto para los decimales.">
-          <Field label="Longitud del amarre (m)">
-            <input name="berthLength" inputMode="decimal" required defaultValue={num(values.berthLength)} className="field" />
+      <Section
+        title={mooring ? "Medidas y características del amarre" : "Características"}
+        description={mooring || kind === "GARAGE" ? "Medidas en metros. Usa coma o punto para los decimales." : undefined}
+      >
+        {(mooring || kind === "GARAGE") && (
+          <>
+            <Field label={mooring ? "Longitud del amarre (m)" : "Largo de la plaza (m)"} hint={mooring ? undefined : "Opcional"}>
+              <input name="berthLength" inputMode="decimal" required={mooring} defaultValue={num(values.berthLength)} className="field" />
+            </Field>
+            <Field label={mooring ? "Anchura del amarre (m)" : "Ancho de la plaza (m)"} hint={mooring ? undefined : "Opcional"}>
+              <input name="berthWidth" inputMode="decimal" required={mooring} defaultValue={num(values.berthWidth)} className="field" />
+            </Field>
+          </>
+        )}
+        {mooring && (
+          <>
+            <Field label="Eslora máxima admitida (m)" hint="Opcional">
+              <input name="maxBoatLength" inputMode="decimal" defaultValue={num(values.maxBoatLength)} className="field" />
+            </Field>
+            <Field label="Manga máxima admitida (m)" hint="Opcional">
+              <input name="maxBoatBeam" inputMode="decimal" defaultValue={num(values.maxBoatBeam)} className="field" />
+            </Field>
+            <Field label="Calado (m)" hint="Opcional">
+              <input name="berthDepth" inputMode="decimal" defaultValue={num(values.berthDepth)} className="field" />
+            </Field>
+          </>
+        )}
+        <Field label={mooring ? "Superficie (m²)" : sizeLabel} hint={mooring || kind === "GARAGE" ? "Opcional, si corresponde" : undefined}>
+          <input name="builtArea" type="number" min={0} defaultValue={num(values.builtArea)} className="field" />
+        </Field>
+        {(kind === "DWELLING" || kind === "COMMERCIAL" || kind === "OTHER") && (
+          <Field label="Superficie útil (m²)" hint="Opcional">
+            <input name="usefulArea" type="number" min={0} defaultValue={num(values.usefulArea)} className="field" />
           </Field>
-          <Field label="Anchura del amarre (m)">
-            <input name="berthWidth" inputMode="decimal" required defaultValue={num(values.berthWidth)} className="field" />
+        )}
+        {(kind === "DWELLING" || kind === "OTHER") && (
+          <Field label="Habitaciones">
+            <input name="bedrooms" type="number" min={0} max={50} defaultValue={num(values.bedrooms)} className="field" />
           </Field>
-          <Field label="Eslora máxima admitida (m)" hint="Opcional">
-            <input name="maxBoatLength" inputMode="decimal" defaultValue={num(values.maxBoatLength)} className="field" />
+        )}
+        {(kind === "DWELLING" || kind === "COMMERCIAL" || kind === "OTHER") && (
+          <Field label={kind === "COMMERCIAL" ? "Aseos" : "Baños"}>
+            <input name="bathrooms" type="number" min={0} max={50} defaultValue={num(values.bathrooms)} className="field" />
           </Field>
-          <Field label="Manga máxima admitida (m)" hint="Opcional">
-            <input name="maxBoatBeam" inputMode="decimal" defaultValue={num(values.maxBoatBeam)} className="field" />
+        )}
+        {kind !== "LAND" && !mooring && (
+          <Field label="Planta" hint={kind === "GARAGE" ? "Ej.: -1, -2, baja" : "Ej.: 3ª, bajo, ático"}>
+            <input name="floor" maxLength={30} defaultValue={values.floor ?? ""} className="field" />
           </Field>
-          <Field label="Calado (m)" hint="Opcional">
-            <input name="berthDepth" inputMode="decimal" defaultValue={num(values.berthDepth)} className="field" />
+        )}
+        {(kind === "DWELLING" || kind === "COMMERCIAL" || kind === "OTHER") && (
+          <Field label="Año de construcción">
+            <input name="yearBuilt" type="number" min={1500} max={2100} defaultValue={num(values.yearBuilt)} className="field" />
           </Field>
-          <Field label="Superficie (m²)" hint="Opcional, si corresponde">
-            <input name="builtArea" type="number" min={0} defaultValue={num(values.builtArea)} className="field" />
+        )}
+        {kind === "COMMERCIAL" && (
+          <Field label="Distribución" wide hint="Ej.: planta diáfana, 3 despachos, sala de reuniones y almacén. Opcional">
+            <textarea name="distribution" rows={2} maxLength={1000} defaultValue={values.distribution ?? ""} className="field" />
           </Field>
+        )}
+        {kind === "LAND" && (
+          <>
+            <Field label="Clasificación urbanística" hint="Solo si consta en información verificada (ayuntamiento, nota simple…)">
+              <Select name="landClassification" value={values.landClassification} options={LAND_CLASSIFICATIONS} />
+            </Field>
+            <Field label="Uso permitido" hint="Solo si está verificado">
+              <Select name="landUse" value={values.landUse} options={LAND_USES} />
+            </Field>
+          </>
+        )}
+        {mooring && (
           <Field label="Disponible desde" hint="Opcional">
             <input name="availableFrom" type="date" defaultValue={dateValue(values.availableFrom)} className="field" />
           </Field>
-          <div />
-          <div className="sm:col-span-2">
-            <span className="field-label">Servicios e instalaciones</span>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-              {Object.entries(MOORING_FEATURES).map(([k, v]) => (
-                <label key={k} className="flex items-center gap-2 text-sm text-ink-700">
-                  <input type="checkbox" name="features" value={k} defaultChecked={features.has(k)} className="h-4 w-4 rounded border-sand-300" />
-                  {v}
-                </label>
-              ))}
-            </div>
-          </div>
-        </Section>
-      ) : (
-      <Section title="Características">
-        <Field label="Superficie construida (m²)">
-          <input name="builtArea" type="number" min={0} defaultValue={num(values.builtArea)} className="field" />
-        </Field>
-        <Field label="Superficie útil (m²)" hint="Opcional">
-          <input name="usefulArea" type="number" min={0} defaultValue={num(values.usefulArea)} className="field" />
-        </Field>
-        <Field label="Habitaciones">
-          <input name="bedrooms" type="number" min={0} max={50} defaultValue={num(values.bedrooms)} className="field" />
-        </Field>
-        <Field label="Baños">
-          <input name="bathrooms" type="number" min={0} max={50} defaultValue={num(values.bathrooms)} className="field" />
-        </Field>
-        <Field label="Planta" hint="Ej.: 3ª, bajo, ático">
-          <input name="floor" maxLength={30} defaultValue={values.floor ?? ""} className="field" />
-        </Field>
-        <Field label="Año de construcción">
-          <input name="yearBuilt" type="number" min={1500} max={2100} defaultValue={num(values.yearBuilt)} className="field" />
-        </Field>
+        )}
         <div className="sm:col-span-2">
-          <span className="field-label">Equipamiento</span>
+          <span className="field-label">{FEATURES_TITLE[kind]}</span>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            {Object.entries(FEATURES).map(([k, v]) => (
-              <label key={k} className="flex items-center gap-2 text-sm text-ink-700">
+            {Object.entries(featureOptions).map(([k, v]) => (
+              <label key={`${kind}-${k}`} className="flex items-center gap-2 text-sm text-ink-700">
                 <input type="checkbox" name="features" value={k} defaultChecked={features.has(k)} className="h-4 w-4 rounded border-sand-300" />
                 {v}
               </label>
@@ -331,69 +411,112 @@ export function ListingForm({
           </div>
         </div>
       </Section>
-      )}
 
       <Section title="Anuncio">
-        <Field label="Título" wide hint={mooring ? "Entre 10 y 110 caracteres. Ej.: Amarre de 12 x 4 m en Port de Roses" : "Entre 10 y 110 caracteres. Ej.: Piso reformado con terraza junto al centro"}>
+        {aiAction && (
+          <div className="rounded-xl border border-terracotta-100 bg-terracotta-50 p-3 sm:col-span-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => runAi("ALL")}
+                disabled={ai.busy !== null}
+                className="inline-flex h-9 items-center gap-1.5 rounded-full bg-terracotta-500 px-4 text-sm font-medium text-white hover:bg-terracotta-600 disabled:opacity-60"
+              >
+                {ai.busy === "ALL" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                {ai.done ? "Regenerar texto con IA" : "Generar texto con IA"}
+              </button>
+              <button
+                type="button"
+                onClick={() => runAi("TITLE")}
+                disabled={ai.busy !== null}
+                className="inline-flex h-9 items-center gap-1.5 rounded-full border border-terracotta-500 px-3 text-sm text-terracotta-700 hover:bg-white disabled:opacity-60"
+              >
+                {ai.busy === "TITLE" && <Loader2 className="h-4 w-4 animate-spin" />} Mejorar título
+              </button>
+              <button
+                type="button"
+                onClick={() => runAi("DESCRIPTION")}
+                disabled={ai.busy !== null}
+                className="inline-flex h-9 items-center gap-1.5 rounded-full border border-terracotta-500 px-3 text-sm text-terracotta-700 hover:bg-white disabled:opacity-60"
+              >
+                {ai.busy === "DESCRIPTION" && <Loader2 className="h-4 w-4 animate-spin" />} Mejorar descripción
+              </button>
+            </div>
+            <p className="mt-2 text-xs text-ink-500">
+              La IA redacta con los datos de este formulario (y tu texto, si lo has escrito). Revisa y edita el resultado: no se guarda hasta que pulses «{submitLabel}» y no
+              se publica hasta que pulses «Publicar».
+            </p>
+            {ai.error && (
+              <p className="mt-2 text-sm text-red-600" role="alert">
+                {ai.error}
+              </p>
+            )}
+            {ai.done && !ai.error && (
+              <p className="mt-2 text-sm text-pine-600" role="status">
+                Texto propuesto en los campos de abajo. Revísalo antes de guardar.
+              </p>
+            )}
+            {ai.warnings?.map((w) => (
+              <p key={w} className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800" role="alert">
+                {w}
+              </p>
+            ))}
+          </div>
+        )}
+        <Field
+          label="Título"
+          wide
+          hint={mooring ? "Entre 10 y 110 caracteres. Ej.: Amarre de 12 x 4 m en Port de Roses" : "Entre 10 y 110 caracteres. Ej.: Piso en venta de 3 habitaciones en Girona"}
+        >
           <input name="title" required minLength={10} maxLength={110} defaultValue={values.title ?? ""} className="field" />
         </Field>
-        <Field label="Descripción" wide hint={`Al menos 80 caracteres para poder publicar. Describe ${mooring ? "el amarre" : "el inmueble"} con datos reales.`}>
-          <textarea name="description" rows={7} maxLength={6000} defaultValue={values.description ?? ""} className="field" />
+        <Field label="Descripción" wide hint="Al menos 80 caracteres para poder publicar. Describe el inmueble con datos reales.">
+          <textarea name="description" rows={8} maxLength={6000} defaultValue={values.description ?? ""} className="field" />
         </Field>
-        {mooring && (
-          <Field label="Información adicional" wide hint="Opcional: tasas portuarias, condiciones de la concesión, acceso, normas del puerto…">
-            <textarea name="extraInfo" rows={4} maxLength={3000} defaultValue={values.extraInfo ?? ""} className="field" />
-          </Field>
-        )}
-      </Section>
-
-      {!mooring && (
-      <Section title="Certificado energético" description="Obligatorio indicarlo en todo anuncio de venta o alquiler.">
-        <Field label="Calificación">
-          <select name="energyRating" defaultValue={values.energyRating ?? ""} className="field">
-            <option value="">Sin indicar</option>
-            {Object.entries(ENERGY_RATINGS).map(([k, v]) => (
-              <option key={k} value={k}>
-                {v}
-              </option>
-            ))}
-          </select>
-        </Field>
-        <div />
-        <Field label="Consumo (kWh/m² año)" hint="Opcional">
-          <input name="energyConsumption" type="number" step="0.1" min={0} defaultValue={num(values.energyConsumption)} className="field" />
-        </Field>
-        <Field label="Emisiones (kg CO₂/m² año)" hint="Opcional">
-          <input name="energyEmissions" type="number" step="0.1" min={0} defaultValue={num(values.energyEmissions)} className="field" />
+        <Field
+          label="Información adicional"
+          wide
+          hint={mooring ? "Opcional: tasas portuarias, condiciones de la concesión, acceso, normas del puerto…" : "Opcional: lo que quieras añadir para el comprador o el inquilino"}
+        >
+          <textarea name="extraInfo" rows={3} maxLength={3000} defaultValue={values.extraInfo ?? ""} className="field" />
         </Field>
       </Section>
-      )}
 
-      {mooring && operation === "RENT" && (
-        <Section title="Condiciones del alquiler">
-          <Field label="Fianza (meses)" hint="Opcional">
-            <input name="depositMonths" type="number" min={0} max={12} defaultValue={num(values.depositMonths)} className="field" />
+      <Section title="SEO (cómo aparece en Google)" description="Opcional. Si lo dejas vacío se usan el título y el principio de la descripción.">
+        <Field label="Título para Google" wide hint="Hasta 60 caracteres, con tipo de inmueble, operación y municipio">
+          <input name="seoTitle" maxLength={70} defaultValue={values.seoTitle ?? ""} className="field" />
+        </Field>
+        <Field label="Descripción para Google" wide hint="Entre 120 y 155 caracteres">
+          <textarea name="seoDescription" rows={2} maxLength={170} defaultValue={values.seoDescription ?? ""} className="field" />
+        </Field>
+        <Field
+          label="Texto de la dirección (URL)"
+          wide
+          hint="Ej.: piso-venta-3-habitaciones-girona. Se añade la referencia al final; si lo cambias, la dirección antigua redirige a la nueva"
+        >
+          <input name="slugText" maxLength={90} defaultValue={values.slugText ?? ""} className="field" />
+        </Field>
+      </Section>
+
+      {energy && (
+        <Section title="Certificado energético" description={kind === "OTHER" ? "Indícalo si el inmueble lo requiere." : "Obligatorio indicarlo en todo anuncio de venta o alquiler."}>
+          <Field label="Calificación">
+            <Select name="energyRating" value={values.energyRating} options={ENERGY_RATINGS} />
           </Field>
-          <Field label="Duración mínima (meses)" hint="Opcional">
-            <input name="minTermMonths" type="number" min={0} max={120} defaultValue={num(values.minTermMonths)} className="field" />
+          <div />
+          <Field label="Consumo (kWh/m² año)" hint="Opcional">
+            <input name="energyConsumption" type="number" step="0.1" min={0} defaultValue={num(values.energyConsumption)} className="field" />
           </Field>
-          <Field label="Otras condiciones" hint="Seguro de la embarcación, documentación exigida, uso de servicios…" wide>
-            <textarea name="rentConditions" rows={3} maxLength={1500} defaultValue={values.rentConditions ?? ""} className="field" />
+          <Field label="Emisiones (kg CO₂/m² año)" hint="Opcional">
+            <input name="energyEmissions" type="number" step="0.1" min={0} defaultValue={num(values.energyEmissions)} className="field" />
           </Field>
         </Section>
       )}
 
-      {!mooring && operation === "RENT" && (
+      {rent && kind === "DWELLING" && (
         <Section title="Condiciones del alquiler" description="Revisa la normativa aplicable al inmueble (zona tensionada, fianza, gastos) antes de publicar.">
           <Field label="Tipo de alquiler">
-            <select name="rentalType" defaultValue={values.rentalType ?? ""} className="field">
-              <option value="">Elige</option>
-              {Object.entries(RENTAL_TYPES).map(([k, v]) => (
-                <option key={k} value={k}>
-                  {v}
-                </option>
-              ))}
-            </select>
+            <Select name="rentalType" value={values.rentalType} options={RENTAL_TYPES} empty="Elige" />
           </Field>
           <Field label="Fianza (meses)">
             <input name="depositMonths" type="number" min={0} max={12} defaultValue={num(values.depositMonths)} className="field" />
@@ -416,6 +539,25 @@ export function ListingForm({
         </Section>
       )}
 
+      {rent && kind !== "DWELLING" && (
+        <Section title="Condiciones del alquiler">
+          <Field label="Fianza (meses)" hint={mooring ? "Opcional" : undefined}>
+            <input name="depositMonths" type="number" min={0} max={12} defaultValue={num(values.depositMonths)} className="field" />
+          </Field>
+          <Field label="Duración mínima (meses)" hint="Opcional">
+            <input name="minTermMonths" type="number" min={0} max={120} defaultValue={num(values.minTermMonths)} className="field" />
+          </Field>
+          {!mooring && (
+            <Field label="Disponible desde" hint="Opcional">
+              <input name="availableFrom" type="date" defaultValue={dateValue(values.availableFrom)} className="field" />
+            </Field>
+          )}
+          <Field label="Otras condiciones" hint={mooring ? "Seguro de la embarcación, documentación exigida, uso de servicios…" : "Gastos, garantías, uso permitido…"} wide>
+            <textarea name="rentConditions" rows={3} maxLength={1500} defaultValue={values.rentConditions ?? ""} className="field" />
+          </Field>
+        </Section>
+      )}
+
       <Section title="Autorización y comprobaciones" description="Nada se publica sin estas comprobaciones.">
         {agencyMode && ownerContacts && (
           <Field label="Propietario (contacto de tu CRM)" hint="Opcional" wide>
@@ -430,14 +572,7 @@ export function ListingForm({
           </Field>
         )}
         <Field label={mooring ? "Autorización del titular" : "Autorización del propietario"}>
-          <select name="authorizationType" defaultValue={values.authorizationType ?? ""} className="field">
-            <option value="">Sin indicar</option>
-            {Object.entries(AUTHORIZATION_TYPES).map(([k, v]) => (
-              <option key={k} value={k}>
-                {v}
-              </option>
-            ))}
-          </select>
+          <Select name="authorizationType" value={values.authorizationType} options={AUTHORIZATION_TYPES} />
         </Field>
         <Field label="Fecha de la autorización">
           <input name="authorizationDate" type="date" defaultValue={dateValue(values.authorizationDate)} className="field" />
@@ -447,15 +582,13 @@ export function ListingForm({
             ? "Tengo la autorización firmada del titular del amarre (o de su derecho de uso) para comercializarlo y publicarlo."
             : "Tengo la autorización firmada del propietario para comercializar y publicar este inmueble."}
         </Check>
-        {!mooring && (
+        {energy && (
           <Check name="checkEnergy" defaultChecked={values.checkEnergy}>
             El certificado energético indicado es correcto (o está en trámite o el inmueble está exento).
           </Check>
         )}
         <Check name="checkData" defaultChecked={values.checkData}>
-          {mooring
-            ? "He comprobado que los datos del anuncio (medidas, precio, servicios y fotos) son reales y están actualizados."
-            : "He comprobado que los datos del anuncio (superficie, precio, características y fotos) son reales y están actualizados."}
+          He comprobado que los datos del anuncio (medidas, precio, características y fotos) son reales y están actualizados.
         </Check>
       </Section>
 

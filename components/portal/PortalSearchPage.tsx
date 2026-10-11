@@ -6,7 +6,21 @@ import { SiteFooter } from "@/components/landing/SiteFooter";
 import { SiteHeader } from "@/components/landing/SiteHeader";
 import { ButtonLink } from "@/components/ui/Button";
 import { getDictionary } from "@/lib/i18n";
-import { FEATURES, MOORING_FEATURES, MOORING_TYPES, PROPERTY_TYPES } from "@/services/listings/catalog";
+import {
+  ALL_FEATURE_LABELS,
+  COMMERCIAL_FEATURES,
+  CONDITIONS,
+  GARAGE_FEATURES,
+  HOME_SEARCH_GROUPS,
+  LAND_CLASSIFICATIONS,
+  LAND_FEATURES,
+  LAND_USES,
+  MOORING_TYPES,
+  PROPERTY_GROUPS,
+  PROPERTY_TYPES,
+  type FieldKind,
+  type PropertyGroup,
+} from "@/services/listings/catalog";
 import { searchPublic, type SearchFilters } from "@/services/listings/listings";
 import { portalLocations } from "@/services/listings/portalLocations";
 import { breadcrumbJsonLd, cityPath, citiesWithListings, organizationJsonLd } from "@/services/listings/seo";
@@ -30,6 +44,14 @@ const PRICE_STEPS: Record<Category, Record<"SALE" | "RENT", number[]>> = {
 /** Características que se ofrecen como filtro (las más buscadas). */
 const HOME_FILTER_FEATURES = ["ELEVATOR", "TERRACE", "PARKING", "POOL", "GARDEN", "AC", "STORAGE", "FURNISHED", "EXTERIOR", "ACCESSIBLE", "PETS"] as const;
 const MOORING_FILTER_FEATURES = ["WATER", "ELECTRICITY", "SECURITY", "PARKING_CAR", "WIFI", "SHOWERS", "FUEL", "TRAVEL_LIFT"] as const;
+/** Características que se ofrecen como filtro según el tipo de inmueble elegido (ninguna si no se elige tipo). */
+const FILTER_FEATURES: Partial<Record<FieldKind, readonly string[]>> = {
+  DWELLING: HOME_FILTER_FEATURES,
+  COMMERCIAL: Object.keys(COMMERCIAL_FEATURES).slice(0, 10),
+  GARAGE: Object.keys(GARAGE_FEATURES),
+  LAND: Object.keys(LAND_FEATURES),
+  MOORING: MOORING_FILTER_FEATURES,
+};
 
 function eur(n: number) {
   return new Intl.NumberFormat("es-ES", { maximumFractionDigits: 0 }).format(n) + " €";
@@ -60,8 +82,8 @@ export async function PortalSearchPage({
   operation: "SALE" | "RENT";
   filters: SearchFilters;
   category?: Category;
-  /** Página de una ciudad (/comprar/girona…): título y texto propios */
-  city?: { name: string; title: string; description: string };
+  /** Página de una población o de un tipo (/comprar/girona, /comprar/pisos…): título, texto y dirección propios */
+  city?: { name: string; title: string; description: string; path: string };
 }) {
   const dict = getDictionary("es");
   const mooring = category === "MOORING";
@@ -74,9 +96,13 @@ export async function PortalSearchPage({
   const noun = (n: number) =>
     mooring
       ? `${n.toLocaleString("es-ES")} ${n === 1 ? "amarre" : "amarres"} en ${rent ? "alquiler" : "venta"} en ${place}`
-      : `${n.toLocaleString("es-ES")} ${n === 1 ? "vivienda" : "viviendas"} en ${rent ? "alquiler" : "venta"} en ${place}`;
+      : `${n.toLocaleString("es-ES")} ${groupKind === "DWELLING" ? (n === 1 ? "vivienda" : "viviendas") : n === 1 ? "inmueble" : "inmuebles"} en ${rent ? "alquiler" : "venta"} en ${place}`;
   const selectedFeatures = new Set(filters.car ? filters.car.split(",") : []);
-  const featureLabels: Record<string, string> = { ...FEATURES, ...MOORING_FEATURES };
+  const featureLabels: Record<string, string> = ALL_FEATURE_LABELS;
+  const group = !mooring && filters.grupo ? PROPERTY_GROUPS[filters.grupo as PropertyGroup] : null;
+  const groupKind: FieldKind | null = mooring ? "MOORING" : (group?.kind ?? null);
+  const showRooms = !mooring && (groupKind === null || groupKind === "DWELLING" || groupKind === "OTHER");
+  const showSize = !mooring && groupKind !== "GARAGE";
   const meters = (v: number) => `${v.toLocaleString("es-ES")} m`;
 
   // Filtros activos, cada uno con su enlace para quitarlo
@@ -85,7 +111,12 @@ export async function PortalSearchPage({
     ...(filters.municipio ? [{ label: filters.municipio, remove: { municipio: undefined } }] : []),
     ...(filters.puerto ? [{ label: filters.puerto, remove: { puerto: undefined } }] : []),
     ...(filters.zona ? [{ label: filters.zona, remove: { zona: undefined } }] : []),
+    ...(group ? [{ label: group.label, remove: { grupo: undefined, car: undefined, clas: undefined, uso: undefined, estado: undefined } }] : []),
     ...(filters.tipo ? [{ label: PROPERTY_TYPES[filters.tipo as keyof typeof PROPERTY_TYPES] ?? filters.tipo, remove: { tipo: undefined } }] : []),
+    ...(filters.estado ? [{ label: CONDITIONS[filters.estado as keyof typeof CONDITIONS], remove: { estado: undefined } }] : []),
+    ...(filters.clas ? [{ label: LAND_CLASSIFICATIONS[filters.clas as keyof typeof LAND_CLASSIFICATIONS], remove: { clas: undefined } }] : []),
+    ...(filters.uso ? [{ label: `Uso ${LAND_USES[filters.uso as keyof typeof LAND_USES].toLowerCase()}`, remove: { uso: undefined } }] : []),
+    ...(filters.disp ? [{ label: "Disponible ya", remove: { disp: undefined } }] : []),
     ...(filters.tipoAmarre ? [{ label: MOORING_TYPES[filters.tipoAmarre], remove: { tipoAmarre: undefined } }] : []),
     ...(filters.min ? [{ label: `Desde ${eur(filters.min)}`, remove: { min: undefined } }] : []),
     ...(filters.max ? [{ label: `Hasta ${eur(filters.max)}`, remove: { max: undefined } }] : []),
@@ -100,18 +131,28 @@ export async function PortalSearchPage({
     })),
   ];
 
-  const title = city?.title ?? (mooring ? (rent ? "Amarres en alquiler" : "Amarres en venta") : rent ? "Viviendas en alquiler en Cataluña" : "Viviendas en venta en Cataluña");
+  const title =
+    city?.title ??
+    (mooring
+      ? rent
+        ? "Amarres en alquiler"
+        : "Amarres en venta"
+      : group
+        ? `${group.label} en ${rent ? "alquiler" : "venta"} en Cataluña`
+        : rent
+          ? "Inmuebles en alquiler en Cataluña"
+          : "Inmuebles en venta en Cataluña");
   const intro = city
     ? city.description
     : mooring
     ? `Amarres ${rent ? "en alquiler" : "en venta"} en puertos deportivos de Cataluña. Cada anuncio se revisa antes de publicarse.`
     : `Inmuebles ${rent ? "en alquiler" : "en venta"} en Barcelona, Girona, Lleida y Tarragona, publicados por FINCALIA360 y por inmobiliarias colaboradoras. Cada anuncio se revisa antes de publicarse.`;
-  const featureOptions = mooring ? MOORING_FILTER_FEATURES : HOME_FILTER_FEATURES;
+  const featureOptions = (groupKind && FILTER_FEATURES[groupKind]) || [];
   const sectionName = mooring ? (rent ? "Alquilar amarre" : "Comprar amarre") : rent ? "Alquilar vivienda" : "Comprar vivienda";
   const crumbs = [
     { name: "Inicio", path: "/" },
     { name: sectionName, path: base },
-    ...(city ? [{ name: city.name, path: cityPath(category, operation, city.name) }] : []),
+    ...(city ? [{ name: city.name, path: city.path }] : []),
   ];
   const jsonLd = [organizationJsonLd(), breadcrumbJsonLd(crumbs)];
 
@@ -217,15 +258,17 @@ export async function PortalSearchPage({
                     </label>
                     <label className="block">
                       <span className="field-label">Tipo de inmueble</span>
-                      <select name="tipo" defaultValue={filters.tipo ?? ""} className="field">
+                      <select name="grupo" defaultValue={filters.grupo ?? ""} className="field">
                         <option value="">Todos</option>
-                        {Object.entries(PROPERTY_TYPES).map(([k, v]) => (
-                          <option key={k} value={k}>
-                            {v}
+                        {HOME_SEARCH_GROUPS.map((g) => (
+                          <option key={g} value={g}>
+                            {PROPERTY_GROUPS[g].label}
                           </option>
                         ))}
+                        <option value="amarres">{PROPERTY_GROUPS.amarres.label}</option>
                       </select>
                     </label>
+                    {filters.tipo && <input type="hidden" name="tipo" value={filters.tipo} />}
                   </>
                 )}
                 <div className="grid grid-cols-2 gap-2">
@@ -252,7 +295,7 @@ export async function PortalSearchPage({
                     </select>
                   </label>
                 </div>
-                {!mooring && (
+                {showRooms && (
                   <>
                     <div className="grid grid-cols-2 gap-2">
                       <label className="block">
@@ -278,19 +321,67 @@ export async function PortalSearchPage({
                         </select>
                       </label>
                     </div>
+                  </>
+                )}
+                {showSize && (
+                  <label className="block">
+                    <span className="field-label">{groupKind === "LAND" ? "Superficie del terreno" : "Superficie"}</span>
+                    <select name="m2" defaultValue={filters.m2 ?? ""} className="field">
+                      <option value="">Toda</option>
+                      {(groupKind === "LAND" ? [200, 500, 1000, 2000, 5000, 10000, 50000] : [40, 60, 80, 100, 120, 150, 200, 300, 500]).map((n) => (
+                        <option key={n} value={n}>
+                          Desde {n.toLocaleString("es-ES")} m²
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+                {groupKind === "DWELLING" && (
+                  <label className="block">
+                    <span className="field-label">Estado</span>
+                    <select name="estado" defaultValue={filters.estado ?? ""} className="field">
+                      <option value="">Cualquiera</option>
+                      {Object.entries(CONDITIONS).map(([k, v]) => (
+                        <option key={k} value={k}>
+                          {v}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+                {groupKind === "LAND" && (
+                  <>
                     <label className="block">
-                      <span className="field-label">Superficie</span>
-                      <select name="m2" defaultValue={filters.m2 ?? ""} className="field">
-                        <option value="">Toda</option>
-                        {[40, 60, 80, 100, 120, 150, 200, 300].map((n) => (
-                          <option key={n} value={n}>
-                            Desde {n} m²
+                      <span className="field-label">Clasificación urbanística</span>
+                      <select name="clas" defaultValue={filters.clas ?? ""} className="field">
+                        <option value="">Cualquiera</option>
+                        {Object.entries(LAND_CLASSIFICATIONS).map(([k, v]) => (
+                          <option key={k} value={k}>
+                            {v}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="block">
+                      <span className="field-label">Uso permitido</span>
+                      <select name="uso" defaultValue={filters.uso ?? ""} className="field">
+                        <option value="">Cualquiera</option>
+                        {Object.entries(LAND_USES).map(([k, v]) => (
+                          <option key={k} value={k}>
+                            {v}
                           </option>
                         ))}
                       </select>
                     </label>
                   </>
                 )}
+                {mooring && (
+                  <label className="flex items-center gap-2 text-[13.5px] text-ink-700">
+                    <input type="checkbox" name="disp" value="ya" defaultChecked={filters.disp === "ya"} className="h-4 w-4 rounded border-sand-300" />
+                    Disponible ya
+                  </label>
+                )}
+                {featureOptions.length > 0 && (
                 <fieldset>
                   <legend className="field-label">{mooring ? "Servicios" : "Características"}</legend>
                   <div className="grid grid-cols-1 gap-1.5">
@@ -302,6 +393,7 @@ export async function PortalSearchPage({
                     ))}
                   </div>
                 </fieldset>
+                )}
                 {filters.orden && <input type="hidden" name="orden" value={filters.orden} />}
                 <AutoSubmit />
                 <div className="flex gap-2 pt-1">

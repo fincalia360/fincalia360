@@ -3,7 +3,7 @@
 import type { Metadata } from "next";
 import { prisma } from "@/db/client";
 import { PORTAL_OG_IMAGE, publicSiteUrl } from "@/lib/site";
-import { PROPERTY_TYPES, type PropertyTypeCode, slugify } from "./catalog";
+import { HOME_SEARCH_GROUPS, PROPERTY_GROUPS, PROPERTY_TYPES, type PropertyGroup, type PropertyTypeCode, slugify } from "./catalog";
 import { PUBLIC_SELECT, publicVisibility } from "./listings";
 
 export type Category = "HOME" | "MOORING";
@@ -133,4 +133,31 @@ export async function similarListings(l: { id: string; category: string; operati
 
 export function typeLabel(propertyType: string) {
   return PROPERTY_TYPES[propertyType as PropertyTypeCode] ?? "Inmueble";
+}
+
+// ---------------------------------------------------------------------------
+// Páginas por tipo de inmueble (/comprar/pisos, /alquilar/locales…)
+// ---------------------------------------------------------------------------
+
+export function isHomeGroup(slug: string): slug is PropertyGroup {
+  return (HOME_SEARCH_GROUPS as string[]).includes(slug);
+}
+
+export function groupPath(operation: Operation, group: PropertyGroup) {
+  return group === "amarres" ? searchPath("MOORING", operation) : `${searchPath("HOME", operation)}/${group}`;
+}
+
+export async function groupCount(operation: Operation, group: PropertyGroup) {
+  return prisma.listing.count({ where: { ...publicVisibility("HOME"), operation, propertyType: { in: [...PROPERTY_GROUPS[group].types] } } });
+}
+
+export function groupCopy(operation: Operation, group: PropertyGroup, count: number) {
+  const label = PROPERTY_GROUPS[group].label;
+  const op = operation === "RENT" ? "en alquiler" : "en venta";
+  return {
+    title: `${label} ${op} en Cataluña`,
+    description: count
+      ? `${count} ${count === 1 ? "anuncio" : "anuncios"} de ${label.toLowerCase()} ${op} en Barcelona, Girona, Lleida y Tarragona, con fotos, precio y características. Anuncios revisados antes de publicarse.`
+      : `${label} ${op} en Barcelona, Girona, Lleida y Tarragona. Anuncios revisados antes de publicarse.`,
+  };
 }

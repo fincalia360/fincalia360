@@ -10,6 +10,7 @@ import {
   Database,
   Home,
   Inbox,
+  Mail,
   Scale,
   FileBarChart,
   LayoutDashboard,
@@ -24,8 +25,9 @@ import { cn } from "@/lib/utils";
 export const ADMIN_NAV = [
   { href: "/admin/negocio", label: "Negocio", icon: TrendingUp },
   { href: "/admin/leads", label: "Contactos", icon: Users },
-  { href: "/admin/inmuebles", label: "Anuncios (viviendas y amarres)", icon: Home },
+  { href: "/admin/inmuebles", label: "Anuncios", icon: Home },
   { href: "/admin/solicitudes-publicacion", label: "Solicitudes de publicación", icon: Inbox },
+  { href: "/admin/mensajes", label: "Mensajes de contacto", icon: Mail },
   { href: "/admin/studies", label: "Estudios", icon: FileBarChart },
   { href: "/admin/comparables", label: "Comparables de alquiler", icon: Scale },
   { href: "/admin/appointments", label: "Citas", icon: CalendarDays },

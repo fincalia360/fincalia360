@@ -58,6 +58,10 @@ export default async function PrivacyPage({ searchParams }: { searchParams: Prom
             <td>Nombre, email, teléfono (necesario para visitas), tu mensaje y tu consentimiento con su fecha y versión.</td>
           </tr>
           <tr>
+            <td>Si nos escribes desde el formulario de contacto</td>
+            <td>Nombre, email, teléfono (opcional), asunto, tu mensaje y tu consentimiento con su fecha y versión.</td>
+          </tr>
+          <tr>
             <td>Si nos pides publicar gratis tu vivienda o tu amarre</td>
             <td>
               Nombre, email, teléfono (opcional), datos del inmueble o del amarre (ubicación, dirección o número de amarre si los indicas, precio,
@@ -101,6 +105,9 @@ export default async function PrivacyPage({ searchParams }: { searchParams: Prom
           <strong>Responder a tu solicitud sobre un inmueble o un amarre</strong> del portal (información o visita): tu consentimiento (art. 6.1.a).
         </li>
         <li>
+          <strong>Responder a tu mensaje de contacto</strong>: tu consentimiento (art. 6.1.a).
+        </li>
+        <li>
           <strong>Revisar tu solicitud de publicación gratuita</strong>, contactarte y, si lo acordamos, preparar y publicar el anuncio: tu
           consentimiento (art. 6.1.a) y, una vez acordada la publicación, la ejecución de ese servicio (art. 6.1.b). Tus datos de contacto no se
           publican en el anuncio.
@@ -139,6 +146,11 @@ export default async function PrivacyPage({ searchParams }: { searchParams: Prom
           Datos que cada inmobiliaria colaboradora gestiona en su espacio privado (CRM): la responsable es la propia inmobiliaria; FINCALIA360 solo
           los aloja y trata por su cuenta, como encargado del tratamiento. Ninguna otra inmobiliaria tiene acceso a ellos.
         </li>
+        <li>
+          Para redactar los textos de los anuncios, el equipo puede usar el modelo de inteligencia artificial Claude de Anthropic PBC, como
+          encargado del tratamiento. Solo se le envían los datos del inmueble que se publicarán en el anuncio, nunca los datos de contacto del
+          propietario ni de los interesados. Todo texto lo revisa una persona antes de publicarse.
+        </li>
         <li>Administraciones públicas cuando exista una obligación legal.</li>
       </ul>
       <p>
@@ -154,6 +166,7 @@ export default async function PrivacyPage({ searchParams }: { searchParams: Prom
           el consentimiento.
         </li>
         <li>Solicitudes sobre inmuebles y amarres del portal: hasta 2 años desde la última comunicación, salvo que antes pidas su supresión.</li>
+        <li>Mensajes de contacto: hasta 1 año desde la respuesta, salvo que antes pidas su supresión.</li>
         <li>
           Solicitudes de publicación gratuita y sus fotos: si no se publica el anuncio, hasta 6 meses desde la última comunicación; si se publica,
           mientras esté anunciado y hasta 2 años después. Puedes pedir antes su supresión.

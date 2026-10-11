@@ -103,11 +103,11 @@ export default async function AdminListingsPage({ searchParams }: { searchParams
     <>
       <PageHeader
         title="Anuncios"
-        description="Viviendas y amarres del portal. Nada se publica sin pasar las comprobaciones."
+        description="Viviendas, locales, oficinas, garajes, terrenos y amarres. Nada se publica sin pasar las comprobaciones."
         actions={
           <div className="flex flex-wrap gap-2">
             <ButtonLink href="/admin/inmuebles/nuevo" variant="accent">
-              <Plus className="h-4 w-4" /> Nueva vivienda
+              <Plus className="h-4 w-4" /> Nuevo anuncio
             </ButtonLink>
             <ButtonLink href="/admin/inmuebles/nuevo?tipo=amarre" variant="outline">
               <Anchor className="h-4 w-4" /> Nuevo amarre
@@ -120,7 +120,7 @@ export default async function AdminListingsPage({ searchParams }: { searchParams
         {(
           [
             ["", "Todos"],
-            ["HOME", "Viviendas"],
+            ["HOME", "Inmuebles"],
             ["MOORING", "Amarres"],
           ] as const
         ).map(([k, label]) => (

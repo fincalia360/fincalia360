@@ -94,6 +94,14 @@ const MOORINGS = [
   { operation: "RENT", rentPeriod: "SEASON", title: "Amarre de 15 m para la temporada de verano", price: 4800, provinceCode: "43", municipality: "Cambrils", portName: "Puerto deportivo de muestra (Cambrils)", zone: "Muelle de levante", berthLength: "15", berthWidth: "5", maxBoatLength: "14,5", maxBoatBeam: "4,8", mooringType: "DOCK", features: ["WATER", "ELECTRICITY", "FUEL", "TRAVEL_LIFT", "RESTAURANTS"], text: "Amarre amplio para la temporada de junio a septiembre, junto a la gasolinera y el varadero. Servicios del puerto a un paso." },
 ];
 
+/** Otros tipos de MUESTRA (ficticios): local, oficina, garaje y terreno. */
+const OTHERS = [
+  { operation: "RENT", propertyType: "LOCAL", title: "Local comercial a pie de calle con escaparate", price: 1400, provinceCode: "08", municipality: "Terrassa", zone: "Centre", builtArea: "120", bathrooms: "1", distribution: "Planta diáfana de 100 m² con almacén y aseo.", energyRating: "E", features: ["STREET_LEVEL", "SHOP_WINDOW", "AC"], text: "Local en calle comercial con mucho paso, escaparate amplio y almacén. Apto para comercio o servicios." },
+  { operation: "SALE", propertyType: "OFICINA", title: "Oficina luminosa con sala de reuniones", price: 210000, provinceCode: "17", municipality: "Girona", zone: "Eixample", builtArea: "95", bathrooms: "2", distribution: "Recepción, 3 despachos y sala de reuniones.", energyRating: "D", features: ["MEETING_ROOM", "RECEPTION", "AC", "ELEVATOR"], text: "Oficina exterior en edificio con ascensor, lista para entrar a trabajar." },
+  { operation: "SALE", propertyType: "GARAJE", title: "Plaza de garaje amplia con puerta automática", price: 18000, provinceCode: "43", municipality: "Reus", zone: "Centre", builtArea: "", berthLength: "5", berthWidth: "2,6", floor: "-1", features: ["COVERED", "AUTO_DOOR", "EASY_ACCESS"], text: "Plaza de aparcamiento para coche grande, en primer sótano y de fácil maniobra." },
+  { operation: "SALE", propertyType: "TERRENO", title: "Terreno urbano para vivienda unifamiliar", price: 95000, provinceCode: "25", municipality: "Balaguer", zone: "Afores", builtArea: "650", landClassification: "URBAN", landUse: "RESIDENTIAL", features: ["WATER_SUPPLY", "POWER_SUPPLY", "PAVED_ACCESS"], text: "Solar llano con acometidas de agua y luz y acceso asfaltado. Datos urbanísticos de demostración." },
+];
+
 async function main() {
   const removed = await removeDemo();
   if (process.argv.includes("--borrar")) {
@@ -181,7 +189,27 @@ async function main() {
     await transitionListing(admin, l.id, "publish");
     console.log(`✓ ${l.reference} · ${s.title} (${s.portName})`);
   }
-  console.log(`\nCreados ${SAMPLES.length} pisos y ${MOORINGS.length} amarres de muestra. Se ven en /comprar, /alquilar y /amarres.`);
+  for (const s of OTHERS) {
+    const rent = s.operation === "RENT";
+    const l = await createListing(actor, {
+      ...s,
+      title: `DEMO · ${s.title}`,
+      description: DEMO_NOTE + s.text,
+      price: String(s.price),
+      authorizationType: "MANDATE_SHARED",
+      authorizationDate: "2026-10-01",
+      checkData: "on",
+      checkAuthorization: "on",
+      checkEnergy: "on",
+      ...(rent ? { depositMonths: "2" } : {}),
+    });
+    const jpg = await sharp(Buffer.from(svg("fachada", "#5d7f99", "#efe7da", "#c8a27a"))).jpeg({ quality: 88 }).toBuffer();
+    await addPhoto(actor, l.id, jpg);
+    await transitionListing(actor, l.id, "submit");
+    await transitionListing(admin, l.id, "publish");
+    console.log(`✓ ${l.reference} · ${s.title} (${s.municipality})`);
+  }
+  console.log(`\nCreados ${SAMPLES.length} pisos, ${MOORINGS.length} amarres y ${OTHERS.length} inmuebles de otros tipos de muestra.`);
 }
 
 main()
