@@ -3,11 +3,13 @@
 // y la cabecera que separa la valoración como servicio independiente.
 import Link from "next/link";
 import { Anchor, ArrowRight, Briefcase, Building2, Car, Home, KeyRound, LandPlot, Megaphone, Store, Tag } from "lucide-react";
-import { PROPERTY_GROUPS, type PropertyGroup } from "@/services/listings/catalog";
+import { type PropertyGroup } from "@/services/listings/catalog";
 import { publicVisibility } from "@/services/listings/listings";
 import { citiesWithListings, groupPath } from "@/services/listings/seo";
 import { prisma } from "@/db/client";
 import { HomeSearch } from "./HomeSearch";
+import { portalDict } from "@/lib/i18n/site";
+import { getSiteLang } from "@/lib/i18n/siteServer";
 
 const CATEGORIES: Array<{ group: PropertyGroup; icon: typeof Home }> = [
   { group: "pisos", icon: Building2 },
@@ -40,31 +42,32 @@ async function portalNumbers() {
 
 export async function PortalHome() {
   const { sale, rent, cities } = await portalNumbers();
-  const count = (n: number) => (n ? `${n.toLocaleString("es-ES")} ${n === 1 ? "anuncio" : "anuncios"}` : null);
+  const d = portalDict(await getSiteLang());
+  const count = (n: number) => (n ? d.home.ads(n) : null);
 
   return (
     <>
       {/* 1. Presentación del portal y buscador principal */}
       <section aria-labelledby="portal-titulo" className="border-b border-sand-200 bg-gradient-to-b from-white to-sand-50 pb-12 pt-10 sm:pb-16 sm:pt-14">
         <div className="container-page">
-          <p className="eyebrow">Portal inmobiliario en Cataluña</p>
+          <p className="eyebrow">{d.home.eyebrow}</p>
           <h1 id="portal-titulo" className="mt-3 max-w-3xl text-[34px] font-extrabold leading-[1.08] tracking-tight text-ink-800 sm:text-5xl">
-            Encuentra tu próximo inmueble en Cataluña
+            {d.home.title}
           </h1>
-          <p className="mt-4 max-w-2xl text-[16.5px] text-ink-500 sm:text-lg">Pisos, casas, locales, oficinas, garajes, terrenos y amarres en venta y en alquiler.</p>
+          <p className="mt-4 max-w-2xl text-[16.5px] text-ink-500 sm:text-lg">{d.home.subtitle}</p>
           <div className="mt-7 sm:mt-8">
-            <HomeSearch cities={cities} />
+            <HomeSearch cities={cities} t={d.search} groups={d.groups} locale={d.locale} />
           </div>
         </div>
       </section>
 
       {/* 2. Venta y Alquiler */}
-      <section aria-label="Venta y alquiler" className="py-10 sm:py-14">
+      <section aria-label={d.home.saleAndRent} className="py-10 sm:py-14">
         <div className="container-page grid gap-4 md:grid-cols-2">
           {(
             [
-              { href: "/comprar", icon: Tag, title: "Inmuebles en venta", text: "Para comprar tu vivienda, un local, una oficina, una plaza de garaje, un terreno o un amarre.", cta: "Ver inmuebles en venta", n: sale },
-              { href: "/alquilar", icon: KeyRound, title: "Inmuebles en alquiler", text: "Viviendas, locales, oficinas, garajes y amarres para alquilar por meses o por temporadas.", cta: "Ver inmuebles en alquiler", n: rent },
+              { href: "/comprar", icon: Tag, title: d.home.saleTitle, text: d.home.saleText, cta: d.home.saleCta, n: sale },
+              { href: "/alquilar", icon: KeyRound, title: d.home.rentTitle, text: d.home.rentText, cta: d.home.rentCta, n: rent },
             ] as const
           ).map(({ href, icon: Icon, title, text, cta, n }) => (
             <Link
@@ -92,7 +95,7 @@ export async function PortalHome() {
       <section aria-labelledby="categorias-titulo" className="pb-10 sm:pb-14">
         <div className="container-page">
           <h2 id="categorias-titulo" className="text-2xl font-extrabold tracking-tight text-ink-800 sm:text-3xl">
-            ¿Qué tipo de inmueble buscas?
+            {d.home.categoriesTitle}
           </h2>
           <ul className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
             {CATEGORIES.map(({ group, icon: Icon }) => (
@@ -101,14 +104,14 @@ export async function PortalHome() {
                   <span className="grid h-10 w-10 place-items-center rounded-xl bg-terracotta-50 text-terracotta-700">
                     <Icon className="h-5 w-5" />
                   </span>
-                  <span className="text-[15px] font-bold leading-snug text-ink-800">{PROPERTY_GROUPS[group].label}</span>
+                  <span className="text-[15px] font-bold leading-snug text-ink-800">{d.groups[group]}</span>
                 </Link>
                 <span className="mt-3 flex gap-3 border-t border-sand-100 pt-3 text-[13px] font-medium">
                   <Link href={groupPath("SALE", group)} className={`rounded text-ink-600 hover:text-ink-800 hover:underline ${focus}`}>
-                    Venta
+                    {d.nav.sale}
                   </Link>
                   <Link href={groupPath("RENT", group)} className={`rounded text-ink-600 hover:text-ink-800 hover:underline ${focus}`}>
-                    Alquiler
+                    {d.nav.rent}
                   </Link>
                 </span>
               </li>
@@ -118,7 +121,7 @@ export async function PortalHome() {
       </section>
 
       {/* 4. Publicar gratis */}
-      <section aria-label="Publica tu inmueble gratis" className="pb-12 sm:pb-16">
+      <section aria-label={d.nav.publish} className="pb-12 sm:pb-16">
         <div className="container-page">
           <div className="flex flex-col gap-5 rounded-3xl bg-ink-800 p-6 text-white sm:flex-row sm:items-center sm:justify-between sm:p-9">
             <div className="flex items-start gap-4">
@@ -126,9 +129,9 @@ export async function PortalHome() {
                 <Megaphone className="h-6 w-6" />
               </span>
               <div>
-                <h2 className="text-2xl font-extrabold tracking-tight">¿Quieres vender o alquilar? Publica tu inmueble gratis</h2>
+                <h2 className="text-2xl font-extrabold tracking-tight">{d.home.publishTitle}</h2>
                 <p className="mt-2 max-w-2xl text-[15px] leading-relaxed text-ink-100">
-                  Pisos, casas, locales, oficinas, garajes, terrenos o amarres en Cataluña. Envíanos los datos y las fotos: revisamos tu anuncio y lo publicamos sin coste.
+                  {d.home.publishText}
                 </p>
               </div>
             </div>
@@ -136,7 +139,7 @@ export async function PortalHome() {
               href="/publicar"
               className="inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-full bg-terracotta-500 px-6 font-semibold text-white transition hover:bg-terracotta-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
             >
-              Publica tu inmueble gratis <ArrowRight className="h-4 w-4" />
+              {d.nav.publish} <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
         </div>
@@ -146,12 +149,13 @@ export async function PortalHome() {
 }
 
 /** Separa la valoración como servicio independiente, sin tocar su contenido (que va a continuación). */
-export function ValuationIntro() {
+export async function ValuationIntro() {
+  const d = portalDict(await getSiteLang());
   return (
     <div id="valorar" className="scroll-mt-20 border-t-4 border-terracotta-100">
       <div className="container-page flex flex-wrap items-baseline justify-between gap-2 pt-10 sm:pt-12">
-        <p className="text-[13px] font-bold uppercase tracking-[0.14em] text-ink-400">Herramienta gratuita · Valoración de vivienda</p>
-        <p className="text-sm text-ink-500">Conoce una estimación de tu vivienda y compara vender, alquilar o mantener.</p>
+        <p className="text-[13px] font-bold uppercase tracking-[0.14em] text-ink-400">{d.home.valuationLabel}</p>
+        <p className="text-sm text-ink-500">{d.home.valuationText}</p>
       </div>
     </div>
   );

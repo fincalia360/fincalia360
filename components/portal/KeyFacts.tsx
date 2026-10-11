@@ -21,7 +21,7 @@ export function KeyFacts({ items }: { items: Array<{ icon: LucideIcon; label: st
   );
 }
 
-export function MobileContactBar({ price }: { price: string }) {
+export function MobileContactBar({ price, label = "Contactar" }: { price: string; label?: string }) {
   return (
     <div className="fixed inset-x-0 bottom-0 z-20 border-t border-sand-200 bg-white/95 px-4 py-3 shadow-[0_-8px_24px_-12px_rgba(20,43,69,0.25)] backdrop-blur lg:hidden">
       <div className="mx-auto flex max-w-xl items-center justify-between gap-3">
@@ -30,7 +30,7 @@ export function MobileContactBar({ price }: { price: string }) {
           href="#contacto"
           className="inline-flex h-11 shrink-0 items-center gap-2 rounded-full bg-terracotta-500 px-5 font-semibold text-white hover:bg-terracotta-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta-500"
         >
-          <MessageSquare className="h-4 w-4" /> Contactar
+          <MessageSquare className="h-4 w-4" /> {label}
         </a>
       </div>
     </div>

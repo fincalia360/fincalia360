@@ -2,9 +2,12 @@
 
 import { useRef, useState } from "react";
 import { CheckCircle2, Loader2 } from "lucide-react";
+import { portalDict, toSiteLang } from "@/lib/i18n/site";
 
 /** Solicitud de información o visita. El consentimiento nunca va marcado de antemano. */
-export function InquiryForm({ reference, consentText }: { reference: string; consentText: string }) {
+export function InquiryForm({ reference, consentText, lang = "es" }: { reference: string; consentText: string; lang?: string }) {
+  // Los textos se toman en el cliente: el diccionario tiene funciones que no pueden pasarse desde el servidor.
+  const t = portalDict(toSiteLang(lang)).inquiry;
   const openedAt = useRef(Date.now());
   const [state, setState] = useState<"idle" | "sending" | "done">("idle");
   const [error, setError] = useState<string | null>(null);
@@ -27,10 +30,11 @@ export function InquiryForm({ reference, consentText }: { reference: string; con
           consent: f.get("consent") === "on",
           website: f.get("website"),
           elapsedMs: Date.now() - openedAt.current,
+          lang,
         }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error ?? "No se ha podido enviar la solicitud");
+      if (!res.ok) throw new Error(data.error ?? t.error);
       setState("done");
     } catch (err) {
       setError((err as Error).message);
@@ -42,9 +46,9 @@ export function InquiryForm({ reference, consentText }: { reference: string; con
     return (
       <div className="rounded-2xl border border-pine-100 bg-pine-50 p-5 text-pine-700" role="status">
         <p className="flex items-center gap-2 font-semibold">
-          <CheckCircle2 className="h-5 w-5" /> Solicitud enviada
+          <CheckCircle2 className="h-5 w-5" /> {t.sentTitle}
         </p>
-        <p className="mt-2 text-sm">El anunciante ha recibido tu solicitud y se pondrá en contacto contigo.</p>
+        <p className="mt-2 text-sm">{t.sentText}</p>
       </div>
     );
   }
@@ -52,33 +56,37 @@ export function InquiryForm({ reference, consentText }: { reference: string; con
   return (
     <form onSubmit={onSubmit} className="space-y-3" noValidate>
       <label className="block">
-        <span className="field-label">Nombre</span>
+        <span className="field-label">{t.name}</span>
         <input name="name" required maxLength={80} autoComplete="name" className="field" />
       </label>
       <label className="block">
-        <span className="field-label">Email</span>
+        <span className="field-label">{t.email}</span>
         <input name="email" type="email" required maxLength={120} autoComplete="email" className="field" />
       </label>
       <label className="block">
-        <span className="field-label">Teléfono <span className="font-normal text-ink-400">(necesario para visitas)</span></span>
+        <span className="field-label">
+          {t.phone} <span className="font-normal text-ink-400">{t.phoneHint}</span>
+        </span>
         <input name="phone" type="tel" maxLength={30} autoComplete="tel" className="field" />
       </label>
       <label className="block">
-        <span className="field-label">Mensaje <span className="font-normal text-ink-400">(opcional)</span></span>
-        <textarea name="message" rows={3} maxLength={1500} className="field" placeholder="¿Qué te gustaría saber?" />
+        <span className="field-label">
+          {t.message} <span className="font-normal text-ink-400">{t.optional}</span>
+        </span>
+        <textarea name="message" rows={3} maxLength={1500} className="field" placeholder={t.messagePlaceholder} />
       </label>
       {/* Campo trampa antispam: invisible para las personas */}
       <input name="website" tabIndex={-1} autoComplete="off" className="hidden" aria-hidden />
       <label className="flex items-start gap-2.5 text-sm text-ink-700">
         <input type="checkbox" name="wantsVisit" className="mt-0.5 h-4 w-4 rounded border-sand-300" />
-        Quiero concertar una visita
+        {t.visit}
       </label>
       <label className="flex items-start gap-2.5 text-[13px] leading-snug text-ink-600">
         <input type="checkbox" name="consent" required className="mt-0.5 h-4 w-4 shrink-0 rounded border-sand-300" />
         <span>
           {consentText}{" "}
           <a href="/privacy" target="_blank" className="underline">
-            Política de privacidad
+            {t.privacy}
           </a>
           .
         </span>
@@ -89,7 +97,7 @@ export function InquiryForm({ reference, consentText }: { reference: string; con
         </p>
       )}
       <button type="submit" disabled={state === "sending"} className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-terracotta-500 text-[15px] font-medium text-white hover:bg-terracotta-600 disabled:opacity-60">
-        {state === "sending" && <Loader2 className="h-4 w-4 animate-spin" />} Solicitar información o visita
+        {state === "sending" && <Loader2 className="h-4 w-4 animate-spin" />} {t.submit}
       </button>
     </form>
   );

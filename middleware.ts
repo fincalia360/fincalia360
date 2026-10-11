@@ -61,8 +61,16 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  const response = NextResponse.next();
   const lang = searchParams.get("lang");
+  // Selector de idioma: se guarda en la cookie y se vuelve a la misma página sin «?lang=» (dirección limpia)
+  if (lang && LANGS.includes(lang) && request.method === "GET" && !pathname.startsWith("/api/") && !pathname.startsWith("/valorar/resultado")) {
+    const url = request.nextUrl.clone();
+    url.searchParams.delete("lang");
+    const redirect = NextResponse.redirect(url);
+    redirect.cookies.set("lang", lang, { path: "/", maxAge: 60 * 60 * 24 * 365, sameSite: "lax" });
+    return redirect;
+  }
+  const response = NextResponse.next();
   if (lang && LANGS.includes(lang)) {
     response.cookies.set("lang", lang, { path: "/", maxAge: 60 * 60 * 24 * 365, sameSite: "lax" });
   }

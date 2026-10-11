@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "@fontsource-variable/inter";
 import "./globals.css";
 import { publicSiteUrl } from "@/lib/site";
+import { getSiteLang } from "@/lib/i18n/siteServer";
 
 export const metadata: Metadata = {
   title: { default: "FINCALIA360 · ¿Vender o alquilar tu vivienda?", template: "%s · FINCALIA360" },
@@ -20,9 +21,9 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="es">
+    <html lang={await getSiteLang()}>
       <body className="min-h-screen font-sans">{children}</body>
     </html>
   );

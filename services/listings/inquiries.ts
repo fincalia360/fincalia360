@@ -9,6 +9,7 @@ import { sendEmail, emailConfig } from "@/services/email/emailService";
 import { normalizePhone } from "@/services/crm/requests";
 import { audit } from "@/services/audit";
 import { formatPrice } from "./catalog";
+import { SITE_LANGUAGES, portalDict, toSiteLang } from "@/lib/i18n/site";
 
 export const INQUIRY_CONSENT_VERSION = "portal-v1-2026-10";
 
@@ -29,6 +30,8 @@ export const inquirySchema = z
     consent: z.literal(true, { errorMap: () => ({ message: "Necesitamos tu autorización para enviar la solicitud" }) }),
     website: z.string().max(0, "Solicitud no válida").optional().or(z.literal("")),
     elapsedMs: z.number().optional(),
+    /** Idioma en que se mostró el formulario (el consentimiento se guarda tal como se leyó). */
+    lang: z.string().max(5).optional(),
   })
   .superRefine((v, ctx) => {
     if (v.wantsVisit && (v.phone ?? "").replace(/\D/g, "").length < 9) ctx.addIssue({ code: "custom", path: ["phone"], message: "Indica un teléfono para concertar la visita" });
@@ -48,7 +51,10 @@ export async function submitInquiry(reference: string, raw: unknown): Promise<In
   if (d.website || (d.elapsedMs != null && d.elapsedMs < 2500)) return { ok: false, status: 400, error: "No se ha podido enviar la solicitud. Inténtalo de nuevo." };
 
   const phone = d.phone?.trim() || null;
-  const consentText = inquiryConsentText(listing.agency?.name ?? null, listing.reference, listing.category);
+  const consentText =
+    d.lang && d.lang !== "es" && (SITE_LANGUAGES as readonly string[]).includes(d.lang)
+      ? portalDict(toSiteLang(d.lang)).inquiry.consent(listing.agency?.name ?? null, listing.category === "MOORING" ? "amarre" : "inmueble", listing.reference)
+      : inquiryConsentText(listing.agency?.name ?? null, listing.reference, listing.category);
   let contactId: string | null = null;
 
   if (listing.agencyId) {

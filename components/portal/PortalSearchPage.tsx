@@ -7,22 +7,20 @@ import { SiteHeader } from "@/components/landing/SiteHeader";
 import { ButtonLink } from "@/components/ui/Button";
 import { getDictionary } from "@/lib/i18n";
 import {
-  ALL_FEATURE_LABELS,
   COMMERCIAL_FEATURES,
-  CONDITIONS,
   GARAGE_FEATURES,
   HOME_SEARCH_GROUPS,
-  LAND_CLASSIFICATIONS,
   LAND_FEATURES,
-  LAND_USES,
-  MOORING_TYPES,
   PROPERTY_GROUPS,
-  PROPERTY_TYPES,
   type FieldKind,
   type PropertyGroup,
 } from "@/services/listings/catalog";
 import { searchPublic, type SearchFilters } from "@/services/listings/listings";
 import { portalLocations } from "@/services/listings/portalLocations";
+import { portalDict } from "@/lib/i18n/site";
+import { getSiteLang } from "@/lib/i18n/siteServer";
+import { catalogLabels } from "@/lib/i18n/portal/labels";
+import { localizedTexts } from "@/services/listings/translations";
 import { breadcrumbJsonLd, cityPath, citiesWithListings, organizationJsonLd } from "@/services/listings/seo";
 import { ListingCard } from "./ListingCard";
 import { AutoSubmit } from "./AutoSubmit";
@@ -53,9 +51,6 @@ const FILTER_FEATURES: Partial<Record<FieldKind, readonly string[]>> = {
   MOORING: MOORING_FILTER_FEATURES,
 };
 
-function eur(n: number) {
-  return new Intl.NumberFormat("es-ES", { maximumFractionDigits: 0 }).format(n) + " €";
-}
 
 function qs(f: SearchFilters, over: Partial<SearchFilters>) {
   const merged = { ...f, ...over };
@@ -86,24 +81,26 @@ export async function PortalSearchPage({
   city?: { name: string; title: string; description: string; path: string };
 }) {
   const dict = getDictionary("es");
+  const siteLang = await getSiteLang();
+  const d = portalDict(siteLang);
+  const r = d.results;
+  const L = catalogLabels(siteLang);
+  const eur = (n: number) => new Intl.NumberFormat(d.locale, { maximumFractionDigits: 0 }).format(n) + " €";
   const mooring = category === "MOORING";
   const [result, locations, cities] = await Promise.all([searchPublic(operation, filters, category), portalLocations(operation, category), citiesWithListings(category, operation)]);
   const rent = operation === "RENT";
   const base = paths(category)[operation];
   const anyFilter = Object.keys(filters).some((k) => k !== "pagina" && k !== "orden");
   const provinceName = locations.provinces.find((p) => p.code === filters.provincia)?.name;
-  const place = filters.puerto ?? filters.municipio ?? (provinceName ? `la provincia de ${provinceName}` : "Cataluña");
-  const noun = (n: number) =>
-    mooring
-      ? `${n.toLocaleString("es-ES")} ${n === 1 ? "amarre" : "amarres"} en ${rent ? "alquiler" : "venta"} en ${place}`
-      : `${n.toLocaleString("es-ES")} ${groupKind === "DWELLING" ? (n === 1 ? "vivienda" : "viviendas") : n === 1 ? "inmueble" : "inmuebles"} en ${rent ? "alquiler" : "venta"} en ${place}`;
+  const place = filters.puerto ?? filters.municipio ?? (provinceName ? r.provinceOf(provinceName) : r.catalonia);
+  const noun = (n: number) => r.count(n, mooring ? "mooring" : groupKind === "DWELLING" ? "home" : "property", rent, place);
   const selectedFeatures = new Set(filters.car ? filters.car.split(",") : []);
-  const featureLabels: Record<string, string> = ALL_FEATURE_LABELS;
+  const featureLabels: Record<string, string> = L.features;
   const group = !mooring && filters.grupo ? PROPERTY_GROUPS[filters.grupo as PropertyGroup] : null;
   const groupKind: FieldKind | null = mooring ? "MOORING" : (group?.kind ?? null);
   const showRooms = !mooring && (groupKind === null || groupKind === "DWELLING" || groupKind === "OTHER");
   const showSize = !mooring && groupKind !== "GARAGE";
-  const meters = (v: number) => `${v.toLocaleString("es-ES")} m`;
+  const meters = (v: number) => `${v.toLocaleString(d.locale)} m`;
 
   // Filtros activos, cada uno con su enlace para quitarlo
   const chips: Array<{ label: string; remove: Partial<SearchFilters> }> = [
@@ -111,20 +108,20 @@ export async function PortalSearchPage({
     ...(filters.municipio ? [{ label: filters.municipio, remove: { municipio: undefined } }] : []),
     ...(filters.puerto ? [{ label: filters.puerto, remove: { puerto: undefined } }] : []),
     ...(filters.zona ? [{ label: filters.zona, remove: { zona: undefined } }] : []),
-    ...(group ? [{ label: group.label, remove: { grupo: undefined, car: undefined, clas: undefined, uso: undefined, estado: undefined } }] : []),
-    ...(filters.tipo ? [{ label: PROPERTY_TYPES[filters.tipo as keyof typeof PROPERTY_TYPES] ?? filters.tipo, remove: { tipo: undefined } }] : []),
-    ...(filters.estado ? [{ label: CONDITIONS[filters.estado as keyof typeof CONDITIONS], remove: { estado: undefined } }] : []),
-    ...(filters.clas ? [{ label: LAND_CLASSIFICATIONS[filters.clas as keyof typeof LAND_CLASSIFICATIONS], remove: { clas: undefined } }] : []),
-    ...(filters.uso ? [{ label: `Uso ${LAND_USES[filters.uso as keyof typeof LAND_USES].toLowerCase()}`, remove: { uso: undefined } }] : []),
-    ...(filters.disp ? [{ label: "Disponible ya", remove: { disp: undefined } }] : []),
-    ...(filters.tipoAmarre ? [{ label: MOORING_TYPES[filters.tipoAmarre], remove: { tipoAmarre: undefined } }] : []),
-    ...(filters.min ? [{ label: `Desde ${eur(filters.min)}`, remove: { min: undefined } }] : []),
-    ...(filters.max ? [{ label: `Hasta ${eur(filters.max)}`, remove: { max: undefined } }] : []),
-    ...(filters.hab ? [{ label: `${filters.hab}+ hab.`, remove: { hab: undefined } }] : []),
-    ...(filters.banos ? [{ label: `${filters.banos}+ ${filters.banos === 1 ? "baño" : "baños"}`, remove: { banos: undefined } }] : []),
-    ...(filters.m2 ? [{ label: `Desde ${filters.m2} m²`, remove: { m2: undefined } }] : []),
-    ...(filters.eslora ? [{ label: `Eslora ${meters(filters.eslora)}`, remove: { eslora: undefined } }] : []),
-    ...(filters.manga ? [{ label: `Manga ${meters(filters.manga)}`, remove: { manga: undefined } }] : []),
+    ...(group ? [{ label: d.groups[filters.grupo as PropertyGroup], remove: { grupo: undefined, car: undefined, clas: undefined, uso: undefined, estado: undefined } }] : []),
+    ...(filters.tipo ? [{ label: L.types[filters.tipo] ?? filters.tipo, remove: { tipo: undefined } }] : []),
+    ...(filters.estado ? [{ label: L.conditions[filters.estado], remove: { estado: undefined } }] : []),
+    ...(filters.clas ? [{ label: L.landClasses[filters.clas], remove: { clas: undefined } }] : []),
+    ...(filters.uso ? [{ label: r.useChip(L.landUses[filters.uso]), remove: { uso: undefined } }] : []),
+    ...(filters.disp ? [{ label: r.availableNow, remove: { disp: undefined } }] : []),
+    ...(filters.tipoAmarre ? [{ label: L.mooringTypes[filters.tipoAmarre], remove: { tipoAmarre: undefined } }] : []),
+    ...(filters.min ? [{ label: r.from(eur(filters.min)), remove: { min: undefined } }] : []),
+    ...(filters.max ? [{ label: r.upTo(eur(filters.max) + (rent ? d.search.perMonth : "")), remove: { max: undefined } }] : []),
+    ...(filters.hab ? [{ label: r.roomsChip(filters.hab), remove: { hab: undefined } }] : []),
+    ...(filters.banos ? [{ label: r.bathsChip(filters.banos), remove: { banos: undefined } }] : []),
+    ...(filters.m2 ? [{ label: r.fromM2(filters.m2.toLocaleString(d.locale)), remove: { m2: undefined } }] : []),
+    ...(filters.eslora ? [{ label: r.lengthChip(meters(filters.eslora)), remove: { eslora: undefined } }] : []),
+    ...(filters.manga ? [{ label: r.beamChip(meters(filters.manga)), remove: { manga: undefined } }] : []),
     ...[...selectedFeatures].map((c) => ({
       label: featureLabels[c] ?? c,
       remove: { car: [...selectedFeatures].filter((x) => x !== c).join(",") || undefined },
@@ -135,43 +132,43 @@ export async function PortalSearchPage({
     city?.title ??
     (mooring
       ? rent
-        ? "Amarres en alquiler"
-        : "Amarres en venta"
+        ? r.titleMooringRent
+        : r.titleMooringSale
       : group
-        ? `${group.label} en ${rent ? "alquiler" : "venta"} en Cataluña`
+        ? r.titleGroup(d.groups[filters.grupo as PropertyGroup], rent)
         : rent
-          ? "Inmuebles en alquiler en Cataluña"
-          : "Inmuebles en venta en Cataluña");
+          ? r.titleRent
+          : r.titleSale);
   const intro = city
     ? city.description
     : mooring
-    ? `Amarres ${rent ? "en alquiler" : "en venta"} en puertos deportivos de Cataluña. Cada anuncio se revisa antes de publicarse.`
-    : `Inmuebles ${rent ? "en alquiler" : "en venta"} en Barcelona, Girona, Lleida y Tarragona, publicados por FINCALIA360 y por inmobiliarias colaboradoras. Cada anuncio se revisa antes de publicarse.`;
+    ? r.introMooring(rent)
+    : r.introHome(rent);
   const featureOptions = (groupKind && FILTER_FEATURES[groupKind]) || [];
-  const sectionName = mooring ? (rent ? "Amarres en alquiler" : "Amarres en venta") : rent ? "Alquiler" : "Venta";
+  const sectionName = mooring ? (rent ? r.crumbMooringRent : r.crumbMooringSale) : rent ? r.eyebrowRent : r.eyebrowSale;
   const crumbs = [
-    { name: "Inicio", path: "/" },
+    { name: d.nav.home, path: "/" },
     { name: sectionName, path: base },
     ...(city ? [{ name: city.name, path: city.path }] : []),
   ];
   const jsonLd = [organizationJsonLd(), breadcrumbJsonLd(crumbs)];
 
   return (
-    <div lang="es">
+    <div>
       <SiteHeader dict={dict} lang="es" basePath="/" />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }} />
       <main className="bg-sand-50">
         <section className="border-b border-sand-200 bg-white">
           <div className="container-page py-6 sm:py-10">
             {city && (
-              <nav aria-label="Ruta" className="mb-3 text-[13px] text-ink-400">
+              <nav aria-label={r.path} className="mb-3 text-[13px] text-ink-400">
                 <Link href={base} className="hover:text-ink-700 hover:underline">
                   {sectionName}
                 </Link>{" "}
                 › <span className="text-ink-600">{city.name}</span>
               </nav>
             )}
-            <p className="eyebrow">{mooring ? (rent ? "Alquiler · Amarres" : "Venta · Amarres") : rent ? "Alquiler" : "Venta"}</p>
+            <p className="eyebrow">{mooring ? (rent ? r.eyebrowMooringRent : r.eyebrowMooringSale) : rent ? r.eyebrowRent : r.eyebrowSale}</p>
             <h1 className="mt-3 font-serif text-[34px] font-medium leading-tight tracking-tight text-ink-800 sm:text-5xl">{title}</h1>
             <p className="mt-3 hidden max-w-2xl text-[15.5px] text-ink-500 sm:block">{intro}</p>
           </div>
@@ -184,29 +181,34 @@ export async function PortalSearchPage({
               <input type="checkbox" id="ver-filtros" className="peer sr-only" />
               <label htmlFor="ver-filtros" className="flex cursor-pointer items-center justify-between px-4 py-3 text-sm font-semibold text-ink-800 lg:hidden">
                 <span className="inline-flex items-center gap-2">
-                  <SlidersHorizontal className="h-4 w-4" /> {chips.length ? `Filtros (${chips.length})` : "Filtrar búsqueda"}
+                  <SlidersHorizontal className="h-4 w-4" /> {chips.length ? r.filtersN(chips.length) : r.filterSearch}
                 </span>
                 <span className="text-ink-400">▾</span>
               </label>
               <form method="get" action={base} className="hidden space-y-4 border-t border-sand-100 p-4 peer-checked:block lg:block lg:border-t-0">
                 <p className="hidden text-sm font-semibold text-ink-800 lg:flex lg:items-center lg:gap-2">
-                  <SlidersHorizontal className="h-4 w-4" /> Filtros
+                  <SlidersHorizontal className="h-4 w-4" /> {r.filters}
                 </p>
                 <div className="grid grid-cols-2 gap-2 rounded-full bg-sand-100 p-1 text-center text-sm font-medium">
                   <Link href={paths(category).SALE} className={rent ? "rounded-full py-1.5 text-ink-500" : "rounded-full bg-white py-1.5 text-ink-800 shadow-sm"}>
-                    Comprar
+                    {r.buy}
                   </Link>
                   <Link href={paths(category).RENT} className={rent ? "rounded-full bg-white py-1.5 text-ink-800 shadow-sm" : "rounded-full py-1.5 text-ink-500"}>
-                    Alquilar
+                    {r.rent}
                   </Link>
                 </div>
-                <LocationFilter locations={locations} province={filters.provincia} municipality={filters.municipio} />
+                <LocationFilter
+                  locations={locations}
+                  province={filters.provincia}
+                  municipality={filters.municipio}
+                  t={{ province: r.province, allCatalonia: r.allCatalonia, municipality: r.municipality, all: r.allMunicipalities, allCatalonia2: r.allMunicipalitiesCatalonia }}
+                />
                 {mooring ? (
                   <>
                     <label className="block">
-                      <span className="field-label">Puerto</span>
+                      <span className="field-label">{r.port}</span>
                       <select name="puerto" defaultValue={filters.puerto ?? ""} className="field">
-                        <option value="">Todos los puertos</option>
+                        <option value="">{r.allPorts}</option>
                         {locations.ports.map((p) => (
                           <option key={p.name} value={p.name}>
                             {p.name} ({p.count})
@@ -216,7 +218,7 @@ export async function PortalSearchPage({
                     </label>
                     <div className="grid grid-cols-2 gap-2">
                       <label className="block">
-                        <span className="field-label">Eslora de tu barco</span>
+                        <span className="field-label">{r.boatLength}</span>
                         <select name="eslora" defaultValue={filters.eslora ?? ""} className="field px-2">
                           <option value="">Cualquiera</option>
                           {[6, 8, 10, 12, 15, 18, 20, 25, 30, 40].map((n) => (
@@ -227,22 +229,22 @@ export async function PortalSearchPage({
                         </select>
                       </label>
                       <label className="block">
-                        <span className="field-label">Manga</span>
+                        <span className="field-label">{r.boatBeam}</span>
                         <select name="manga" defaultValue={filters.manga ?? ""} className="field px-2">
                           <option value="">Cualquiera</option>
                           {[2.5, 3, 3.5, 4, 4.5, 5, 6, 7, 8].map((n) => (
                             <option key={n} value={n}>
-                              {n.toLocaleString("es-ES")} m
+                              {n.toLocaleString(d.locale)} m
                             </option>
                           ))}
                         </select>
                       </label>
                     </div>
                     <label className="block">
-                      <span className="field-label">Tipo de amarre</span>
+                      <span className="field-label">{r.mooringType}</span>
                       <select name="tipoAmarre" defaultValue={filters.tipoAmarre ?? ""} className="field">
-                        <option value="">Todos</option>
-                        {Object.entries(MOORING_TYPES).map(([k, v]) => (
+                        <option value="">{r.all}</option>
+                        {Object.entries(L.mooringTypes).map(([k, v]) => (
                           <option key={k} value={k}>
                             {v}
                           </option>
@@ -253,19 +255,19 @@ export async function PortalSearchPage({
                 ) : (
                   <>
                     <label className="block">
-                      <span className="field-label">Zona o barrio</span>
-                      <input name="zona" defaultValue={filters.zona ?? ""} placeholder="Cualquiera" className="field" maxLength={80} />
+                      <span className="field-label">{r.zone}</span>
+                      <input name="zona" defaultValue={filters.zona ?? ""} placeholder={r.any} className="field" maxLength={80} />
                     </label>
                     <label className="block">
-                      <span className="field-label">Tipo de inmueble</span>
+                      <span className="field-label">{r.type}</span>
                       <select name="grupo" defaultValue={filters.grupo ?? ""} className="field">
-                        <option value="">Todos</option>
+                        <option value="">{r.all}</option>
                         {HOME_SEARCH_GROUPS.map((g) => (
                           <option key={g} value={g}>
-                            {PROPERTY_GROUPS[g].label}
+                            {d.groups[g]}
                           </option>
                         ))}
-                        <option value="amarres">{PROPERTY_GROUPS.amarres.label}</option>
+                        <option value="amarres">{d.groups.amarres}</option>
                       </select>
                     </label>
                     {filters.tipo && <input type="hidden" name="tipo" value={filters.tipo} />}
@@ -273,9 +275,9 @@ export async function PortalSearchPage({
                 )}
                 <div className="grid grid-cols-2 gap-2">
                   <label className="block">
-                    <span className="field-label">Precio mín.</span>
+                    <span className="field-label">{r.priceMin}</span>
                     <select name="min" defaultValue={filters.min ?? ""} className="field px-2">
-                      <option value="">Sin mínimo</option>
+                      <option value="">{r.noMin}</option>
                       {PRICE_STEPS[category][operation].map((v) => (
                         <option key={v} value={v}>
                           {eur(v)}
@@ -284,9 +286,9 @@ export async function PortalSearchPage({
                     </select>
                   </label>
                   <label className="block">
-                    <span className="field-label">Precio máx.</span>
+                    <span className="field-label">{r.priceMax}</span>
                     <select name="max" defaultValue={filters.max ?? ""} className="field px-2">
-                      <option value="">Sin máximo</option>
+                      <option value="">{r.noMax}</option>
                       {PRICE_STEPS[category][operation].map((v) => (
                         <option key={v} value={v}>
                           {eur(v)}
@@ -299,23 +301,23 @@ export async function PortalSearchPage({
                   <>
                     <div className="grid grid-cols-2 gap-2">
                       <label className="block">
-                        <span className="field-label">Habitaciones</span>
+                        <span className="field-label">{r.rooms}</span>
                         <select name="hab" defaultValue={filters.hab ?? ""} className="field px-2">
-                          <option value="">Todas</option>
+                          <option value="">{r.allF}</option>
                           {[1, 2, 3, 4, 5].map((n) => (
                             <option key={n} value={n}>
-                              {n} o más
+                              {r.orMore(n)}
                             </option>
                           ))}
                         </select>
                       </label>
                       <label className="block">
-                        <span className="field-label">Baños</span>
+                        <span className="field-label">{r.baths}</span>
                         <select name="banos" defaultValue={filters.banos ?? ""} className="field px-2">
-                          <option value="">Todos</option>
+                          <option value="">{r.all}</option>
                           {[1, 2, 3, 4].map((n) => (
                             <option key={n} value={n}>
-                              {n} o más
+                              {r.orMore(n)}
                             </option>
                           ))}
                         </select>
@@ -325,12 +327,12 @@ export async function PortalSearchPage({
                 )}
                 {showSize && (
                   <label className="block">
-                    <span className="field-label">{groupKind === "LAND" ? "Superficie del terreno" : "Superficie"}</span>
+                    <span className="field-label">{groupKind === "LAND" ? r.landSize : r.size}</span>
                     <select name="m2" defaultValue={filters.m2 ?? ""} className="field">
-                      <option value="">Toda</option>
+                      <option value="">{r.anySize}</option>
                       {(groupKind === "LAND" ? [200, 500, 1000, 2000, 5000, 10000, 50000] : [40, 60, 80, 100, 120, 150, 200, 300, 500]).map((n) => (
                         <option key={n} value={n}>
-                          Desde {n.toLocaleString("es-ES")} m²
+                          {r.fromM2(n.toLocaleString(d.locale))}
                         </option>
                       ))}
                     </select>
@@ -338,10 +340,10 @@ export async function PortalSearchPage({
                 )}
                 {groupKind === "DWELLING" && (
                   <label className="block">
-                    <span className="field-label">Estado</span>
+                    <span className="field-label">{r.condition}</span>
                     <select name="estado" defaultValue={filters.estado ?? ""} className="field">
-                      <option value="">Cualquiera</option>
-                      {Object.entries(CONDITIONS).map(([k, v]) => (
+                      <option value="">{r.any}</option>
+                      {Object.entries(L.conditions).map(([k, v]) => (
                         <option key={k} value={k}>
                           {v}
                         </option>
@@ -352,10 +354,10 @@ export async function PortalSearchPage({
                 {groupKind === "LAND" && (
                   <>
                     <label className="block">
-                      <span className="field-label">Clasificación urbanística</span>
+                      <span className="field-label">{r.landClass}</span>
                       <select name="clas" defaultValue={filters.clas ?? ""} className="field">
-                        <option value="">Cualquiera</option>
-                        {Object.entries(LAND_CLASSIFICATIONS).map(([k, v]) => (
+                        <option value="">{r.anyF}</option>
+                        {Object.entries(L.landClasses).map(([k, v]) => (
                           <option key={k} value={k}>
                             {v}
                           </option>
@@ -363,10 +365,10 @@ export async function PortalSearchPage({
                       </select>
                     </label>
                     <label className="block">
-                      <span className="field-label">Uso permitido</span>
+                      <span className="field-label">{r.landUse}</span>
                       <select name="uso" defaultValue={filters.uso ?? ""} className="field">
-                        <option value="">Cualquiera</option>
-                        {Object.entries(LAND_USES).map(([k, v]) => (
+                        <option value="">{r.any}</option>
+                        {Object.entries(L.landUses).map(([k, v]) => (
                           <option key={k} value={k}>
                             {v}
                           </option>
@@ -378,12 +380,12 @@ export async function PortalSearchPage({
                 {mooring && (
                   <label className="flex items-center gap-2 text-[13.5px] text-ink-700">
                     <input type="checkbox" name="disp" value="ya" defaultChecked={filters.disp === "ya"} className="h-4 w-4 rounded border-sand-300" />
-                    Disponible ya
+                    {r.availableNow}
                   </label>
                 )}
                 {featureOptions.length > 0 && (
                 <fieldset>
-                  <legend className="field-label">{mooring ? "Servicios" : "Características"}</legend>
+                  <legend className="field-label">{mooring ? r.services : r.features}</legend>
                   <div className="grid grid-cols-1 gap-1.5">
                     {featureOptions.map((code) => (
                       <label key={code} className="flex items-center gap-2 text-[13.5px] text-ink-700">
@@ -398,11 +400,11 @@ export async function PortalSearchPage({
                 <AutoSubmit />
                 <div className="flex gap-2 pt-1">
                   <button type="submit" className="h-10 flex-1 rounded-full bg-ink-800 text-sm font-medium text-white hover:bg-ink-700">
-                    Buscar
+                    {r.search}
                   </button>
                   {anyFilter && (
                     <Link href={base} className="flex h-10 items-center rounded-full border border-sand-300 px-4 text-sm text-ink-600 hover:bg-sand-50">
-                      Limpiar
+                      {r.clear}
                     </Link>
                   )}
                 </div>
@@ -410,16 +412,16 @@ export async function PortalSearchPage({
             </div>
           </aside>
 
-          <section aria-label="Resultados" className="min-w-0">
+          <section aria-label={title} className="min-w-0">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <h2 className="text-[15px] font-semibold text-ink-800">{noun(result.total)}</h2>
               {result.total > 1 && (
-                <nav aria-label="Ordenar" className="flex gap-1 text-[13px]">
+                <nav aria-label={r.sortAria} className="flex gap-1 text-[13px]">
                   {(
                     [
-                      ["recientes", "Más recientes"],
-                      ["precio-asc", "Más baratos"],
-                      ["precio-desc", "Más caros"],
+                      ["recientes", r.sortRecent],
+                      ["precio-asc", r.sortCheap],
+                      ["precio-desc", r.sortExpensive],
                     ] as const
                   ).map(([k, label]) => (
                     <Link
@@ -441,13 +443,13 @@ export async function PortalSearchPage({
                     key={`${i}-${c.label}`}
                     href={`${base}${qs(filters, { ...c.remove, pagina: undefined })}`}
                     className="inline-flex items-center gap-1.5 rounded-full border border-sand-300 bg-white px-3 py-1 text-[13px] text-ink-700 hover:border-ink-300"
-                    aria-label={`Quitar filtro ${c.label}`}
+                    aria-label={r.removeFilter(c.label)}
                   >
                     {c.label} <X className="h-3.5 w-3.5 text-ink-400" />
                   </Link>
                 ))}
                 <Link href={base} className="px-1 text-[13px] text-ink-500 underline-offset-2 hover:underline">
-                  Quitar todos
+                  {r.removeAll}
                 </Link>
               </div>
             )}
@@ -456,58 +458,52 @@ export async function PortalSearchPage({
               <div className="rounded-2xl border border-dashed border-sand-300 bg-white px-6 py-14 text-center">
                 {mooring ? <Anchor className="mx-auto h-9 w-9 text-ink-200" /> : <Home className="mx-auto h-9 w-9 text-ink-200" />}
                 <h2 className="mt-4 text-lg font-semibold text-ink-800">
-                  {anyFilter ? (mooring ? "No hemos encontrado amarres con estos criterios" : "No hemos encontrado inmuebles con estos criterios") : mooring ? "Todavía no hay amarres publicados" : "Todavía no hay inmuebles publicados"}
+                  {anyFilter ? r.notFoundTitle(mooring) : r.noneYetTitle(mooring)}
                 </h2>
                 <p className="mx-auto mt-2 max-w-md text-sm text-ink-500">
-                  {anyFilter
-                    ? "Prueba a modificar los filtros o a buscar en otra población."
-                    : mooring
-                      ? `Muy pronto encontrarás aquí amarres ${rent ? "en alquiler" : "en venta"}. ¿Tienes uno? Publícalo gratis.`
-                      : rent
-                        ? "Muy pronto encontrarás aquí viviendas en alquiler revisadas. Si eres propietario, publica la tuya gratis."
-                        : "Muy pronto encontrarás aquí viviendas en venta revisadas. Si eres propietario, publica la tuya gratis."}
+                  {anyFilter ? r.notFoundText : r.noneYetText(mooring, rent)}
                 </p>
                 <div className="mt-6 flex flex-wrap justify-center gap-2">
                   {anyFilter && (
                     <ButtonLink href={base} variant="outline">
-                      Ver todos
+                      {r.seeAll}
                     </ButtonLink>
                   )}
                   <ButtonLink href={mooring ? "/publicar?tipo=amarre" : "/publicar"} variant="accent">
-                    Publica tu inmueble gratis
+                    {d.nav.publish}
                   </ButtonLink>
                 </div>
               </div>
             ) : (
               <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
                 {result.items.map((l) => (
-                  <ListingCard key={l.reference} l={l} />
+                  <ListingCard key={l.reference} l={{ ...l, title: localizedTexts(l, siteLang).title ?? l.title }} t={d.card} labels={L} locale={d.locale} />
                 ))}
               </div>
             )}
 
             {result.pages > 1 && (
-              <nav aria-label="Páginas" className="mt-8 flex items-center justify-center gap-2 text-sm">
+              <nav aria-label={r.pages} className="mt-8 flex items-center justify-center gap-2 text-sm">
                 {result.page > 1 && (
                   <Link href={`${base}${qs(filters, { pagina: result.page - 1 === 1 ? undefined : result.page - 1 })}`} className="rounded-full border border-sand-300 bg-white px-4 py-2 hover:bg-sand-50">
-                    ← Anterior
+                    {r.prev}
                   </Link>
                 )}
                 <span className="px-3 text-ink-500">
-                  Página {result.page} de {result.pages}
+                  {r.page(result.page, result.pages)}
                 </span>
                 {result.page < result.pages && (
                   <Link href={`${base}${qs(filters, { pagina: result.page + 1 })}`} className="rounded-full border border-sand-300 bg-white px-4 py-2 hover:bg-sand-50">
-                    Siguiente →
+                    {r.next}
                   </Link>
                 )}
               </nav>
             )}
 
             {cities.length > 0 && (
-              <nav aria-label="Buscar por población" className="mt-10 rounded-2xl border border-sand-200 bg-white p-5">
+              <nav aria-label={r.byTownAria} className="mt-10 rounded-2xl border border-sand-200 bg-white p-5">
                 <h2 className="text-[15px] font-semibold text-ink-800">
-                  {mooring ? (rent ? "Amarres en alquiler por población" : "Amarres en venta por población") : rent ? "Inmuebles en alquiler por población" : "Inmuebles en venta por población"}
+                  {r.byTown(mooring, rent)}
                 </h2>
                 <ul className="mt-3 flex flex-wrap gap-2">
                   {cities.slice(0, 40).map((c) => (
@@ -522,23 +518,23 @@ export async function PortalSearchPage({
                   ))}
                 </ul>
                 <p className="mt-3 text-[13px] text-ink-500">
-                  También:{" "}
+                  {r.also}{" "}
                   {mooring ? (
                     <Link href={rent ? "/amarres/comprar" : "/amarres/alquilar"} className="underline">
-                      {rent ? "amarres en venta" : "amarres en alquiler"}
+                      {rent ? r.linkMooringSale : r.linkMooringRent}
                     </Link>
                   ) : (
                     <Link href={rent ? "/comprar" : "/alquilar"} className="underline">
-                      {rent ? "viviendas en venta" : "viviendas en alquiler"}
+                      {rent ? r.linkSale : r.linkRent}
                     </Link>
                   )}{" "}
                   ·{" "}
                   <Link href={mooring ? "/comprar" : "/amarres/comprar"} className="underline">
-                    {mooring ? "viviendas en venta" : "amarres en venta"}
+                    {mooring ? r.linkSale : r.linkMooringSale}
                   </Link>{" "}
                   ·{" "}
                   <Link href="/estudio" className="underline">
-                    valora tu vivienda gratis
+                    {r.linkValuate}
                   </Link>
                 </p>
               </nav>
@@ -546,17 +542,16 @@ export async function PortalSearchPage({
 
             <div className="mt-10 flex flex-col gap-3 rounded-2xl border border-sand-200 bg-white p-5 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <p className="font-semibold text-ink-800">{mooring ? "¿Tienes un amarre para vender o alquilar?" : "¿Quieres vender o alquilar tu vivienda?"}</p>
-                <p className="text-sm text-ink-500">Envíanos los datos y las fotos: revisamos tu anuncio y lo publicamos sin coste.</p>
+                <p className="font-semibold text-ink-800">{r.publishBoxTitle(mooring)}</p>
+                <p className="text-sm text-ink-500">{r.publishBoxText}</p>
               </div>
               <ButtonLink href={mooring ? "/publicar?tipo=amarre" : "/publicar"} variant="accent" className="shrink-0">
-                Publica tu inmueble gratis
+                {d.nav.publish}
               </ButtonLink>
             </div>
 
             <p className="mt-6 text-xs leading-relaxed text-ink-400">
-              Los anuncios los publican FINCALIA360 o el anunciante indicado en cada ficha, que responde de sus datos. Los precios son los fijados por el anunciante.
-              La ubicación que se muestra es aproximada.
+              {r.disclaimer}
             </p>
           </section>
         </div>

@@ -3,6 +3,9 @@ import { Logo } from "@/components/brand/Logo";
 import type { Dictionary } from "@/lib/i18n";
 import type { Language } from "@/types";
 import { PROPERTY_GROUPS, type PropertyGroup } from "@/services/listings/catalog";
+import { getSiteLang } from "@/lib/i18n/siteServer";
+import { portalDict } from "@/lib/i18n/site";
+import { LanguageMenu } from "./LanguageMenu";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 import { MobileMenu, type MenuGroup } from "./MobileMenu";
 
@@ -10,17 +13,6 @@ import { MobileMenu, type MenuGroup } from "./MobileMenu";
 const GROUPS = (Object.keys(PROPERTY_GROUPS) as PropertyGroup[]).filter((g) => g !== "otros");
 const groupHref = (op: "SALE" | "RENT", g: PropertyGroup) =>
   g === "amarres" ? (op === "RENT" ? "/amarres/alquilar" : "/amarres/comprar") : `${op === "RENT" ? "/alquilar" : "/comprar"}/${g}`;
-const MENUS: MenuGroup[] = (
-  [
-    ["Venta", "SALE", "/comprar", "Ver todo en venta"],
-    ["Alquiler", "RENT", "/alquilar", "Ver todo en alquiler"],
-  ] as const
-).map(([label, op, href, all]) => ({ label, all: { label: all, href }, items: GROUPS.map((g) => ({ label: PROPERTY_GROUPS[g].label, href: groupHref(op, g) })) }));
-const LINKS = [
-  { label: "Valorar vivienda", href: "/estudio" },
-  { label: "Contacto", href: "/contacto" },
-];
-const CTA = { label: "Publica tu inmueble gratis", href: "/publicar" };
 
 const navLink = "rounded-md px-1 py-1 hover:text-ink-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta-500";
 
@@ -29,8 +21,22 @@ const navLink = "rounded-md px-1 py-1 hover:text-ink-800 focus-visible:outline f
  * destacado «Publica tu inmueble gratis». `showNav = false` se usa en las páginas de resultado de las
  * solicitudes antiguas, que siguen siendo multilingües (muestran el selector de idioma).
  */
-export function SiteHeader({ dict, lang, basePath = "/", showNav = true }: { dict: Dictionary; lang: Language; basePath?: string; showNav?: boolean }) {
+export async function SiteHeader({ dict, lang, basePath = "/", showNav = true }: { dict: Dictionary; lang: Language; basePath?: string; showNav?: boolean }) {
   void dict;
+  void PROPERTY_GROUPS;
+  const siteLang = await getSiteLang();
+  const d = portalDict(siteLang);
+  const MENUS: MenuGroup[] = (
+    [
+      [d.nav.sale, "SALE", "/comprar", d.nav.allSale],
+      [d.nav.rent, "RENT", "/alquilar", d.nav.allRent],
+    ] as const
+  ).map(([label, op, href, all]) => ({ label, all: { label: all, href }, items: GROUPS.map((g) => ({ label: d.groups[g], href: groupHref(op, g) })) }));
+  const LINKS = [
+    { label: d.nav.valuate, href: "/estudio" },
+    { label: d.nav.contact, href: "/contacto" },
+  ];
+  const CTA = { label: d.nav.publish, href: "/publicar" };
   return (
     <header className="sticky top-0 z-30 border-b border-sand-200 bg-white/95 backdrop-blur">
       <div className="container-page flex h-16 items-center justify-between gap-2 sm:h-[72px] sm:gap-4">
@@ -39,9 +45,9 @@ export function SiteHeader({ dict, lang, basePath = "/", showNav = true }: { dic
         </Link>
         {showNav ? (
           <>
-            <nav aria-label="Principal" className="hidden items-center gap-4 whitespace-nowrap text-[14.5px] font-medium text-ink-600 lg:flex xl:gap-6">
+            <nav aria-label={d.nav.main} className="hidden items-center gap-4 whitespace-nowrap text-[14.5px] font-medium text-ink-600 lg:flex xl:gap-6">
               <Link href="/" className={navLink}>
-                Inicio
+                {d.nav.home}
               </Link>
               {/* Venta y Alquiler: submenú con los tipos de inmueble (ratón o teclado) */}
               {MENUS.map((m) => (
@@ -75,10 +81,11 @@ export function SiteHeader({ dict, lang, basePath = "/", showNav = true }: { dic
                 href={CTA.href}
                 className="inline-flex h-10 shrink-0 items-center rounded-full bg-terracotta-500 px-4 text-[13.5px] font-semibold text-white transition hover:bg-terracotta-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta-500 sm:text-sm"
               >
-                <span className="sm:hidden">Publicar gratis</span>
+                <span className="sm:hidden">{d.nav.publishShort}</span>
                 <span className="hidden sm:inline">{CTA.label}</span>
               </Link>
-              <MobileMenu groups={MENUS} links={LINKS} cta={CTA} />
+              <LanguageMenu current={siteLang} label={d.nav.language} />
+              <MobileMenu groups={MENUS} links={LINKS} cta={CTA} labels={{ home: d.nav.home, open: d.nav.openMenu, close: d.nav.closeMenu, main: d.nav.main }} />
             </div>
           </>
         ) : (

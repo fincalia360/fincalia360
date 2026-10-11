@@ -13,21 +13,20 @@ import { publicSiteUrl } from "@/lib/site";
 import { csv } from "@/lib/utils";
 import { getProvince } from "@/services/study/geo";
 import {
-  MOORING_FEATURES,
-  MOORING_TYPES,
-  RENT_PERIODS,
   formatMeters,
   formatPrice,
   listingPath,
   photoUrl,
   referenceFromSlug,
   type MooringFeatureCode,
-  type MooringTypeCode,
-  type RentPeriod,
 } from "@/services/listings/catalog";
 import { getPublicListing, goneListingTarget } from "@/services/listings/listings";
 import { cityPath, citiesWithListings, searchPath } from "@/services/listings/seo";
-import { inquiryConsentText } from "@/services/listings/inquiries";
+import { portalDict } from "@/lib/i18n/site";
+import { getSiteLang } from "@/lib/i18n/siteServer";
+import { catalogLabels } from "@/lib/i18n/portal/labels";
+import { localPrice } from "@/components/portal/ListingCard";
+import { localizedTexts } from "@/services/listings/translations";
 
 export const dynamic = "force-dynamic";
 
@@ -53,21 +52,24 @@ function summary(l: Loaded) {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const l = await load((await params).slug);
-  if (!l || l.category !== "MOORING") return { title: "Amarre no disponible" };
-  const description = l.seoDescription || `${summary(l)}. ${l.description.slice(0, 150).replace(/\s+/g, " ")}`.slice(0, 200);
+  if (!l || l.category !== "MOORING") return { title: "404" };
+  const lang = await getSiteLang();
+  const tx = localizedTexts(l, lang);
+  const spanish = lang === "es";
+  const description = (spanish && l.seoDescription) || `${spanish ? summary(l) + ". " : ""}${(tx.description ?? "").slice(0, 150).replace(/\s+/g, " ")}`.slice(0, 200);
   const photo = l.photos[0];
-  const price = formatPrice(l.price, l.operation, l.rentPeriod);
+  const price = localPrice(l.price, l.operation, l.rentPeriod, catalogLabels(lang), portalDict(lang).locale);
   return {
-    title: l.seoTitle || `${l.title} · ${price}`,
+    title: (spanish && l.seoTitle) || `${tx.title} · ${price}`,
     description,
     alternates: { canonical: listingPath(l) },
     openGraph: {
       type: "website",
-      title: `${l.title} · ${price}`,
+      title: `${tx.title} · ${price}`,
       description,
       url: listingPath(l),
       siteName: "FINCALIA360",
-      locale: "es_ES",
+      locale: portalDict(lang).locale.replace("-", "_"),
       ...(photo ? { images: [{ url: photoUrl(photo.key), width: photo.width, height: photo.height, alt: l.title }] } : {}),
     },
     twitter: { card: photo ? "summary_large_image" : "summary" },
@@ -83,7 +85,6 @@ function Fact({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
-const longDate = (d: Date) => d.toLocaleDateString("es-ES", { day: "numeric", month: "long", year: "numeric" });
 
 export default async function MooringPage({ params }: Props) {
   const { slug } = await params;
@@ -102,12 +103,18 @@ export default async function MooringPage({ params }: Props) {
   if (l.slug !== slug || l.category !== "MOORING") permanentRedirect(listingPath(l));
 
   const dict = getDictionary("es");
+  const lang = await getSiteLang();
+  const d = portalDict(lang);
+  const t = d.detail;
+  const L = catalogLabels(lang);
+  const tx = localizedTexts(l, lang);
+  const longDate = (v: Date) => v.toLocaleDateString(d.locale, { day: "numeric", month: "long", year: "numeric" });
   const rent = l.operation === "RENT";
   const features = csv(l.features) as MooringFeatureCode[];
   const province = getProvince(l.provinceCode)?.name;
   const advertiser = l.agency?.name ?? null;
-  const price = formatPrice(l.price, l.operation, l.rentPeriod);
-  const available = l.availableFrom && l.availableFrom > new Date() ? `Desde el ${longDate(l.availableFrom)}` : "Inmediata";
+  const price = localPrice(l.price, l.operation, l.rentPeriod, L, d.locale);
+  const available = l.availableFrom && l.availableFrom > new Date() ? t.fromDate(longDate(l.availableFrom)) : t.immediate;
   const site = publicSiteUrl();
   const jsonLd = {
     "@context": "https://schema.org",
@@ -120,140 +127,141 @@ export default async function MooringPage({ params }: Props) {
   };
 
   return (
-    <div lang="es">
+    <div>
       <SiteHeader dict={dict} lang="es" basePath="/" />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }} />
       <main className="bg-sand-50">
         <div className="container-page py-6 sm:py-8">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <Link href={rent ? "/amarres/alquilar" : "/amarres/comprar"} className="inline-flex items-center gap-1.5 text-sm text-ink-500 hover:text-ink-800">
-              <ArrowLeft className="h-4 w-4" /> {rent ? "Amarres en alquiler" : "Amarres en venta"}
+              <ArrowLeft className="h-4 w-4" /> {rent ? t.backMooringRent : t.backMooringSale}
             </Link>
-            <ListingBreadcrumbs l={l} />
+            <ListingBreadcrumbs l={l} names={{ home: t.home, sale: d.nav.sale, rent: d.nav.rent, mooringSale: t.backMooringSale, mooringRent: t.backMooringRent }} title={tx.title ?? l.title} ariaLabel={d.results.path} />
           </div>
 
           <div className="mt-4 grid gap-8 lg:grid-cols-[1fr_360px]">
             <div className="min-w-0">
-              <Gallery photos={l.photos} title={l.title} />
+              <Gallery photos={l.photos} title={tx.title ?? l.title} t={{ prev: t.photoPrev, next: t.photoNext, photoN: Array.from({ length: l.photos.length }, (_, i) => t.photoN(i + 1)), alt: Array.from({ length: l.photos.length }, (_, i) => t.photoAlt(tx.title ?? l.title, i + 1)) }} />
 
               <div className="mt-6">
                 <div className="flex flex-wrap items-center gap-2 text-[12.5px]">
-                  <span className="rounded-full bg-ink-800 px-2.5 py-1 font-semibold text-white">{rent ? "Alquiler" : "Venta"}</span>
+                  <span className="rounded-full bg-ink-800 px-2.5 py-1 font-semibold text-white">{rent ? t.rent : t.sale}</span>
                   <span className="rounded-full bg-white px-2.5 py-1 font-medium text-ink-600 ring-1 ring-sand-200">
-                    Amarre{l.mooringType ? ` · ${MOORING_TYPES[l.mooringType as MooringTypeCode]}` : ""}
+                    {d.card.mooring}
+                    {l.mooringType ? ` · ${L.mooringTypes[l.mooringType]}` : ""}
                   </span>
-                  {l.status === "RESERVED" && <span className="rounded-full bg-terracotta-500 px-2.5 py-1 font-semibold text-white">Reservado</span>}
-                  <span className="text-ink-400">Ref. {l.reference}</span>
+                  {l.status === "RESERVED" && <span className="rounded-full bg-terracotta-500 px-2.5 py-1 font-semibold text-white">{t.reserved}</span>}
+                  <span className="text-ink-400">{t.ref} {l.reference}</span>
                 </div>
-                <h1 className="mt-3 font-serif text-[30px] font-medium leading-tight tracking-tight text-ink-800 sm:text-4xl">{l.title}</h1>
+                <h1 className="mt-3 font-serif text-[30px] font-medium leading-tight tracking-tight text-ink-800 sm:text-4xl">{tx.title}</h1>
                 <p className="mt-2 flex items-center gap-1.5 text-ink-500">
                   <MapPin className="h-4 w-4" /> {[l.portName, l.zone, l.municipality, province].filter(Boolean).join(", ")}
                 </p>
                 <p className="mt-4 text-[32px] font-semibold tracking-tight text-ink-800">{price}</p>
-                {l.communityFee ? <p className="text-sm text-ink-500">Gastos de mantenimiento: {formatPrice(l.communityFee, "RENT")}</p> : null}
+                {l.communityFee ? <p className="text-sm text-ink-500">{t.maintenanceFee}: {localPrice(l.communityFee, "RENT", "MONTH", L, d.locale)}</p> : null}
 
                 <KeyFacts
                   items={[
-                    { icon: Anchor, label: "Medidas", value: l.berthLength != null ? `${formatMeters(l.berthLength)}${l.berthWidth != null ? ` × ${formatMeters(l.berthWidth)}` : ""}` : null },
-                    { icon: Ship, label: "Eslora máx.", value: formatMeters(l.maxBoatLength) },
-                    { icon: Ship, label: "Manga máx.", value: formatMeters(l.maxBoatBeam) },
-                    { icon: Ruler, label: "Superficie", value: l.builtArea != null ? `${l.builtArea} m²` : null },
-                    { icon: CalendarDays, label: "Disponibilidad", value: available },
+                    { icon: Anchor, label: t.facts.measures, value: l.berthLength != null ? `${formatMeters(l.berthLength)}${l.berthWidth != null ? ` × ${formatMeters(l.berthWidth)}` : ""}` : null },
+                    { icon: Ship, label: t.facts.maxLength, value: formatMeters(l.maxBoatLength) },
+                    { icon: Ship, label: t.facts.maxBeam, value: formatMeters(l.maxBoatBeam) },
+                    { icon: Ruler, label: t.facts.size, value: l.builtArea != null ? `${l.builtArea} m²` : null },
+                    { icon: CalendarDays, label: t.facts.availability, value: available },
                   ]}
                 />
               </div>
 
-              {l.description && (
+              {tx.description && (
                 <section className="mt-8 rounded-2xl border border-sand-200 bg-white p-5 sm:p-6">
-                  <h2 className="text-lg font-semibold text-ink-800">Descripción</h2>
-                  <p className="mt-3 whitespace-pre-line text-[15px] leading-relaxed text-ink-600">{l.description}</p>
+                  <h2 className="text-lg font-semibold text-ink-800">{t.description}</h2>
+                  <p className="mt-3 whitespace-pre-line text-[15px] leading-relaxed text-ink-600" lang={tx.translated ? lang : "es"}>
+                    {tx.description}
+                  </p>
+                  {lang !== "es" && !tx.translated && <p className="mt-3 text-xs italic text-ink-400">{t.original}</p>}
                 </section>
               )}
 
               <section className="mt-5 grid gap-5 sm:grid-cols-2">
                 <div className="rounded-2xl border border-sand-200 bg-white p-5">
-                  <h2 className="text-lg font-semibold text-ink-800">Medidas</h2>
+                  <h2 className="text-lg font-semibold text-ink-800">{t.measures}</h2>
                   <dl className="mt-2">
-                    {l.berthLength != null && <Fact label="Longitud del amarre" value={formatMeters(l.berthLength)} />}
-                    {l.berthWidth != null && <Fact label="Anchura del amarre" value={formatMeters(l.berthWidth)} />}
-                    {l.maxBoatLength != null && <Fact label="Eslora máxima admitida" value={formatMeters(l.maxBoatLength)} />}
-                    {l.maxBoatBeam != null && <Fact label="Manga máxima admitida" value={formatMeters(l.maxBoatBeam)} />}
-                    {l.berthDepth != null && <Fact label="Calado" value={formatMeters(l.berthDepth)} />}
-                    {l.builtArea != null && <Fact label="Superficie" value={`${l.builtArea} m²`} />}
+                    {l.berthLength != null && <Fact label={t.berthLength} value={formatMeters(l.berthLength)} />}
+                    {l.berthWidth != null && <Fact label={t.berthWidth} value={formatMeters(l.berthWidth)} />}
+                    {l.maxBoatLength != null && <Fact label={t.maxBoatLength} value={formatMeters(l.maxBoatLength)} />}
+                    {l.maxBoatBeam != null && <Fact label={t.maxBoatBeam} value={formatMeters(l.maxBoatBeam)} />}
+                    {l.berthDepth != null && <Fact label={t.depth} value={formatMeters(l.berthDepth)} />}
+                    {l.builtArea != null && <Fact label={t.area} value={`${l.builtArea} m²`} />}
                   </dl>
                 </div>
                 <div className="rounded-2xl border border-sand-200 bg-white p-5">
-                  <h2 className="text-lg font-semibold text-ink-800">Datos del anuncio</h2>
+                  <h2 className="text-lg font-semibold text-ink-800">{t.adData}</h2>
                   <dl className="mt-2">
-                    {l.portName && <Fact label="Puerto" value={l.portName} />}
-                    <Fact label="Población" value={province ? `${l.municipality} (${province})` : l.municipality} />
-                    {l.mooringType && <Fact label="Tipo de amarre" value={MOORING_TYPES[l.mooringType as MooringTypeCode]} />}
-                    <Fact label="Operación" value={rent ? `Alquiler por ${RENT_PERIODS[(l.rentPeriod ?? "MONTH") as RentPeriod]}` : "Venta"} />
-                    {l.concessionEnd && <Fact label="Fin de la concesión o derecho de uso" value={l.concessionEnd} />}
-                    <Fact label="Disponibilidad" value={available} />
-                    <Fact label="Referencia" value={l.reference} />
+                    {l.portName && <Fact label={t.port} value={l.portName} />}
+                    <Fact label={t.town} value={province ? `${l.municipality} (${province})` : l.municipality} />
+                    {l.mooringType && <Fact label={t.mooringType} value={L.mooringTypes[l.mooringType]} />}
+                    <Fact label={t.operation} value={rent ? t.rentPer(L.rentPeriods[l.rentPeriod ?? "MONTH"]) : t.sale} />
+                    {l.concessionEnd && <Fact label={t.concessionEnd} value={l.concessionEnd} />}
+                    <Fact label={t.availability} value={available} />
+                    <Fact label={t.reference} value={l.reference} />
                   </dl>
                 </div>
               </section>
 
               {features.length > 0 && (
                 <section className="mt-5 rounded-2xl border border-sand-200 bg-white p-5 sm:p-6">
-                  <h2 className="text-lg font-semibold text-ink-800">Servicios e instalaciones</h2>
+                  <h2 className="text-lg font-semibold text-ink-800">{t.services}</h2>
                   <ul className="mt-3 grid gap-2 sm:grid-cols-2">
                     {features.map((f) => (
                       <li key={f} className="flex items-center gap-2 text-[15px] text-ink-700">
-                        <Check className="h-4 w-4 text-pine-600" /> {MOORING_FEATURES[f] ?? f}
+                        <Check className="h-4 w-4 text-pine-600" /> {L.features[f] ?? f}
                       </li>
                     ))}
                   </ul>
                 </section>
               )}
 
-              {rent && (l.depositMonths != null || l.minTermMonths != null || l.rentConditions) && (
+              {rent && (l.depositMonths != null || l.minTermMonths != null || tx.rentConditions) && (
                 <section className="mt-5 rounded-2xl border border-sand-200 bg-white p-5 sm:p-6">
-                  <h2 className="text-lg font-semibold text-ink-800">Condiciones del alquiler</h2>
+                  <h2 className="text-lg font-semibold text-ink-800">{t.rentConditions}</h2>
                   <dl className="mt-2 sm:max-w-lg">
-                    <Fact label="Precio" value={price} />
-                    {l.depositMonths != null && <Fact label="Fianza" value={`${l.depositMonths} ${l.depositMonths === 1 ? "mes" : "meses"}`} />}
-                    {l.minTermMonths != null && <Fact label="Duración mínima" value={`${l.minTermMonths} meses`} />}
+                    <Fact label={t.price} value={price} />
+                    {l.depositMonths != null && <Fact label={t.depositLabel} value={t.deposit(l.depositMonths)} />}
+                    {l.minTermMonths != null && <Fact label={t.minTerm} value={t.months(l.minTermMonths)} />}
                   </dl>
-                  {l.rentConditions && <p className="mt-4 whitespace-pre-line text-[14.5px] leading-relaxed text-ink-600">{l.rentConditions}</p>}
+                  {tx.rentConditions && <p className="mt-4 whitespace-pre-line text-[14.5px] leading-relaxed text-ink-600">{tx.rentConditions}</p>}
                 </section>
               )}
 
-              {l.extraInfo && (
+              {tx.extraInfo && (
                 <section className="mt-5 rounded-2xl border border-sand-200 bg-white p-5 sm:p-6">
-                  <h2 className="text-lg font-semibold text-ink-800">Información adicional</h2>
-                  <p className="mt-3 whitespace-pre-line text-[15px] leading-relaxed text-ink-600">{l.extraInfo}</p>
+                  <h2 className="text-lg font-semibold text-ink-800">{t.extraInfo}</h2>
+                  <p className="mt-3 whitespace-pre-line text-[15px] leading-relaxed text-ink-600">{tx.extraInfo}</p>
                 </section>
               )}
             </div>
 
             <aside className="lg:sticky lg:top-24 lg:self-start">
               <div id="contacto" className="scroll-mt-24 rounded-2xl border border-sand-200 bg-white p-5 shadow-soft">
-                <h2 className="text-lg font-semibold text-ink-800">¿Te interesa este amarre?</h2>
-                <p className="mt-1 text-sm text-ink-500">Pide más información o concierta una visita.</p>
+                <h2 className="text-lg font-semibold text-ink-800">{t.interestedMooring}</h2>
+                <p className="mt-1 text-sm text-ink-500">{t.interestedText}</p>
                 <div className="mt-4">
-                  <InquiryForm reference={l.reference} consentText={inquiryConsentText(advertiser, l.reference, l.category)} />
+                  <InquiryForm reference={l.reference} lang={lang} consentText={d.inquiry.consent(advertiser, "amarre", l.reference)} />
                 </div>
               </div>
               <div className="mt-4 rounded-2xl border border-sand-200 bg-white p-4 text-[13px] text-ink-500">
                 <p className="flex items-center gap-2 font-medium text-ink-700">
-                  <Building2 className="h-4 w-4" /> Anunciante: {advertiser ?? "FINCALIA360"}
+                  <Building2 className="h-4 w-4" /> {t.advertiser}: {advertiser ?? "FINCALIA360"}
                 </p>
-                <p className="mt-2 leading-snug">
-                  Los datos los facilita el anunciante y se revisan antes de publicar. En la compra de un amarre normalmente se transmite el derecho de uso o la
-                  concesión: comprueba su duración, las tasas del puerto y la documentación antes de firmar.
-                </p>
-                <p className="mt-2 text-ink-400">Actualizado el {l.updatedAt.toLocaleDateString("es-ES")}</p>
+                <p className="mt-2 leading-snug">{t.mooringDisclaimer}</p>
+                <p className="mt-2 text-ink-400">{t.updated(l.updatedAt.toLocaleDateString(d.locale))}</p>
               </div>
             </aside>
           </div>
-          <SimilarListings l={l} />
+          <SimilarListings l={l} lang={lang} />
         </div>
         {/* Espacio para la barra de contacto fija del móvil */}
         <div className="h-20 lg:hidden" aria-hidden />
-        <MobileContactBar price={price} />
+        <MobileContactBar price={price} label={t.contact} />
       </main>
       <SiteFooter dict={dict} lang="es" />
     </div>

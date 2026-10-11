@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/auth";
 import { generateListingCopy } from "@/services/listings/aiCopy";
+import { TranslationError, saveTranslations, translateIfStale, translateListing, type StoredTranslations } from "@/services/listings/translations";
 import { prisma } from "@/db/client";
 import type { FormState } from "@/components/listings/ListingForm";
 import {
@@ -62,6 +63,9 @@ export async function transitionAction(id: string, _prev: FormState, formData: F
   try {
     const t = z.enum(Object.keys(TRANSITIONS) as [Transition]).parse(formData.get("transition"));
     await transitionListing(a, id, t, (formData.get("note") as string) || null);
+    // Al publicar se preparan las traducciones (catalán, inglés, alemán y francés) si no están al día.
+    // Si la IA no está configurada o falla, el anuncio se publica igualmente y se ve en español.
+    if (t === "publish") await translateIfStale(id, a.id);
     revalidatePath(`/admin/inmuebles/${id}`);
     revalidatePath("/admin/inmuebles");
     return { ok: true };
@@ -96,6 +100,33 @@ export async function aiCopyAction(raw: Record<string, unknown>, mode: "ALL" | "
   const user = await requireAdmin();
   const m = z.enum(["ALL", "TITLE", "DESCRIPTION"]).parse(mode);
   return generateListingCopy({ raw, mode: m, adminId: user.id, listingId: listingId ?? null });
+}
+
+export async function translateListingAction(id: string): Promise<FormState> {
+  const a = await actor();
+  try {
+    await translateListing(id, a.id);
+    revalidatePath(`/admin/inmuebles/${id}`);
+    return { ok: true };
+  } catch (e) {
+    return { error: e instanceof TranslationError ? e.message : "No se ha podido traducir el anuncio" };
+  }
+}
+
+export async function saveTranslationsAction(id: string, _prev: FormState, formData: FormData): Promise<FormState> {
+  await actor();
+  try {
+    const langs: StoredTranslations["langs"] = {};
+    for (const lang of ["ca", "en", "de", "fr"] as const) {
+      const pick = (f: string) => String(formData.get(`${lang}.${f}`) ?? "");
+      langs[lang] = { title: pick("title"), description: pick("description"), extraInfo: pick("extraInfo"), distribution: pick("distribution"), rentConditions: pick("rentConditions") };
+    }
+    await saveTranslations(id, langs);
+    revalidatePath(`/admin/inmuebles/${id}`);
+    return { ok: true };
+  } catch (e) {
+    return { error: e instanceof TranslationError ? e.message : message(e) };
+  }
 }
 
 export async function mainPhotoAction(photoId: string) {

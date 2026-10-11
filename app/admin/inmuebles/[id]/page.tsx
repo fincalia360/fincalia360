@@ -14,12 +14,16 @@ import { isPortalProvince } from "@/services/listings/catalog";
 import { INQUIRY_STATUSES, PUBLIC_STATUSES, listingPath, type ListingStatus } from "@/services/listings/catalog";
 import { ListingError, availableTransitions, getListing, publishProblems } from "@/services/listings/listings";
 import { DuplicateButton } from "@/components/listings/DuplicateButton";
+import { TranslationsPanel } from "@/components/listings/TranslationsPanel";
+import { TRANSLATABLE, parseStored, sourceTexts, translationsFresh } from "@/services/listings/translations";
 import {
   aiCopyAction,
   deleteListingAction,
   deletePhotoAction,
   duplicateListingAction,
   mainPhotoAction,
+  saveTranslationsAction,
+  translateListingAction,
   movePhotoAction,
   transitionAction,
   updateListingAction,
@@ -46,6 +50,9 @@ export default async function AdminListingPage({ params, searchParams }: { param
   ]);
   const provinces = PROVINCES.filter((p) => isPortalProvince(p.code)).sort((a, b) => a.name.localeCompare(b.name, "es")).map(({ code, name }) => ({ code, name }));
   const isPublic = PUBLIC_STATUSES.includes(listing.status as ListingStatus);
+  const stored = parseStored(listing.translations);
+  const translationStatus = !stored ? "none" : translationsFresh(listing) ? "fresh" : "stale";
+  const translatedFields = TRANSLATABLE.filter((f) => f in sourceTexts(listing));
 
   return (
     <div>
@@ -82,6 +89,15 @@ export default async function AdminListingPage({ params, searchParams }: { param
               return aiCopyAction(raw, mode, listing.id);
             }}
           />
+          {!listing.agencyId && (
+            <TranslationsPanel
+              status={translationStatus}
+              langs={stored?.langs ?? {}}
+              fields={translatedFields}
+              onTranslate={translateListingAction.bind(null, listing.id)}
+              onSave={saveTranslationsAction.bind(null, listing.id)}
+            />
+          )}
         </div>
 
         <aside className="space-y-5 xl:sticky xl:top-6 xl:self-start">

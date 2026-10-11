@@ -1,6 +1,7 @@
 // Formulario de contacto de la web. Los mensajes se guardan para el administrador (panel → Mensajes
 // de contacto) y, si el correo está configurado, se avisa al equipo. Nunca se simula el envío.
 import { z } from "zod";
+import { portalDict, toSiteLang } from "@/lib/i18n/site";
 import { prisma } from "@/db/client";
 import { audit } from "@/services/audit";
 import { emailConfig, sendEmail } from "@/services/email/emailService";
@@ -19,6 +20,7 @@ export const contactSchema = z.object({
   privacy: z.preprocess((v) => v === true || v === "on" || v === "true", z.boolean()).refine((v) => v, "Debes aceptar la política de privacidad para enviar el mensaje"),
   website: z.string().optional(),
   elapsedMs: z.coerce.number().optional(),
+  lang: z.string().max(5).optional(),
 });
 
 export class ContactError extends Error {}
@@ -36,7 +38,7 @@ export async function submitContactMessage(raw: unknown) {
       subject: d.subject ?? null,
       message: d.message,
       consentVersion: CONTACT_CONSENT_VERSION,
-      consentText: CONTACT_CONSENT_TEXT,
+      consentText: portalDict(toSiteLang(d.lang)).contact.consent,
     },
   });
   await audit({ type: "PUBLIC" }, "contact.create", "ContactMessage", msg.id, null, null);

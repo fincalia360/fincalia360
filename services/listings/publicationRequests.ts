@@ -4,6 +4,7 @@
 // - Consentimientos explícitos y nunca premarcados; se guarda el texto exacto aceptado.
 // - El aviso por correo al equipo solo se envía si el proveedor está configurado (nunca se simula).
 import { z } from "zod";
+import { portalDict, toSiteLang } from "@/lib/i18n/site";
 import { prisma } from "@/db/client";
 import { audit } from "@/services/audit";
 import { emailConfig, sendEmail } from "@/services/email/emailService";
@@ -57,6 +58,8 @@ export const publicationRequestSchema = z
     // Antispam: campo oculto y tiempo mínimo de rellenado
     website: z.string().optional(),
     elapsedMs: z.coerce.number().optional(),
+    /** Idioma en que se mostró el formulario (los consentimientos se guardan tal como se leyeron). */
+    lang: z.string().max(5).optional(),
   })
   .superRefine((v, ctx) => {
     if (v.category === "MOORING") {
@@ -118,7 +121,10 @@ export async function submitPublicationRequest(raw: Record<string, unknown>, pho
       isOwnerConfirmed: true,
       privacyAccepted: true,
       consentVersion: PUBLICATION_CONSENT_VERSION,
-      consentText: [PUBLICATION_OWNER_TEXT, PUBLICATION_PRIVACY_TEXT, d.marketing ? PUBLICATION_MARKETING_TEXT : null].filter(Boolean).join(" "),
+      consentText: (() => {
+        const t = portalDict(toSiteLang(d.lang)).publish;
+        return [t.ownerConsent, t.privacyConsent, d.marketing ? t.marketingConsent : null].filter(Boolean).join(" ");
+      })(),
       marketingConsent: d.marketing,
     },
   });

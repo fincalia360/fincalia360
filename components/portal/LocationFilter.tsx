@@ -4,7 +4,17 @@
 import { useState } from "react";
 import type { PortalLocations } from "@/services/listings/portalLocations";
 
-export function LocationFilter({ locations, province: initialProvince, municipality: initialMunicipality }: { locations: PortalLocations; province?: string; municipality?: string }) {
+export function LocationFilter({
+  locations,
+  province: initialProvince,
+  municipality: initialMunicipality,
+  t,
+}: {
+  locations: PortalLocations;
+  province?: string;
+  municipality?: string;
+  t: { province: string; allCatalonia: string; municipality: string; all: string; allCatalonia2: string };
+}) {
   const { provinces, municipalities, counts } = locations;
   const [province, setProvince] = useState(initialProvince ?? "");
   const [municipality, setMunicipality] = useState(initialMunicipality ?? "");
@@ -21,7 +31,7 @@ export function LocationFilter({ locations, province: initialProvince, municipal
   return (
     <>
       <label className="block">
-        <span className="field-label">Provincia</span>
+        <span className="field-label">{t.province}</span>
         <select
           name="provincia"
           value={province}
@@ -31,7 +41,7 @@ export function LocationFilter({ locations, province: initialProvince, municipal
           }}
           className="field"
         >
-          <option value="">Toda Cataluña</option>
+          <option value="">{t.allCatalonia}</option>
           {provinces.map((p) => (
             <option key={p.code} value={p.code}>
               {p.name}
@@ -40,7 +50,7 @@ export function LocationFilter({ locations, province: initialProvince, municipal
         </select>
       </label>
       <label className="block">
-        <span className="field-label">Municipio</span>
+        <span className="field-label">{t.municipality}</span>
         <select
           name="municipio"
           value={municipality}
@@ -52,7 +62,7 @@ export function LocationFilter({ locations, province: initialProvince, municipal
           }}
           className="field"
         >
-          <option value="">{province ? "Todos los municipios" : "Todos los municipios de Cataluña"}</option>
+          <option value="">{province ? t.all : t.allCatalonia2}</option>
           {province
             ? (municipalities[province] ?? []).map((m) => option(province, m))
             : provinces.map((p) => (

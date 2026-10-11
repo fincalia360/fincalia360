@@ -1,3 +1,5 @@
+import { portalDict } from "@/lib/i18n/site";
+import { getSiteLang } from "@/lib/i18n/siteServer";
 import { PortalSearchPage } from "@/components/portal/PortalSearchPage";
 import { parseSearch } from "@/services/listings/listings";
 import { redirect } from "next/navigation";
@@ -5,11 +7,10 @@ import { groupPath, isHomeGroup, portalMetadata } from "@/services/listings/seo"
 
 export const dynamic = "force-dynamic";
 
-export const metadata = portalMetadata({
-  title: "Inmuebles en alquiler en Cataluña",
-  description: "Pisos, casas, locales, oficinas, garajes, terrenos y amarres en alquiler en Barcelona, Girona, Lleida y Tarragona, revisados antes de publicarse. Filtra por tipo, población, precio y características.",
-  path: "/alquilar",
-});
+export async function generateMetadata() {
+  const m = portalDict(await getSiteLang()).meta.homeRent;
+  return portalMetadata({ title: m.title, description: m.description, path: "/alquilar" });
+}
 
 export default async function RentPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const sp = await searchParams;

@@ -481,6 +481,10 @@ model Listing {
   seoDescription String? // descripción para Google (meta description)
   slugText       String? // texto de la dirección: /inmueble/<slugText>-<referencia>
 
+  // Traducciones del título y los textos del anuncio (catalán, inglés, alemán, francés), en JSON.
+  // Las prepara la IA y el administrador puede revisarlas; se descartan si cambia el texto en español.
+  translations String?
+
   ownerContactId String? // propietario en el CRM de la inmobiliaria
   ownerContact   AgencyContact? @relation("ListingOwner", fields: [ownerContactId], references: [id], onDelete: SetNull)
 

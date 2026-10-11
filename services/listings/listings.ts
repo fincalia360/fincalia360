@@ -759,6 +759,7 @@ export const PUBLIC_SELECT = {
   landUse: true,
   seoTitle: true,
   seoDescription: true,
+  translations: true,
   publishedAt: true,
   updatedAt: true,
   agency: { select: { name: true } },

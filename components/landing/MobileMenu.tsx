@@ -12,7 +12,17 @@ export interface MenuGroup {
   items: { label: string; href: string }[];
 }
 
-export function MobileMenu({ groups, links, cta }: { groups: MenuGroup[]; links: { label: string; href: string }[]; cta: { label: string; href: string } }) {
+export function MobileMenu({
+  groups,
+  links,
+  cta,
+  labels,
+}: {
+  groups: MenuGroup[];
+  links: { label: string; href: string }[];
+  cta: { label: string; href: string };
+  labels: { home: string; open: string; close: string; main: string };
+}) {
   const [open, setOpen] = useState(false);
   const [section, setSection] = useState<string | null>(null);
   const ref = useRef<HTMLDivElement>(null);
@@ -39,15 +49,15 @@ export function MobileMenu({ groups, links, cta }: { groups: MenuGroup[]; links:
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-controls="menu-movil"
-        aria-label={open ? "Cerrar el menú" : "Abrir el menú"}
+        aria-label={open ? labels.close : labels.open}
         className="grid h-10 w-10 place-items-center rounded-full border border-sand-300 text-ink-700 hover:bg-sand-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-terracotta-500"
       >
         {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
       </button>
       {open && (
-        <nav id="menu-movil" aria-label="Principal" className="absolute right-0 top-12 z-40 max-h-[80vh] w-[min(20rem,calc(100vw-2rem))] overflow-y-auto rounded-2xl border border-sand-200 bg-white p-2 shadow-xl">
+        <nav id="menu-movil" aria-label={labels.main} className="absolute right-0 top-12 z-40 max-h-[80vh] w-[min(20rem,calc(100vw-2rem))] overflow-y-auto rounded-2xl border border-sand-200 bg-white p-2 shadow-xl">
           <Link href="/" onClick={() => setOpen(false)} className={item}>
-            Inicio
+            {labels.home}
           </Link>
           {groups.map((g) => (
             <div key={g.label}>
