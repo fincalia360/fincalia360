@@ -77,7 +77,10 @@ export default async function PrivacyPage({ searchParams }: { searchParams: Prom
             <td>Al navegar</td>
             <td>
               Datos técnicos necesarios para el funcionamiento y la seguridad (dirección IP para limitar abusos, sin conservarla) y estadísticas de uso
-              propias sin cookies de terceros (ver la <Link href="/cookies">política de cookies</Link>).
+              propias sin cookies de terceros (ver la <Link href="/cookies">política de cookies</Link>). Cuando visitas un anuncio, contamos la visita y,
+              a partir de tu dirección IP y solo en ese momento, estimamos la población y el país aproximados desde los que nos visitas (con la base de
+              datos de DB-IP, que consultamos en nuestro propio servidor). Guardamos únicamente la población y el país, nunca la dirección IP ni nada que
+              permita identificarte.
             </td>
           </tr>
         </tbody>
@@ -117,7 +120,8 @@ export default async function PrivacyPage({ searchParams }: { searchParams: Prom
           (art. 6.1.b).
         </li>
         <li>
-          <strong>Seguridad y mejora del servicio</strong> con estadísticas agregadas: interés legítimo (art. 6.1.f).
+          <strong>Seguridad y mejora del servicio</strong> con estadísticas agregadas, incluidas las visitas a los anuncios y su población aproximada:
+          interés legítimo (art. 6.1.f).
         </li>
       </ul>
       <p>

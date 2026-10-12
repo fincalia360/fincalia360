@@ -44,9 +44,9 @@ export default async function CookiesPage({ searchParams }: { searchParams: Prom
       </table>
       <h2>Estadísticas propias</h2>
       <p>
-        Para saber cuántas personas usan cada paso del estudio, guardamos eventos anónimos (por ejemplo, «estudio iniciado») con un identificador
-        aleatorio que solo vive mientras la pestaña está abierta (almacenamiento de sesión del navegador). No se comparte con terceros ni permite
-        identificarte.
+        Para saber cuántas personas usan cada paso del estudio y cuántas visitas recibe cada anuncio, guardamos eventos anónimos (por ejemplo,
+        «estudio iniciado» o «visita a un anuncio», con la población aproximada de la visita) con un identificador aleatorio que solo vive mientras la
+        pestaña está abierta (almacenamiento de sesión del navegador). No se comparte con terceros ni permite identificarte.
       </p>
       <h2>Cómo eliminarlas</h2>
       <p>

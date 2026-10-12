@@ -70,9 +70,9 @@ describe("visitas y compartir de los anuncios", () => {
     const l = await publishedListing();
     const draft = await m.listings.createListing(admin, home({ title: "Piso ficticio en borrador para estadísticas" }));
 
-    expect(await m.stats.recordListingEvent({ listingId: l.id, kind: "view", sessionId: "s1", userAgent: UA })).toBe(true);
+    expect(await m.stats.recordListingEvent({ listingId: l.id, kind: "view", sessionId: "s1", userAgent: UA, place: { city: "Girona", country: "ES" } })).toBe(true);
     expect(await m.stats.recordListingEvent({ listingId: l.id, kind: "view", sessionId: "s1", userAgent: UA })).toBe(false); // recarga
-    expect(await m.stats.recordListingEvent({ listingId: l.id, kind: "view", sessionId: "s2", userAgent: UA })).toBe(true);
+    expect(await m.stats.recordListingEvent({ listingId: l.id, kind: "view", sessionId: "s2", userAgent: UA, place: { city: "Perpignan", country: "FR" } })).toBe(true);
     expect(await m.stats.recordListingEvent({ listingId: l.id, kind: "view", sessionId: "s3", userAgent: "Googlebot/2.1" })).toBe(false);
     expect(await m.stats.recordListingEvent({ listingId: l.id, kind: "view", sessionId: "s4", userAgent: "WhatsApp/2.23" })).toBe(false);
     expect(await m.stats.recordListingEvent({ listingId: draft.id, kind: "view", sessionId: "s5", userAgent: UA })).toBe(false);
@@ -90,10 +90,18 @@ describe("visitas y compartir de los anuncios", () => {
     expect(detail).toMatchObject({ total: 2, last7: 2, last30: 2, shares: 3, byChannel: { whatsapp: 2, copy: 1 } });
     expect(detail.byDay).toHaveLength(30);
     expect(detail.byDay.at(-1)?.views).toBe(2);
+    expect(detail.byPlace).toEqual([
+      { place: "Girona", views: 1 },
+      { place: "Perpignan (Francia)", views: 1 },
+    ]);
 
     // No se guarda nada personal: solo el anuncio y el canal
     const events = await m.prisma.event.findMany({ where: { category: "LISTING" } });
-    for (const e of events) expect(Object.keys(JSON.parse(e.payload ?? "{}")).sort()).toEqual(e.type === "listing_share" ? ["channel", "listingId"] : ["listingId"]);
+    for (const e of events) {
+      const keys = Object.keys(JSON.parse(e.payload ?? "{}")).sort();
+      expect(keys).toEqual(e.type === "listing_share" ? ["channel", "listingId"] : ["city", "country", "listingId"]);
+      expect(e.payload).not.toMatch(/\d+\.\d+\.\d+\.\d+/); // nunca una IP
+    }
   });
 
   it("la descripción para Google corta en una palabra completa", () => {
@@ -102,5 +110,18 @@ describe("visitas y compartir de los anuncios", () => {
     expect(d.endsWith("…")).toBe(true);
     expect(d).not.toMatch(/\s…$/);
     expect(m.seo.metaDescription(["Texto corto."])).toBe("Texto corto.");
+  });
+});
+
+describe("población de la visita (IP)", () => {
+  it("lee la IP del proxy, la valida y, sin base de datos, no inventa la población", async () => {
+    const geo = await import("@/services/geo/ipLocation");
+    const req = (h: Record<string, string>) => new Request("http://localhost/x", { headers: h });
+    expect(geo.clientIp(req({ "x-forwarded-for": "83.44.1.20, 10.0.0.1" }))).toBe("83.44.1.20");
+    expect(geo.clientIp(req({ "x-forwarded-for": "no-es-una-ip" }))).toBeNull();
+    expect(geo.clientIp(req({}))).toBeNull();
+    process.env.GEOIP_DIR = path.join(UPLOADS, "geo-vacio");
+    expect(await geo.locateIp("83.44.1.20")).toBeNull();
+    expect(await geo.locateIp(null)).toBeNull();
   });
 });

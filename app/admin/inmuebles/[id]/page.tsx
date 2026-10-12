@@ -16,6 +16,7 @@ import { ListingError, availableTransitions, getListing, publishProblems } from 
 import { DuplicateButton } from "@/components/listings/DuplicateButton";
 import { TranslationsPanel } from "@/components/listings/TranslationsPanel";
 import { listingStatsDetail } from "@/services/listings/listingStats";
+import { GEO_ATTRIBUTION } from "@/services/geo/ipLocation";
 import { TRANSLATABLE, parseStored, sourceTexts, translationsFresh } from "@/services/listings/translations";
 import {
   aiCopyAction,
@@ -190,7 +191,31 @@ function ListingStatsCard({ stats }: { stats: Awaited<ReturnType<typeof listingS
           </span>
         )}
       </p>
-      <p className="mt-2 text-[11.5px] leading-snug text-ink-400">Una visita por persona cada 30 minutos; no cuenta robots ni tus visitas al panel. Sin cookies ni datos personales.</p>
+      {stats.byPlace.length > 0 && (
+        <div className="mt-4">
+          <h3 className="text-[13px] font-semibold text-ink-700">De dónde vienen las visitas (aprox.)</h3>
+          <ul className="mt-2 space-y-1.5 text-[13px]">
+            {stats.byPlace.slice(0, 10).map((p) => (
+              <li key={p.place} className="flex items-center gap-2">
+                <span className="w-32 shrink-0 truncate text-ink-600" title={p.place}>
+                  {p.place}
+                </span>
+                <span className="h-2 flex-1 overflow-hidden rounded-full bg-sand-100">
+                  <span className="block h-full rounded-full bg-ink-700" style={{ width: `${(p.views / Math.max(1, stats.total)) * 100}%` }} />
+                </span>
+                <span className="w-8 text-right tabular-nums text-ink-800">{p.views}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-[11px] leading-snug text-ink-400">
+            Estimado a partir de la IP, que no se guarda. Con datos móviles suele aparecer la ciudad del operador.{" "}
+            <a href={GEO_ATTRIBUTION.url} target="_blank" rel="noreferrer" className="underline">
+              {GEO_ATTRIBUTION.text}
+            </a>
+          </p>
+        </div>
+      )}
+      <p className="mt-2 text-[11.5px] leading-snug text-ink-400">Una visita por persona cada 30 minutos; no cuenta robots ni tus visitas al panel. Sin cookies.</p>
     </div>
   );
 }

@@ -28,6 +28,7 @@
     "@fontsource/cormorant-garamond": "^5.1.0",
     "@prisma/client": "^6.16.0",
     "lucide-react": "^1.53.0",
+    "maxmind": "^5.0.7",
     "next": "^15.5.0",
     "pdf-lib": "^1.17.1",
     "react": "^19.1.0",

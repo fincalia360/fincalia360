@@ -1,8 +1,10 @@
 // Visitas y veces compartido de cada anuncio. Estadística propia y anónima:
 // - Se guarda en la tabla de eventos existente (categoría LISTING): no hace falta ninguna tabla nueva.
-// - Sin cookies ni datos personales: no se guarda la IP ni nada que identifique al visitante.
+// - Sin cookies ni datos personales: no se guarda la IP ni nada que identifique al visitante. Solo la
+//   población y el país aproximados de la visita (calculados en el momento a partir de la IP).
 // - Una visita por pestaña y anuncio cada 30 minutos (no cuenta las recargas) y no cuenta robots.
 import { prisma } from "@/db/client";
+import type { VisitPlace } from "@/services/geo/ipLocation";
 
 export const SHARE_CHANNELS = ["whatsapp", "facebook", "x", "email", "copy", "native"] as const;
 export type ShareChannel = (typeof SHARE_CHANNELS)[number];
@@ -15,7 +17,15 @@ export function isBot(userAgent: string | null | undefined) {
 }
 
 /** Registra una visita o un «compartir». Devuelve false si no se cuenta (robot, repetida o anuncio no público). */
-export async function recordListingEvent(input: { listingId: string; kind: "view" | "share"; channel?: ShareChannel; sessionId?: string | null; userAgent?: string | null }) {
+export async function recordListingEvent(input: {
+  listingId: string;
+  kind: "view" | "share";
+  channel?: ShareChannel;
+  sessionId?: string | null;
+  userAgent?: string | null;
+  /** Población y país aproximados (solo visitas). */
+  place?: VisitPlace | null;
+}) {
   if (isBot(input.userAgent)) return false;
   const listing = await prisma.listing.findFirst({ where: { id: input.listingId, status: { in: ["PUBLISHED", "RESERVED"] } }, select: { id: true } });
   if (!listing) return false;
@@ -32,7 +42,11 @@ export async function recordListingEvent(input: { listingId: string; kind: "view
       type,
       category: "LISTING",
       sessionId: input.sessionId ?? null,
-      payload: JSON.stringify(input.kind === "share" ? { listingId: listing.id, channel: input.channel ?? "native" } : { listingId: listing.id }),
+      payload: JSON.stringify(
+        input.kind === "share"
+          ? { listingId: listing.id, channel: input.channel ?? "native" }
+          : { listingId: listing.id, ...(input.place?.city ? { city: input.place.city } : {}), ...(input.place?.country ? { country: input.place.country } : {}) },
+      ),
     },
   });
   return true;
@@ -44,7 +58,7 @@ export interface ListingCounts {
   shares: number;
 }
 
-function parse(payload: string | null): { listingId?: string; channel?: string } {
+function parse(payload: string | null): { listingId?: string; channel?: string; city?: string; country?: string } {
   try {
     return payload ? JSON.parse(payload) : {};
   } catch {
@@ -91,7 +105,19 @@ export async function listingStatsDetail(listingId: string) {
     const c = parse(s.payload).channel ?? "native";
     byChannel[c] = (byChannel[c] ?? 0) + 1;
   }
+  // Poblaciones de las visitas (aproximadas), de más a menos
+  const places = new Map<string, number>();
+  for (const v of views) {
+    const p = parse(v.payload);
+    const country = p.country && p.country !== "ES" ? countryName(p.country) : null;
+    const label = p.city ? (country ? `${p.city} (${country})` : p.city) : (country ?? "Sin datos");
+    places.set(label, (places.get(label) ?? 0) + 1);
+  }
+  const byPlace = [...places.entries()]
+    .map(([place, count]) => ({ place, views: count }))
+    .sort((a, b) => (a.place === "Sin datos" ? 1 : b.place === "Sin datos" ? -1 : b.views - a.views));
   return {
+    byPlace,
     total: views.length,
     last7: views.filter((v) => now - v.createdAt.getTime() <= 7 * day).length,
     last30: views.filter((v) => now - v.createdAt.getTime() <= 30 * day).length,
@@ -100,4 +126,12 @@ export async function listingStatsDetail(listingId: string) {
     byChannel,
     byDay,
   };
+}
+
+function countryName(code: string) {
+  try {
+    return new Intl.DisplayNames(["es"], { type: "region" }).of(code) ?? code;
+  } catch {
+    return code;
+  }
 }
