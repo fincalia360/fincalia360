@@ -477,7 +477,7 @@ export async function PortalSearchPage({
             ) : (
               <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
                 {result.items.map((l) => (
-                  <ListingCard key={l.reference} l={{ ...l, title: localizedTexts(l, siteLang).title ?? l.title }} t={d.card} labels={L} locale={d.locale} />
+                  <ListingCard key={l.reference} l={{ ...l, title: localizedTexts(l, siteLang).title ?? l.title }} t={d.card} labels={L} locale={d.locale} shareLabel={d.share.card} />
                 ))}
               </div>
             )}

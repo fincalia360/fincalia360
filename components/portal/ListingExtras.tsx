@@ -61,7 +61,7 @@ export async function SimilarListings({ l, lang = "es" }: { l: L; lang?: SiteLan
       </h2>
       <div className="mt-4 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
         {items.map((s) => (
-          <ListingCard key={s.reference} l={{ ...s, title: localizedTexts(s, lang).title ?? s.title }} t={d.card} labels={labels} locale={d.locale} />
+          <ListingCard key={s.reference} l={{ ...s, title: localizedTexts(s, lang).title ?? s.title }} t={d.card} labels={labels} locale={d.locale} shareLabel={d.share.card} />
         ))}
       </div>
     </section>

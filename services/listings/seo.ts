@@ -161,3 +161,16 @@ export function groupCopy(operation: Operation, group: PropertyGroup, count: num
       : `${label} ${op} en Barcelona, Girona, Lleida y Tarragona. Anuncios revisados antes de publicarse.`,
   };
 }
+
+/** Descripción para Google: une las partes y corta en una palabra completa (≈160 caracteres, lo que muestra Google). */
+export function metaDescription(parts: Array<string | null | undefined>, max = 160) {
+  const text = parts
+    .filter(Boolean)
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (text.length <= max) return text;
+  const cut = text.slice(0, max - 1);
+  const space = cut.lastIndexOf(" ");
+  return `${(space > max * 0.6 ? cut.slice(0, space) : cut).replace(/[\s.,;:·-]+$/, "")}…`;
+}

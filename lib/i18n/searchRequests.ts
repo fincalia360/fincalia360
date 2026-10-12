@@ -5,7 +5,7 @@ const es = {
   locale: "es-ES",
   metaFormTitle: "Busco comprar · Publica gratis qué inmueble buscas",
   metaFormDescription:
-    "¿Buscas un inmueble en Cataluña? Pisos, casas, locales, oficinas, garajes, naves, terrenos o amarres: dinos qué necesitas. Es gratis y revisamos cada solicitud antes de publicarla, sin tus datos de contacto.",
+    "¿Buscas un inmueble en Cataluña? Pisos, casas, locales, oficinas, naves, terrenos o amarres: dinos qué necesitas. Gratis y sin publicar tus datos de contacto.",
   metaListTitle: "Personas que buscan un inmueble en Cataluña",
   metaListDescription: "Búsquedas de inmuebles en Barcelona, Girona, Lleida y Tarragona, revisadas por FINCALIA360. Sin datos personales.",
   eyebrow: "Busco comprar",
@@ -145,7 +145,7 @@ const ca: SearchTexts = {
   locale: "ca-ES",
   metaFormTitle: "Busco comprar · Publica gratis quin immoble busques",
   metaFormDescription:
-    "Busques un immoble a Catalunya? Pisos, cases, locals, oficines, garatges, naus, terrenys o amarraments: digues-nos què necessites. És gratis i revisem cada sol·licitud abans de publicar-la, sense les teves dades de contacte.",
+    "Busques un immoble a Catalunya? Pisos, cases, locals, oficines, naus, terrenys o amarraments: digues-nos què necessites. Gratis i sense publicar les teves dades.",
   metaListTitle: "Persones que busquen un immoble a Catalunya",
   metaListDescription: "Cerques d'immobles a Barcelona, Girona, Lleida i Tarragona, revisades per FINCALIA360. Sense dades personals.",
   eyebrow: "Busco comprar",
@@ -281,7 +281,7 @@ const en: SearchTexts = {
   locale: "en-GB",
   metaFormTitle: "Looking to buy · Post the property you're looking for, free",
   metaFormDescription:
-    "Looking for a property in Catalonia? Flats, houses, commercial units, offices, garages, industrial buildings, land or moorings: tell us what you need. It's free and we review every request before publishing it, without your contact details.",
+    "Looking for a property in Catalonia? Flats, houses, shops, offices, industrial units, land or moorings: tell us what you need. Free, contact details never published.",
   metaListTitle: "People looking for a property in Catalonia",
   metaListDescription: "Property searches in Barcelona, Girona, Lleida and Tarragona, reviewed by FINCALIA360. No personal data.",
   eyebrow: "Looking to buy",
@@ -417,7 +417,7 @@ const de: SearchTexts = {
   locale: "de-DE",
   metaFormTitle: "Kaufgesuch · Kostenlos veröffentlichen, welche Immobilie Sie suchen",
   metaFormDescription:
-    "Sie suchen eine Immobilie in Katalonien? Wohnungen, Häuser, Gewerbeflächen, Büros, Garagen, Industriehallen, Grundstücke oder Liegeplätze: Sagen Sie uns, was Sie brauchen. Kostenlos, und wir prüfen jede Anfrage vor der Veröffentlichung – ohne Ihre Kontaktdaten.",
+    "Sie suchen eine Immobilie in Katalonien? Wohnungen, Häuser, Läden, Büros, Hallen, Grundstücke oder Liegeplätze: Sagen Sie uns, was Sie brauchen. Kostenlos.",
   metaListTitle: "Menschen, die in Katalonien eine Immobilie suchen",
   metaListDescription: "Immobiliengesuche in Barcelona, Girona, Lleida und Tarragona, geprüft von FINCALIA360. Ohne personenbezogene Daten.",
   eyebrow: "Kaufgesuch",
@@ -554,7 +554,7 @@ const fr: SearchTexts = {
   locale: "fr-FR",
   metaFormTitle: "Je cherche à acheter · Publiez gratuitement le bien que vous cherchez",
   metaFormDescription:
-    "Vous cherchez un bien en Catalogne ? Appartements, maisons, locaux, bureaux, garages, entrepôts, terrains ou amarrages : dites-nous ce dont vous avez besoin. C'est gratuit et nous vérifions chaque demande avant de la publier, sans vos coordonnées.",
+    "Vous cherchez un bien en Catalogne ? Appartements, maisons, locaux, bureaux, entrepôts, terrains ou amarrages : dites-nous ce qu'il vous faut. Gratuit.",
   metaListTitle: "Personnes qui cherchent un bien en Catalogne",
   metaListDescription: "Recherches de biens à Barcelone, Gérone, Lleida et Tarragone, vérifiées par FINCALIA360. Sans données personnelles.",
   eyebrow: "Je cherche à acheter",

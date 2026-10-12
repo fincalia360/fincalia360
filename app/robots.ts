@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 export default function robots(): MetadataRoute.Robots {
   if (process.env.ALLOW_INDEXING !== "true") return { rules: { userAgent: "*", disallow: "/" } };
   return {
-    rules: { userAgent: "*", allow: ["/", "/estudio$", "/comprar", "/alquilar", "/amarres/", "/amarre/", "/publicar", "/contacto", "/inmueble/", "/media/", "/legal", "/privacy", "/cookies", "/condiciones"], disallow: ["/admin", "/api", "/estudio/", "/login", "/valorar", "/agent", "/zona-inmobiliarias/"] },
+    rules: { userAgent: "*", allow: ["/", "/estudio$", "/comprar", "/alquilar", "/amarres/", "/amarre/", "/publicar", "/busco-piso", "/contacto", "/inmueble/", "/media/", "/legal", "/privacy", "/cookies", "/condiciones"], disallow: ["/admin", "/api", "/estudio/", "/login", "/valorar", "/agent", "/zona-inmobiliarias/"] },
     sitemap: `${publicSiteUrl()}/sitemap.xml`,
   };
 }

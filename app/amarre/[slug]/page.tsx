@@ -7,6 +7,7 @@ import { SiteHeader } from "@/components/landing/SiteHeader";
 import { Gallery } from "@/components/portal/Gallery";
 import { InquiryForm } from "@/components/portal/InquiryForm";
 import { KeyFacts, MobileContactBar } from "@/components/portal/KeyFacts";
+import { ListingViewTracker, ShareButtons } from "@/components/portal/ListingShare";
 import { ListingBreadcrumbs, SimilarListings } from "@/components/portal/ListingExtras";
 import { getDictionary } from "@/lib/i18n";
 import { publicSiteUrl } from "@/lib/site";
@@ -21,7 +22,7 @@ import {
   type MooringFeatureCode,
 } from "@/services/listings/catalog";
 import { getPublicListing, goneListingTarget } from "@/services/listings/listings";
-import { cityPath, citiesWithListings, searchPath } from "@/services/listings/seo";
+import { cityPath, citiesWithListings, searchPath, metaDescription } from "@/services/listings/seo";
 import { portalDict } from "@/lib/i18n/site";
 import { getSiteLang } from "@/lib/i18n/siteServer";
 import { catalogLabels } from "@/lib/i18n/portal/labels";
@@ -56,7 +57,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const lang = await getSiteLang();
   const tx = localizedTexts(l, lang);
   const spanish = lang === "es";
-  const description = (spanish && l.seoDescription) || `${spanish ? summary(l) + ". " : ""}${(tx.description ?? "").slice(0, 150).replace(/\s+/g, " ")}`.slice(0, 200);
+  const description = (spanish && l.seoDescription) || metaDescription([spanish ? `${summary(l)}.` : null, tx.description]);
   const photo = l.photos[0];
   const price = localPrice(l.price, l.operation, l.rentPeriod, catalogLabels(lang), portalDict(lang).locale);
   return {
@@ -159,6 +160,10 @@ export default async function MooringPage({ params }: Props) {
                 </p>
                 <p className="mt-4 text-[32px] font-semibold tracking-tight text-ink-800">{price}</p>
                 {l.communityFee ? <p className="text-sm text-ink-500">{t.maintenanceFee}: {localPrice(l.communityFee, "RENT", "MONTH", L, d.locale)}</p> : null}
+                <div className="mt-4">
+                  <ShareButtons listingId={l.id} url={`${site}${listingPath(l)}`} message={`${tx.title} · ${price}`} t={d.share} />
+                </div>
+                <ListingViewTracker listingId={l.id} />
 
                 <KeyFacts
                   items={[

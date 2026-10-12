@@ -11,6 +11,7 @@ import { formatDateTime } from "@/lib/utils";
 import { INQUIRY_STATUSES, LISTING_STATUSES, LISTING_STATUS_TONES, OPERATIONS, formatPrice, photoUrl } from "@/services/listings/catalog";
 import { listListings } from "@/services/listings/listings";
 import { listAllInquiries } from "@/services/listings/inquiries";
+import { listingCounts } from "@/services/listings/listingStats";
 import { inquiryStatusAction } from "./actions";
 
 export const metadata = { title: "Anuncios" };
@@ -98,6 +99,7 @@ export default async function AdminListingsPage({ searchParams }: { searchParams
     prisma.agency.findMany({ where: { crmAccess: true }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
     prisma.listing.count({ where: { status: "REVIEW" } }),
   ]);
+  const visits = await listingCounts(listings.map((l) => l.id));
 
   return (
     <>
@@ -187,6 +189,7 @@ export default async function AdminListingsPage({ searchParams }: { searchParams
                 <th>Anunciante</th>
                 <th>Estado</th>
                 <th>Solicitudes</th>
+                <th title="Visitas a la ficha (últimos 30 días / total) y veces compartido">Visitas</th>
                 <th>Actualizado</th>
               </tr>
             </thead>
@@ -220,6 +223,11 @@ export default async function AdminListingsPage({ searchParams }: { searchParams
                     <Badge tone={LISTING_STATUS_TONES[l.status]}>{LISTING_STATUSES[l.status as keyof typeof LISTING_STATUSES]}</Badge>
                   </td>
                   <td className="text-center">{l._count.inquiries}</td>
+                  <td className="whitespace-nowrap text-center tabular-nums">
+                    <span className="font-medium text-ink-800">{visits[l.id]?.views30 ?? 0}</span>
+                    <span className="text-ink-400"> / {visits[l.id]?.views ?? 0}</span>
+                    {(visits[l.id]?.shares ?? 0) > 0 && <p className="text-[11px] text-ink-400">{visits[l.id].shares} compartido</p>}
+                  </td>
                   <td className="text-ink-500">{formatDateTime(l.updatedAt)}</td>
                 </tr>
               ))}

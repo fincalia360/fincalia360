@@ -22,6 +22,7 @@ const fr: PortalDict = {
     language: "Langue",
     main: "Principal",
   },
+  share: {title: "Partager", whatsapp: "WhatsApp", facebook: "Facebook", x: "X", email: "E-mail", copy: "Copier le lien", copied: "Lien copié", more: "Plus", card: "Partager sur WhatsApp"},
   groups: {
     pisos: "Appartements",
     casas: "Maisons et villas",

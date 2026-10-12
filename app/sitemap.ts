@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = publicSiteUrl();
-  const pages: MetadataRoute.Sitemap = ["", "/estudio", "/comprar", "/alquilar", "/amarres/comprar", "/amarres/alquilar", "/publicar", "/contacto", "/legal", "/privacy", "/cookies", "/condiciones"].map((p) => ({ url: `${base}${p}`, changeFrequency: "monthly" }));
+  const pages: MetadataRoute.Sitemap = ["", "/estudio", "/comprar", "/alquilar", "/amarres/comprar", "/amarres/alquilar", "/publicar", "/busco-piso", "/busco-piso/solicitudes", "/contacto", "/legal", "/privacy", "/cookies", "/condiciones"].map((p) => ({ url: `${base}${p}`, changeFrequency: "monthly" }));
   const listings = await publicListingsForSitemap().catch(() => []);
   const sections: Array<[Category, Operation]> = [
     ["HOME", "SALE"],

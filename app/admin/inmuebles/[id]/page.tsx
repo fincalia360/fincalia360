@@ -15,6 +15,7 @@ import { INQUIRY_STATUSES, PUBLIC_STATUSES, listingPath, type ListingStatus } fr
 import { ListingError, availableTransitions, getListing, publishProblems } from "@/services/listings/listings";
 import { DuplicateButton } from "@/components/listings/DuplicateButton";
 import { TranslationsPanel } from "@/components/listings/TranslationsPanel";
+import { listingStatsDetail } from "@/services/listings/listingStats";
 import { TRANSLATABLE, parseStored, sourceTexts, translationsFresh } from "@/services/listings/translations";
 import {
   aiCopyAction,
@@ -113,6 +114,7 @@ export default async function AdminListingPage({ params, searchParams }: { param
             onDelete={deleteListingAction.bind(null, listing.id)}
           />
           <DuplicateButton action={duplicateListingAction.bind(null, listing.id)} />
+          <ListingStatsCard stats={await listingStatsDetail(listing.id)} />
           <div className="rounded-2xl border border-sand-200 bg-white p-5">
             <h2 className="text-[15px] font-semibold text-ink-800">Solicitudes recibidas ({inquiryCount})</h2>
             {listing.agencyId ? (
@@ -146,6 +148,49 @@ export default async function AdminListingPage({ params, searchParams }: { param
           </div>
         </aside>
       </div>
+    </div>
+  );
+}
+
+const CHANNELS: Record<string, string> = { whatsapp: "WhatsApp", facebook: "Facebook", x: "X", email: "Email", copy: "Enlace copiado", native: "Menú del móvil" };
+
+/** Visitas a la ficha pública y veces compartido (estadística propia, anónima). */
+function ListingStatsCard({ stats }: { stats: Awaited<ReturnType<typeof listingStatsDetail>> }) {
+  const max = Math.max(1, ...stats.byDay.map((d) => d.views));
+  return (
+    <div className="rounded-2xl border border-sand-200 bg-white p-5">
+      <h2 className="text-[15px] font-semibold text-ink-800">Visitas a la ficha</h2>
+      <dl className="mt-3 grid grid-cols-3 gap-2 text-center">
+        {(
+          [
+            ["7 días", stats.last7],
+            ["30 días", stats.last30],
+            ["Total", stats.total],
+          ] as const
+        ).map(([k, v]) => (
+          <div key={k} className="rounded-xl bg-sand-50 py-2">
+            <dd className="text-xl font-semibold tabular-nums text-ink-800">{v}</dd>
+            <dt className="text-[11.5px] text-ink-500">{k}</dt>
+          </div>
+        ))}
+      </dl>
+      <div className="mt-3 flex h-12 items-end gap-[2px]" aria-label="Visitas por día, últimos 30 días">
+        {stats.byDay.map((d) => (
+          <span key={d.date} title={`${d.date}: ${d.views}`} className="flex-1 rounded-sm bg-terracotta-500/80" style={{ height: `${Math.max(4, (d.views / max) * 100)}%`, opacity: d.views ? 1 : 0.15 }} />
+        ))}
+      </div>
+      <p className="mt-3 text-[13px] text-ink-600">
+        Compartido <strong>{stats.shares}</strong> {stats.shares === 1 ? "vez" : "veces"}
+        {stats.shares > 0 && (
+          <span className="text-ink-400">
+            {" "}
+            ({Object.entries(stats.byChannel)
+              .map(([c, n]) => `${CHANNELS[c] ?? c}: ${n}`)
+              .join(", ")})
+          </span>
+        )}
+      </p>
+      <p className="mt-2 text-[11.5px] leading-snug text-ink-400">Una visita por persona cada 30 minutos; no cuenta robots ni tus visitas al panel. Sin cookies ni datos personales.</p>
     </div>
   );
 }

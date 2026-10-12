@@ -20,6 +20,7 @@ const de: PortalDict = {
     language: "Sprache",
     main: "Hauptmenü",
   },
+  share: {title: "Teilen", whatsapp: "WhatsApp", facebook: "Facebook", x: "X", email: "E-Mail", copy: "Link kopieren", copied: "Link kopiert", more: "Mehr", card: "Per WhatsApp teilen"},
   groups: {
     pisos: "Wohnungen und Apartments",
     casas: "Häuser und Villen",

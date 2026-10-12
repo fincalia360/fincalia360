@@ -17,6 +17,7 @@ const es = {
     language: "Idioma",
     main: "Principal",
   },
+  share: {title: "Compartir", whatsapp: "WhatsApp", facebook: "Facebook", x: "X", email: "Email", copy: "Copiar enlace", copied: "Enlace copiado", more: "Más", card: "Compartir por WhatsApp"},
   groups: {
     pisos: "Pisos y apartamentos",
     casas: "Casas y chalets",
