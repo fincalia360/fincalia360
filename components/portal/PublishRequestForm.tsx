@@ -6,7 +6,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { CheckCircle2, ImagePlus, Loader2, X } from "lucide-react";
-import { PROPERTY_TYPES } from "@/services/listings/catalog";
+import { BUSINESS_TYPES, PROPERTY_TYPES } from "@/services/listings/catalog";
 import { portalDict, toSiteLang } from "@/lib/i18n/site";
 
 const MAX_PHOTOS = 15;
@@ -45,7 +45,7 @@ export function PublishRequestForm({
   types,
   lang,
 }: {
-  initialCategory: "HOME" | "MOORING";
+  initialCategory: "HOME" | "MOORING" | "BUSINESS";
   provinces: { code: string; name: string }[];
   /** Tipos de inmueble traducidos (código → nombre). */
   types: Record<string, string>;
@@ -62,6 +62,8 @@ export function PublishRequestForm({
   const [state, setState] = useState<"idle" | "preparing" | "sending" | "done">("idle");
   const [error, setError] = useState<string | null>(null);
   const mooring = category === "MOORING";
+  // Negocio en traspaso: la operación es siempre «traspaso»
+  const business = category === "BUSINESS";
 
   useEffect(() => {
     setMunicipalities([]);
@@ -101,7 +103,7 @@ export function PublishRequestForm({
     const form = new FormData(e.currentTarget);
     form.delete("photoPicker");
     form.set("category", category);
-    form.set("operation", operation);
+    form.set("operation", business ? "TRANSFER" : operation);
     form.set("elapsedMs", String(Date.now() - openedAt.current));
     form.set("lang", lang);
     photos.forEach((p, i) => form.append("photos", p.blob, `foto-${i + 1}.jpg`));
@@ -149,16 +151,19 @@ export function PublishRequestForm({
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <div>
             <span className="field-label">{t.kind}</span>
-            <div className="grid grid-cols-2 rounded-full bg-sand-100 p-1 text-sm font-medium">
-              <button type="button" onClick={() => setCategory("HOME")} className={segment(!mooring)} aria-pressed={!mooring}>
+            <div className="grid grid-cols-3 rounded-full bg-sand-100 p-1 text-sm font-medium">
+              <button type="button" onClick={() => setCategory("HOME")} className={segment(category === "HOME")} aria-pressed={category === "HOME"}>
                 {t.property}
               </button>
               <button type="button" onClick={() => setCategory("MOORING")} className={segment(mooring)} aria-pressed={mooring}>
                 {t.mooring}
               </button>
+              <button type="button" onClick={() => setCategory("BUSINESS")} className={`${segment(business)} px-2`} aria-pressed={business}>
+                {t.business}
+              </button>
             </div>
           </div>
-          <div>
+          <div className={business ? "hidden" : undefined}>
             <span className="field-label">{t.operation}</span>
             <div className="grid grid-cols-2 rounded-full bg-sand-100 p-1 text-sm font-medium">
               <button type="button" onClick={() => setOperation("SALE")} className={segment(operation === "SALE")} aria-pressed={operation === "SALE"}>
@@ -173,11 +178,26 @@ export function PublishRequestForm({
       </fieldset>
 
       <fieldset className="rounded-2xl border border-sand-200 bg-white p-5 sm:p-6">
-        <legend className="sr-only">{t.step2(mooring)}</legend>
-        <h2 className="text-[17px] font-semibold text-ink-800">{t.step2(mooring)}</h2>
+        <legend className="sr-only">{business ? t.step2Business : t.step2(mooring)}</legend>
+        <h2 className="text-[17px] font-semibold text-ink-800">{business ? t.step2Business : t.step2(mooring)}</h2>
         <p className="mt-0.5 text-[13px] text-ink-400">{t.onlyCatalonia}</p>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          {mooring ? (
+          {business ? (
+            <>
+              <Field label={t.businessTitle} hint={t.optional}>
+                <input name="title" maxLength={110} className="field" />
+              </Field>
+              <Field label={t.businessCategory}>
+                <select name="propertyType" required defaultValue="NEG_BAR_RESTAURANTE" className="field">
+                  {Object.keys(BUSINESS_TYPES).map((k) => (
+                    <option key={k} value={k}>
+                      {types[k] ?? k}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            </>
+          ) : mooring ? (
             <Field label={t.port} wide hint={t.portHint}>
               <input name="portName" required maxLength={100} className="field" />
             </Field>
@@ -216,9 +236,14 @@ export function PublishRequestForm({
           <Field label={t.address(mooring)} hint={t.addressHint}>
             <input name="address" maxLength={160} className="field" />
           </Field>
-          <Field label={t.price(operation === "RENT", mooring)} hint={t.priceHint}>
+          <Field label={business ? t.transferPrice : t.price(operation === "RENT", mooring)} hint={business ? t.transferPriceHint : t.priceHint}>
             <input name="price" type="number" min={0} step={1} className="field" />
           </Field>
+          {business && (
+            <Field label={t.premisesRent} hint={t.optional}>
+              <input name="premisesRent" type="number" min={0} step={1} className="field" />
+            </Field>
+          )}
           {mooring ? (
             <>
               <Field label={t.berthLength}>
@@ -234,15 +259,17 @@ export function PublishRequestForm({
               <Field label={t.size} hint={t.optional}>
                 <input name="builtArea" type="number" min={0} className="field" />
               </Field>
-              <Field label={t.rooms} hint={t.optional}>
-                <input name="bedrooms" type="number" min={0} max={50} className="field" />
-              </Field>
+              {!business && (
+                <Field label={t.rooms} hint={t.optional}>
+                  <input name="bedrooms" type="number" min={0} max={50} className="field" />
+                </Field>
+              )}
               <Field label={t.baths} hint={t.optional}>
                 <input name="bathrooms" type="number" min={0} max={50} className="field" />
               </Field>
             </>
           )}
-          <Field label={t.description} wide hint={t.descriptionHint}>
+          <Field label={t.description} wide hint={business ? t.businessDescriptionHint : t.descriptionHint}>
             <textarea name="description" rows={5} maxLength={4000} className="field" />
           </Field>
         </div>

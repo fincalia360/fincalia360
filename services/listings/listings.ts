@@ -16,6 +16,9 @@ import {
   PORTAL_PROVINCE_CODES,
   isPortalProvince,
   AUTHORIZATION_TYPES,
+  BUSINESS_FEATURES,
+  BUSINESS_TYPES,
+  isBusinessType,
   CONDITIONS,
   ENERGY_RATINGS,
   MOORING_FEATURES,
@@ -68,13 +71,15 @@ const optMeters = z.preprocess(
 
 export const listingSchema = z
   .object({
-    category: z.preprocess((v) => (v === "" || v == null ? "HOME" : v), z.enum(["HOME", "MOORING"])),
-    operation: z.enum(["SALE", "RENT"], { errorMap: () => ({ message: "Indica si es venta o alquiler" }) }),
+    category: z.preprocess((v) => (v === "" || v == null ? "HOME" : v), z.enum(["HOME", "MOORING", "BUSINESS"])),
+    operation: z.enum(["SALE", "RENT", "TRANSFER"], { errorMap: () => ({ message: "Indica si es venta, alquiler o traspaso" }) }),
     title: z.string().trim().min(10, "El título debe tener al menos 10 caracteres").max(110),
     description: z.string().trim().max(6000).default(""),
-    propertyType: z.enum([...keys(PROPERTY_TYPES), MOORING_PROPERTY_TYPE], { errorMap: () => ({ message: "Elige el tipo de inmueble" }) }),
+    propertyType: z.enum([...keys(PROPERTY_TYPES), MOORING_PROPERTY_TYPE, ...keys(BUSINESS_TYPES)], { errorMap: () => ({ message: "Elige el tipo de inmueble" }) }),
     price: z.coerce.number({ invalid_type_error: "Precio no válido" }).int("Precio en euros, sin decimales").min(1, "Indica el precio").max(100_000_000),
     communityFee: optInt(100_000),
+    // Traspasos: alquiler mensual del local (distinto del precio del traspaso)
+    premisesRent: optInt(1_000_000),
     provinceCode: z
       .string()
       .refine((c) => Boolean(getProvince(c)), "Elige la provincia")
@@ -129,7 +134,13 @@ export const listingSchema = z
     slugText: optText(90),
   })
   .superRefine((v, ctx) => {
-    if (v.category === "MOORING") {
+    // Traspaso de negocio: categoría, operación y tipo van siempre juntos
+    if (v.category === "BUSINESS" || v.operation === "TRANSFER" || isBusinessType(v.propertyType)) {
+      if (v.category !== "BUSINESS" || v.operation !== "TRANSFER" || !isBusinessType(v.propertyType)) {
+        ctx.addIssue({ code: "custom", path: ["propertyType"], message: "Un negocio en traspaso necesita una categoría de negocio y la operación «traspaso»" });
+      }
+      if (v.features.some((f) => !(f in BUSINESS_FEATURES))) ctx.addIssue({ code: "custom", path: ["features"], message: "Característica no válida para un negocio" });
+    } else if (v.category === "MOORING") {
       if (!v.portName) ctx.addIssue({ code: "custom", path: ["portName"], message: "Indica el puerto deportivo o la instalación náutica" });
       if (!v.berthLength) ctx.addIssue({ code: "custom", path: ["berthLength"], message: "Indica la longitud del amarre (m)" });
       if (!v.berthWidth) ctx.addIssue({ code: "custom", path: ["berthWidth"], message: "Indica la anchura del amarre (m)" });
@@ -157,7 +168,12 @@ export function listingFormToObject(formData: FormData) {
   for (const [k, v] of formData.entries()) if (typeof v === "string" && k !== "features") obj[k] = v;
   obj.features = formData.getAll("features").map(String);
   // El tipo «Amarre» es la sección de amarres; el resto, viviendas e inmuebles
-  if (typeof obj.propertyType === "string") obj.category = obj.propertyType === MOORING_PROPERTY_TYPE ? "MOORING" : "HOME";
+  if (typeof obj.propertyType === "string") {
+    obj.category = obj.propertyType === MOORING_PROPERTY_TYPE ? "MOORING" : isBusinessType(obj.propertyType) ? "BUSINESS" : "HOME";
+    // Los negocios solo se traspasan; un inmueble nunca es «traspaso»
+    if (obj.category === "BUSINESS") obj.operation = "TRANSFER";
+    else if (obj.operation === "TRANSFER") obj.operation = "SALE";
+  }
   return obj;
 }
 
@@ -171,10 +187,45 @@ function dataFromInput(input: ListingInput) {
   const { features, ownerContactId, ...rest } = input;
   void ownerContactId;
   const rent = input.operation === "RENT";
+  if (input.category === "BUSINESS") {
+    // Negocio en traspaso: precio del traspaso, alquiler del local aparte; sin datos de vivienda, amarre ni alquiler
+    return {
+      ...rest,
+      features: features.join(","),
+      cadastralRef: null,
+      bedrooms: null,
+      bathrooms: input.bathrooms ?? null,
+      yearBuilt: null,
+      condition: input.condition ?? null,
+      energyRating: null,
+      energyConsumption: null,
+      energyEmissions: null,
+      checkEnergy: false,
+      portName: null,
+      berthLength: null,
+      berthWidth: null,
+      maxBoatLength: null,
+      maxBoatBeam: null,
+      berthDepth: null,
+      mooringType: null,
+      rentPeriod: null,
+      concessionEnd: null,
+      landClassification: null,
+      landUse: null,
+      rentalType: null,
+      depositMonths: null,
+      minTermMonths: null,
+      availableFrom: null,
+      rentConditions: null,
+      rentalRegistry: null,
+      checkLegalRent: false,
+    };
+  }
   if (input.category === "MOORING") {
     // Un amarre no tiene habitaciones, certificado energético ni régimen de alquiler de vivienda
     return {
       ...rest,
+      premisesRent: null,
       propertyType: MOORING_PROPERTY_TYPE,
       features: features.join(","),
       cadastralRef: null,
@@ -203,6 +254,7 @@ function dataFromInput(input: ListingInput) {
   const energy = needsEnergyCertificate(kind) || kind === "OTHER";
   return {
     ...rest,
+    premisesRent: null,
     propertyType: input.propertyType,
     portName: null,
     berthLength: kind === "GARAGE" ? (input.berthLength ?? null) : null,
@@ -332,6 +384,16 @@ export function publishProblems(l: {
   propertyType: string;
 }, photoCount: number): string[] {
   const p: string[] = [];
+  if (l.category === "BUSINESS") {
+    if (l.description.trim().length < 80) p.push("Escribe una descripción del negocio de al menos 80 caracteres");
+    if (!l.price) p.push("Indica el precio del traspaso");
+    if (!l.municipality) p.push("Indica el municipio");
+    if (photoCount < 1) p.push("Añade al menos una fotografía");
+    if (!l.authorizationType || !l.authorizationDate) p.push("Indica el tipo y la fecha de la autorización del titular del negocio");
+    if (!l.checkAuthorization) p.push("Confirma que tienes la autorización del titular del negocio para publicar");
+    if (!l.checkData) p.push("Confirma que has comprobado los datos del negocio");
+    return p;
+  }
   if (l.category === "MOORING") {
     if (l.description.trim().length < 80) p.push("Escribe una descripción de al menos 80 caracteres");
     if (!l.price) p.push("Indica el precio");
@@ -539,7 +601,7 @@ export async function deleteListing(actor: ListingActor, id: string) {
 
 export async function listListings(actor: ListingActor, filters: { status?: string; operation?: string; q?: string; agencyId?: string; category?: string } = {}) {
   const where: Prisma.ListingWhereInput = { ...scopeWhere(actor) };
-  if (filters.category === "HOME" || filters.category === "MOORING") where.category = filters.category;
+  if (filters.category === "HOME" || filters.category === "MOORING" || filters.category === "BUSINESS") where.category = filters.category;
   if (filters.status === "ACTIVE") where.status = { in: ACTIVE_STATUSES };
   else if (filters.status) where.status = filters.status;
   if (filters.operation) where.operation = filters.operation;
@@ -723,6 +785,7 @@ export const PUBLIC_SELECT = {
   propertyType: true,
   price: true,
   communityFee: true,
+  premisesRent: true,
   provinceCode: true,
   municipality: true,
   zone: true,
@@ -766,7 +829,7 @@ export const PUBLIC_SELECT = {
   photos: { orderBy: [{ isMain: "desc" }, { position: "asc" }], select: { key: true, width: true, height: true, alt: true, isMain: true } },
 } satisfies Prisma.ListingSelect;
 
-export function publicVisibility(category?: "HOME" | "MOORING"): Prisma.ListingWhereInput {
+export function publicVisibility(category?: "HOME" | "MOORING" | "BUSINESS"): Prisma.ListingWhereInput {
   // Un inmueble de una inmobiliaria deja de verse si su cuenta se desactiva
   return {
     status: { in: PUBLIC_STATUSES },
@@ -817,12 +880,53 @@ export async function searchPublic(operation: "SALE" | "RENT", f: SearchFilters,
   return { total, items, page, pages: Math.max(1, Math.ceil(total / PAGE_SIZE)) };
 }
 
+export const transferSearchSchema = z.object({
+  provincia: z.string().regex(/^\d{2}$/).optional(),
+  municipio: z.string().trim().max(80).optional(),
+  categoria: z.enum(keys(BUSINESS_TYPES)).optional(),
+  min: z.coerce.number().int().min(0).max(100_000_000).optional(),
+  max: z.coerce.number().int().min(0).max(100_000_000).optional(),
+  orden: z.enum(["recientes", "precio-asc", "precio-desc"]).optional(),
+  pagina: z.coerce.number().int().min(1).max(500).optional(),
+});
+export type TransferFilters = z.infer<typeof transferSearchSchema>;
+
+/** Filtros de /traspasos desde la URL (los valores no válidos se ignoran). */
+export function parseTransferSearch(params: Record<string, string | string[] | undefined>): TransferFilters {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(params)) {
+    const value = Array.isArray(v) ? v[0] : v;
+    const field = transferSearchSchema.shape[k as keyof typeof transferSearchSchema.shape];
+    if (!value || !field) continue;
+    const r = field.safeParse(value);
+    if (r.success && r.data !== undefined) out[k] = r.data;
+  }
+  return out as TransferFilters;
+}
+
+/** Negocios en traspaso publicados (Cataluña). */
+export async function searchTransfers(f: TransferFilters) {
+  const where: Prisma.ListingWhereInput = { ...publicVisibility("BUSINESS"), operation: "TRANSFER" };
+  if (f.provincia) where.provinceCode = f.provincia;
+  if (f.municipio) where.municipality = f.municipio;
+  if (f.categoria) where.propertyType = f.categoria;
+  if (f.min || f.max) where.price = { ...(f.min ? { gte: f.min } : {}), ...(f.max ? { lte: f.max } : {}) };
+  const orderBy: Prisma.ListingOrderByWithRelationInput = f.orden === "precio-asc" ? { price: "asc" } : f.orden === "precio-desc" ? { price: "desc" } : { publishedAt: "desc" };
+  const page = f.pagina ?? 1;
+  const [total, items, places] = await Promise.all([
+    prisma.listing.count({ where }),
+    prisma.listing.findMany({ where, orderBy, skip: (page - 1) * PAGE_SIZE, take: PAGE_SIZE, select: PUBLIC_SELECT }),
+    prisma.listing.groupBy({ by: ["provinceCode", "municipality"], where: { ...publicVisibility("BUSINESS"), operation: "TRANSFER" }, _count: true, orderBy: { municipality: "asc" } }),
+  ]);
+  return { total, items, page, pages: Math.max(1, Math.ceil(total / PAGE_SIZE)), places: places.map((p) => ({ provinceCode: p.provinceCode, municipality: p.municipality, count: p._count })) };
+}
+
 export async function publicMunicipalities(operation: "SALE" | "RENT") {
   const rows = await prisma.listing.groupBy({ by: ["municipality"], where: { ...publicVisibility(), operation }, _count: true, orderBy: { municipality: "asc" } });
   return rows.map((r) => r.municipality);
 }
 
-export async function getPublicListing(reference: string, category?: "HOME" | "MOORING") {
+export async function getPublicListing(reference: string, category?: "HOME" | "MOORING" | "BUSINESS") {
   return prisma.listing.findFirst({ where: { reference, ...publicVisibility(category) }, select: PUBLIC_SELECT });
 }
 

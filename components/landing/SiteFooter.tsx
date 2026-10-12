@@ -27,6 +27,7 @@ export async function SiteFooter({ dict, lang }: { dict: Dictionary; lang: Langu
               [d.nav.home, "/"],
               [d.nav.sale, "/comprar"],
               [d.nav.rent, "/alquilar"],
+              [d.nav.transfers, "/traspasos"],
               [d.nav.searching, "/busco-piso"],
               [d.nav.valuate, "/estudio"],
               [d.nav.publish, "/publicar"],

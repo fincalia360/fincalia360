@@ -10,7 +10,7 @@ import { audit } from "@/services/audit";
 import { emailConfig, sendEmail } from "@/services/email/emailService";
 import { getProvince } from "@/services/study/geo";
 import { deleteFile, getFile, newKey, putFile } from "@/services/storage/storage";
-import { MOORING_PROPERTY_TYPE, PROPERTY_TYPES, formatPrice, isPortalProvince, type PublicationRequestStatus } from "./catalog";
+import { BUSINESS_TYPES, MOORING_PROPERTY_TYPE, PROPERTY_TYPES, formatPrice, isPortalProvince, type PublicationRequestStatus } from "./catalog";
 import { ListingError, addPhoto, createListing, processPhoto } from "./listings";
 
 export const PUBLICATION_CONSENT_VERSION = "publicar-v1-2026-10";
@@ -34,8 +34,11 @@ const checked = z.preprocess((v) => v === true || v === "on" || v === "true", z.
 
 export const publicationRequestSchema = z
   .object({
-    category: z.enum(["HOME", "MOORING"]).default("HOME"),
-    operation: z.enum(["SALE", "RENT"], { errorMap: () => ({ message: "Indica si quieres vender o alquilar" }) }),
+    category: z.enum(["HOME", "MOORING", "BUSINESS"]).default("HOME"),
+    operation: z.enum(["SALE", "RENT", "TRANSFER"], { errorMap: () => ({ message: "Indica si quieres vender o alquilar" }) }),
+    // Traspasos: nombre del negocio y alquiler mensual del local (opcionales)
+    title: optText(110),
+    premisesRent: optInt(1_000_000),
     propertyType: z.string().optional(),
     provinceCode: z.string().refine(isPortalProvince, "Solo publicamos en Cataluña: elige Barcelona, Girona, Lleida o Tarragona"),
     municipality: z.string().trim().min(2, "Indica el municipio").max(80),
@@ -62,7 +65,12 @@ export const publicationRequestSchema = z
     lang: z.string().max(5).optional(),
   })
   .superRefine((v, ctx) => {
-    if (v.category === "MOORING") {
+    if (v.category === "BUSINESS") {
+      if (!v.propertyType || !(v.propertyType in BUSINESS_TYPES)) ctx.addIssue({ code: "custom", path: ["propertyType"], message: "Elige la categoría del negocio" });
+      if (v.operation !== "TRANSFER") ctx.addIssue({ code: "custom", path: ["operation"], message: "Un negocio se publica como traspaso" });
+    } else if (v.operation === "TRANSFER") {
+      ctx.addIssue({ code: "custom", path: ["operation"], message: "Indica si quieres vender o alquilar" });
+    } else if (v.category === "MOORING") {
       if (!v.portName) ctx.addIssue({ code: "custom", path: ["portName"], message: "Indica el puerto deportivo" });
       if (!v.berthLength || !v.berthWidth) ctx.addIssue({ code: "custom", path: ["berthLength"], message: "Indica la longitud y la anchura del amarre" });
     } else if (!v.propertyType || !(v.propertyType in PROPERTY_TYPES)) {
@@ -97,6 +105,7 @@ export async function submitPublicationRequest(raw: Record<string, unknown>, pho
   }
 
   const mooring = d.category === "MOORING";
+  const business = d.category === "BUSINESS";
   const request = await prisma.publicationRequest.create({
     data: {
       name: d.name,
@@ -111,7 +120,9 @@ export async function submitPublicationRequest(raw: Record<string, unknown>, pho
       address: d.address ?? null,
       price: d.price ?? null,
       builtArea: mooring ? null : (d.builtArea ?? null),
-      bedrooms: mooring ? null : (d.bedrooms ?? null),
+      bedrooms: mooring || business ? null : (d.bedrooms ?? null),
+      title: business ? (d.title ?? null) : null,
+      premisesRent: business ? (d.premisesRent ?? null) : null,
       bathrooms: mooring ? null : (d.bathrooms ?? null),
       portName: mooring ? (d.portName ?? null) : null,
       berthLength: mooring ? (d.berthLength ?? null) : null,
@@ -203,6 +214,7 @@ export async function convertPublicationRequest(adminId: string, id: string, inp
     portName: r.portName ?? "",
     berthLength: r.berthLength != null ? String(r.berthLength) : "",
     berthWidth: r.berthWidth != null ? String(r.berthWidth) : "",
+    premisesRent: r.premisesRent != null ? String(r.premisesRent) : "",
     features: [],
   });
   for (const key of r.photos.split(",").filter(Boolean)) {

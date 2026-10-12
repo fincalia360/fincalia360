@@ -15,6 +15,7 @@ import {
   LAND_CLASSIFICATIONS,
   LAND_USES,
   MOORING_TYPES,
+  BUSINESS_TYPES,
   PROPERTY_GROUPS,
   PROPERTY_TYPES,
   RENTAL_TYPES,
@@ -55,6 +56,7 @@ export interface ListingValues {
   propertyType?: string;
   price?: number;
   communityFee?: number | null;
+  premisesRent?: number | null;
   provinceCode?: string;
   municipality?: string;
   zone?: string | null;
@@ -139,6 +141,7 @@ const FEATURES_TITLE: Record<FieldKind, string> = {
   GARAGE: "Características de la plaza",
   LAND: "Servicios del terreno",
   MOORING: "Servicios e instalaciones",
+  BUSINESS: "Características del negocio",
   OTHER: "Equipamiento",
 };
 
@@ -152,8 +155,8 @@ export function ListingForm({
   category = "HOME",
   aiAction,
 }: {
-  /** Tipo inicial al crear (los amarres se crean desde «Nuevo amarre»). */
-  category?: "HOME" | "MOORING";
+  /** Tipo inicial al crear (los amarres y los traspasos tienen su propio botón). */
+  category?: "HOME" | "MOORING" | "BUSINESS";
   action: Action;
   values?: ListingValues;
   provinces: { code: string; name: string }[];
@@ -166,10 +169,12 @@ export function ListingForm({
   const [state, onSubmit, pending] = useActionForm(action, {});
   const formRef = useRef<HTMLFormElement>(null);
   const [operation, setOperation] = useState(values.operation ?? "SALE");
-  const [propertyType, setPropertyType] = useState(values.propertyType ?? (category === "MOORING" ? "AMARRE" : "PISO"));
+  const [propertyType, setPropertyType] = useState(values.propertyType ?? (category === "MOORING" ? "AMARRE" : category === "BUSINESS" ? "NEG_BAR_RESTAURANTE" : "PISO"));
   const kind = kindOf({ propertyType });
   const mooring = kind === "MOORING";
-  const rent = operation === "RENT";
+  // Negocio en traspaso: la operación es siempre «traspaso» y el precio es el del traspaso
+  const business = kind === "BUSINESS";
+  const rent = !business && operation === "RENT";
   const energy = needsEnergyCertificate(kind) || kind === "OTHER";
   const features = new Set((values.features ?? "").split(",").filter(Boolean));
   // Municipios oficiales (INE) de la provincia elegida: el nombre coincide con el del buscador del portal
@@ -218,20 +223,21 @@ export function ListingForm({
 
   return (
     <form ref={formRef} onSubmit={onSubmit} className="space-y-5">
-      <input type="hidden" name="category" value={mooring ? "MOORING" : "HOME"} />
+      <input type="hidden" name="category" value={mooring ? "MOORING" : business ? "BUSINESS" : "HOME"} />
+      {business && <input type="hidden" name="operation" value="TRANSFER" />}
       <Section title="Operación, tipo y precio">
-        <div className="sm:col-span-2">
+        <div className={business ? "hidden" : "sm:col-span-2"}>
           <span className="field-label">Operación</span>
           <div className="inline-flex rounded-full bg-sand-100 p-1 text-sm font-medium">
             {(["SALE", "RENT"] as const).map((op) => (
               <label key={op} className={`cursor-pointer rounded-full px-5 py-1.5 ${operation === op ? "bg-white text-ink-800 shadow-sm" : "text-ink-500"}`}>
-                <input type="radio" name="operation" value={op} checked={operation === op} onChange={() => setOperation(op)} className="sr-only" />
+                <input type="radio" name="operation" value={op} checked={operation === op} onChange={() => setOperation(op)} disabled={business} className="sr-only" />
                 {op === "SALE" ? "Venta" : "Alquiler"}
               </label>
             ))}
           </div>
         </div>
-        <Field label="Tipo de inmueble" hint="Los campos del formulario se adaptan al tipo elegido">
+        <Field label={business ? "Categoría del negocio" : "Tipo de inmueble"} hint="Los campos del formulario se adaptan al tipo elegido">
           <select name="propertyType" value={propertyType} onChange={(e) => setPropertyType(e.target.value)} className="field">
             {Object.entries(PROPERTY_GROUPS).map(([g, group]) => (
               <optgroup key={g} label={group.label}>
@@ -242,11 +248,26 @@ export function ListingForm({
                 ))}
               </optgroup>
             ))}
+            <optgroup label="Negocios en traspaso">
+              {Object.entries(BUSINESS_TYPES).map(([t, label]) => (
+                <option key={t} value={t}>
+                  {label}
+                </option>
+              ))}
+            </optgroup>
           </select>
         </Field>
-        <Field label={rent ? (mooring ? "Precio del alquiler (€)" : "Renta mensual (€)") : "Precio de venta (€)"}>
+        <Field
+          label={business ? "Precio del traspaso (€)" : rent ? (mooring ? "Precio del alquiler (€)" : "Renta mensual (€)") : "Precio de venta (€)"}
+          hint={business ? "Pago único por el negocio (no es el precio de venta del local ni el alquiler mensual)" : undefined}
+        >
           <input name="price" type="number" min={1} step={1} required defaultValue={num(values.price)} className="field" />
         </Field>
+        {business && (
+          <Field label="Alquiler mensual del local (€/mes)" hint="Opcional: lo que pagará el nuevo titular al propietario del local">
+            <input name="premisesRent" type="number" min={0} step={1} defaultValue={num(values.premisesRent)} className="field" />
+          </Field>
+        )}
         {mooring && rent && (
           <Field label="Periodicidad del alquiler">
             <select name="rentPeriod" defaultValue={values.rentPeriod ?? "MONTH"} className="field">
@@ -364,13 +385,13 @@ export function ListingForm({
             <input name="bedrooms" type="number" min={0} max={50} defaultValue={num(values.bedrooms)} className="field" />
           </Field>
         )}
-        {(kind === "DWELLING" || kind === "COMMERCIAL" || kind === "OTHER") && (
-          <Field label={kind === "COMMERCIAL" ? "Aseos" : "Baños"}>
+        {(kind === "DWELLING" || kind === "COMMERCIAL" || kind === "OTHER" || business) && (
+          <Field label={kind === "COMMERCIAL" || business ? "Aseos" : "Baños"}>
             <input name="bathrooms" type="number" min={0} max={50} defaultValue={num(values.bathrooms)} className="field" />
           </Field>
         )}
         {kind !== "LAND" && !mooring && (
-          <Field label="Planta" hint={kind === "GARAGE" ? "Ej.: -1, -2, baja" : "Ej.: 3ª, bajo, ático"}>
+          <Field label="Planta" hint={kind === "GARAGE" ? "Ej.: -1, -2, baja" : business ? "Ej.: bajos, 1ª" : "Ej.: 3ª, bajo, ático"}>
             <input name="floor" maxLength={30} defaultValue={values.floor ?? ""} className="field" />
           </Field>
         )}
@@ -379,7 +400,7 @@ export function ListingForm({
             <input name="yearBuilt" type="number" min={1500} max={2100} defaultValue={num(values.yearBuilt)} className="field" />
           </Field>
         )}
-        {kind === "COMMERCIAL" && (
+        {(kind === "COMMERCIAL" || business) && (
           <Field label="Distribución" wide hint="Ej.: planta diáfana, 3 despachos, sala de reuniones y almacén. Opcional">
             <textarea name="distribution" rows={2} maxLength={1000} defaultValue={values.distribution ?? ""} className="field" />
           </Field>
@@ -466,7 +487,13 @@ export function ListingForm({
         <Field
           label="Título"
           wide
-          hint={mooring ? "Entre 10 y 110 caracteres. Ej.: Amarre de 12 x 4 m en Port de Roses" : "Entre 10 y 110 caracteres. Ej.: Piso en venta de 3 habitaciones en Girona"}
+          hint={
+            mooring
+              ? "Entre 10 y 110 caracteres. Ej.: Amarre de 12 x 4 m en Port de Roses"
+              : business
+                ? "Nombre o título del negocio. Ej.: Traspaso de cafetería con terraza en el centro de Girona"
+                : "Entre 10 y 110 caracteres. Ej.: Piso en venta de 3 habitaciones en Girona"
+          }
         >
           <input name="title" required minLength={10} maxLength={110} defaultValue={values.title ?? ""} className="field" />
         </Field>
@@ -474,9 +501,15 @@ export function ListingForm({
           <textarea name="description" rows={8} maxLength={6000} defaultValue={values.description ?? ""} className="field" />
         </Field>
         <Field
-          label="Información adicional"
+          label={business ? "Información relevante del negocio" : "Información adicional"}
           wide
-          hint={mooring ? "Opcional: tasas portuarias, condiciones de la concesión, acceso, normas del puerto…" : "Opcional: lo que quieras añadir para el comprador o el inquilino"}
+          hint={
+            mooring
+              ? "Opcional: tasas portuarias, condiciones de la concesión, acceso, normas del puerto…"
+              : business
+                ? "Solo datos que facilite el anunciante: antigüedad, horario, personal, licencias, motivo del traspaso, duración del contrato del local…"
+                : "Opcional: lo que quieras añadir para el comprador o el inquilino"
+          }
         >
           <textarea name="extraInfo" rows={3} maxLength={3000} defaultValue={values.extraInfo ?? ""} className="field" />
         </Field>
@@ -571,7 +604,7 @@ export function ListingForm({
             </select>
           </Field>
         )}
-        <Field label={mooring ? "Autorización del titular" : "Autorización del propietario"}>
+        <Field label={mooring || business ? "Autorización del titular" : "Autorización del propietario"}>
           <Select name="authorizationType" value={values.authorizationType} options={AUTHORIZATION_TYPES} />
         </Field>
         <Field label="Fecha de la autorización">
@@ -580,7 +613,9 @@ export function ListingForm({
         <Check name="checkAuthorization" defaultChecked={values.checkAuthorization}>
           {mooring
             ? "Tengo la autorización firmada del titular del amarre (o de su derecho de uso) para comercializarlo y publicarlo."
-            : "Tengo la autorización firmada del propietario para comercializar y publicar este inmueble."}
+            : business
+              ? "Tengo la autorización firmada del titular del negocio para comercializar y publicar el traspaso."
+              : "Tengo la autorización firmada del propietario para comercializar y publicar este inmueble."}
         </Check>
         {energy && (
           <Check name="checkEnergy" defaultChecked={values.checkEnergy}>

@@ -75,7 +75,7 @@ export function ListingCard({
             </div>
           )}
           <span className="absolute left-3 top-3 flex flex-wrap gap-1.5">
-            <span className="rounded-full bg-ink-800 px-2.5 py-1 text-[11.5px] font-semibold text-white shadow-sm">{l.operation === "RENT" ? t.rent : t.sale}</span>
+            <span className="rounded-full bg-ink-800 px-2.5 py-1 text-[11.5px] font-semibold text-white shadow-sm">{l.operation === "TRANSFER" ? t.transfer : l.operation === "RENT" ? t.rent : t.sale}</span>
             <span className="rounded-full bg-white/95 px-2.5 py-1 text-[11.5px] font-semibold text-ink-700 shadow-sm">
               {mooring ? (l.mooringType ? `${t.mooring} · ${labels.mooringTypes[l.mooringType]}` : t.mooring) : (labels.types[l.propertyType] ?? l.propertyType)}
             </span>
@@ -112,7 +112,7 @@ export function ListingCard({
                 <BedDouble className="h-3.5 w-3.5" /> {l.bedrooms} {t.rooms}
               </span>
             )}
-            {l.bathrooms != null && (
+            {l.bathrooms != null && l.category !== "BUSINESS" && (
               <span className="inline-flex items-center gap-1">
                 <Bath className="h-3.5 w-3.5" /> {l.bathrooms} {t.bath(l.bathrooms)}
               </span>

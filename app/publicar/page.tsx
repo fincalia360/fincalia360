@@ -19,7 +19,9 @@ export default async function PublishPage({ searchParams }: { searchParams: Prom
   const dict = getDictionary("es");
   const lang = await getSiteLang();
   const d = portalDict(lang);
-  const mooring = (await searchParams).tipo === "amarre";
+  const tipo = (await searchParams).tipo;
+  const mooring = tipo === "amarre";
+  const business = tipo === "negocio";
   const provinces = PROVINCES.filter((p) => PORTAL_PROVINCE_CODES.includes(p.code))
     .sort((a, b) => a.name.localeCompare(b.name, "es"))
     .map(({ code, name }) => ({ code, name }));
@@ -48,7 +50,7 @@ export default async function PublishPage({ searchParams }: { searchParams: Prom
         </section>
         <div className="container-page max-w-3xl py-8 sm:py-10">
           <PublishRequestForm
-            initialCategory={mooring ? "MOORING" : "HOME"}
+            initialCategory={mooring ? "MOORING" : business ? "BUSINESS" : "HOME"}
             provinces={provinces}
             types={catalogLabels(lang).types}
             lang={lang}

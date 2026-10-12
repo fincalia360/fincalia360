@@ -2,6 +2,8 @@
 // En español se usan las del catálogo (services/listings/catalog.ts), que son la referencia.
 import {
   ALL_FEATURE_LABELS,
+  BUSINESS_FEATURES,
+  BUSINESS_TYPES,
   CONDITIONS,
   ENERGY_RATINGS,
   LAND_CLASSIFICATIONS,
@@ -123,6 +125,29 @@ const fr: CatalogLabels = {
 
 const LABELS: Record<SiteLang, CatalogLabels> = { es, ca, en, de, fr };
 
+/** Negocios en traspaso: actividades y características (en español, las del catálogo). */
+const BUSINESS: Record<SiteLang, { types: Record<string, string>; features: Record<string, string> }> = {
+  es: { types: { ...BUSINESS_TYPES }, features: { ...BUSINESS_FEATURES } },
+  ca: {
+    types: { NEG_BAR_RESTAURANTE: "Bar o restaurant", NEG_CAFETERIA: "Cafeteria", NEG_COMERCIO: "Comerç", NEG_ESTETICA: "Perruqueria o centre d'estètica", NEG_HOSTELERIA: "Hostaleria i allotjament", NEG_OFICINA: "Oficina i serveis", NEG_OTRO: "Altres negocis" },
+    features: { ACTIVITY_LICENSE: "Llicència d'activitat vigent", TERRACE_LICENSE: "Llicència de terrassa", SMOKE_OUTLET: "Sortida de fums", EQUIPMENT_INCLUDED: "Mobiliari i maquinària inclosos", FITTED_OUT: "Local condicionat, a punt per obrir", STREET_LEVEL: "A peu de carrer", SHOP_WINDOW: "Aparador", STOREROOM: "Magatzem", AC: "Aire condicionat", ACCESSIBLE: "Accessible", STAFF: "Possibilitat de mantenir el personal", CLIENTELE: "Clientela consolidada" },
+  },
+  en: {
+    types: { NEG_BAR_RESTAURANTE: "Bar or restaurant", NEG_CAFETERIA: "Café", NEG_COMERCIO: "Shop", NEG_ESTETICA: "Hair or beauty salon", NEG_HOSTELERIA: "Hospitality and accommodation", NEG_OFICINA: "Office and services", NEG_OTRO: "Other business" },
+    features: { ACTIVITY_LICENSE: "Valid business licence", TERRACE_LICENSE: "Terrace licence", SMOKE_OUTLET: "Smoke extraction", EQUIPMENT_INCLUDED: "Furniture and equipment included", FITTED_OUT: "Fitted out, ready to open", STREET_LEVEL: "Street level", SHOP_WINDOW: "Shop window", STOREROOM: "Storeroom", AC: "Air conditioning", ACCESSIBLE: "Accessible", STAFF: "Staff can be kept on", CLIENTELE: "Established clientele" },
+  },
+  de: {
+    types: { NEG_BAR_RESTAURANTE: "Bar oder Restaurant", NEG_CAFETERIA: "Café", NEG_COMERCIO: "Ladengeschäft", NEG_ESTETICA: "Friseur oder Kosmetikstudio", NEG_HOSTELERIA: "Gastgewerbe und Unterkunft", NEG_OFICINA: "Büro und Dienstleistungen", NEG_OTRO: "Sonstiges Geschäft" },
+    features: { ACTIVITY_LICENSE: "Gültige Betriebserlaubnis", TERRACE_LICENSE: "Terrassengenehmigung", SMOKE_OUTLET: "Abluftanlage", EQUIPMENT_INCLUDED: "Mobiliar und Geräte inklusive", FITTED_OUT: "Eingerichtet, sofort betriebsbereit", STREET_LEVEL: "Ebenerdig", SHOP_WINDOW: "Schaufenster", STOREROOM: "Lager", AC: "Klimaanlage", ACCESSIBLE: "Barrierefrei", STAFF: "Personalübernahme möglich", CLIENTELE: "Fester Kundenstamm" },
+  },
+  fr: {
+    types: { NEG_BAR_RESTAURANTE: "Bar ou restaurant", NEG_CAFETERIA: "Café", NEG_COMERCIO: "Commerce", NEG_ESTETICA: "Salon de coiffure ou d'esthétique", NEG_HOSTELERIA: "Hôtellerie et hébergement", NEG_OFICINA: "Bureau et services", NEG_OTRO: "Autre commerce" },
+    features: { ACTIVITY_LICENSE: "Licence d'activité en vigueur", TERRACE_LICENSE: "Licence de terrasse", SMOKE_OUTLET: "Extraction de fumées", EQUIPMENT_INCLUDED: "Mobilier et équipement inclus", FITTED_OUT: "Local aménagé, prêt à ouvrir", STREET_LEVEL: "Rez-de-chaussée sur rue", SHOP_WINDOW: "Vitrine", STOREROOM: "Réserve", AC: "Climatisation", ACCESSIBLE: "Accessible", STAFF: "Possibilité de garder le personnel", CLIENTELE: "Clientèle fidèle" },
+  },
+};
+
 export function catalogLabels(lang: SiteLang): CatalogLabels {
-  return LABELS[lang] ?? es;
+  const base = LABELS[lang] ?? es;
+  const b = BUSINESS[lang] ?? BUSINESS.es;
+  return { ...base, types: { ...base.types, ...b.types }, features: { ...base.features, ...b.features } };
 }

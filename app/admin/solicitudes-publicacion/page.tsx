@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { requireAdmin } from "@/lib/auth";
 import { formatDateTime } from "@/lib/utils";
-import { OPERATIONS, PROPERTY_TYPES, PUBLICATION_REQUEST_STATUSES } from "@/services/listings/catalog";
+import { BUSINESS_TYPES, OPERATIONS, PROPERTY_TYPES, PUBLICATION_REQUEST_STATUSES } from "@/services/listings/catalog";
 import { listPublicationRequests } from "@/services/listings/publicationRequests";
 
 export const metadata = { title: "Solicitudes de publicación" };
@@ -59,7 +59,11 @@ export default async function PublicationRequestsPage({ searchParams }: { search
                   </td>
                   <td>
                     <Link href={`/admin/solicitudes-publicacion/${r.id}`} className="font-medium text-ink-800 hover:underline">
-                      {r.category === "MOORING" ? "Amarre" : (PROPERTY_TYPES[r.propertyType as keyof typeof PROPERTY_TYPES] ?? r.propertyType)}
+                      {r.category === "MOORING"
+                        ? "Amarre"
+                        : r.category === "BUSINESS"
+                          ? `Negocio · ${BUSINESS_TYPES[r.propertyType as keyof typeof BUSINESS_TYPES] ?? r.propertyType}`
+                          : (PROPERTY_TYPES[r.propertyType as keyof typeof PROPERTY_TYPES] ?? r.propertyType)}
                     </Link>
                     <p className="text-xs text-ink-400">{OPERATIONS[r.operation as keyof typeof OPERATIONS]}</p>
                   </td>

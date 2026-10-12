@@ -33,6 +33,7 @@ export async function SiteHeader({ dict, lang, basePath = "/", showNav = true }:
     ] as const
   ).map(([label, op, href, all]) => ({ label, all: { label: all, href }, items: GROUPS.map((g) => ({ label: d.groups[g], href: groupHref(op, g) })) }));
   const LINKS = [
+    { label: d.nav.transfers, href: "/traspasos" },
     { label: d.nav.searching, href: "/busco-piso" },
     { label: d.nav.valuate, href: "/estudio" },
     { label: d.nav.contact, href: "/contacto" },
@@ -46,9 +47,9 @@ export async function SiteHeader({ dict, lang, basePath = "/", showNav = true }:
         </Link>
         {showNav ? (
           <>
-            <nav aria-label={d.nav.main} className="hidden items-center gap-3.5 whitespace-nowrap text-[14.5px] font-medium text-ink-600 lg:flex xl:gap-6">
-              {/* Entre 1024 y 1280 px se oculta «Inicio» (el logotipo ya lleva a la portada) para que quepa el menú */}
-              <Link href="/" className={`hidden xl:inline ${navLink}`}>
+            <nav aria-label={d.nav.main} className="hidden items-center gap-3.5 whitespace-nowrap text-[14.5px] font-medium text-ink-600 xl:flex">
+              {/* Menú completo desde 1280 px; por debajo, el botón de menú (con todas las opciones) */}
+              <Link href="/" className={navLink}>
                 {d.nav.home}
               </Link>
               {/* Venta y Alquiler: submenú con los tipos de inmueble (ratón o teclado) */}
@@ -83,9 +84,9 @@ export async function SiteHeader({ dict, lang, basePath = "/", showNav = true }:
                 href={CTA.href}
                 className="inline-flex h-10 shrink-0 items-center rounded-full bg-terracotta-500 px-4 text-[13.5px] font-semibold text-white transition hover:bg-terracotta-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta-500 sm:text-sm"
               >
-                {/* Entre 1024 y 1280 px el menú completo no deja sitio: texto corto */}
-                <span className="sm:hidden lg:inline xl:hidden">{d.nav.publishShort}</span>
-                <span className="hidden sm:inline lg:hidden xl:inline">{CTA.label}</span>
+                                {/* Con el menú completo (desde 1280 px) el botón usa el texto corto para que quepa */}
+                <span className="sm:hidden xl:inline">{d.nav.publishShort}</span>
+                <span className="hidden sm:inline xl:hidden">{CTA.label}</span>
               </Link>
               <LanguageMenu current={siteLang} label={d.nav.language} />
               <MobileMenu groups={MENUS} links={LINKS} cta={CTA} labels={{ home: d.nav.home, open: d.nav.openMenu, close: d.nav.closeMenu, main: d.nav.main }} />

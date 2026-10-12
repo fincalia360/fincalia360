@@ -6,7 +6,7 @@ export const PORTAL_REGION = "Cataluña";
 export const PORTAL_PROVINCE_CODES: readonly string[] = ["08", "17", "25", "43"]; // Barcelona, Girona, Lleida, Tarragona
 export const isPortalProvince = (code: string | null | undefined) => Boolean(code && PORTAL_PROVINCE_CODES.includes(code));
 
-export const OPERATIONS = { SALE: "Venta", RENT: "Alquiler" } as const;
+export const OPERATIONS = { SALE: "Venta", RENT: "Alquiler", TRANSFER: "Traspaso" } as const;
 export type Operation = keyof typeof OPERATIONS;
 
 export const PROPERTY_TYPES = {
@@ -25,10 +25,41 @@ export const PROPERTY_TYPES = {
 export type PropertyTypeCode = keyof typeof PROPERTY_TYPES;
 
 /** Viviendas e inmuebles, o amarres náuticos (sección propia del portal). */
-export const CATEGORIES = { HOME: "Vivienda o inmueble", MOORING: "Amarre" } as const;
+export const CATEGORIES = { HOME: "Vivienda o inmueble", MOORING: "Amarre", BUSINESS: "Negocio en traspaso" } as const;
 export type Category = keyof typeof CATEGORIES;
 /** Tipo interno de los anuncios de amarre (no aparece en los filtros de viviendas). */
 export const MOORING_PROPERTY_TYPE = "AMARRE";
+
+/**
+ * Negocios en traspaso (category = BUSINESS, operation = TRANSFER). El tipo es la actividad del negocio.
+ * El precio es el del traspaso (pago único); el alquiler mensual del local va aparte (premisesRent).
+ */
+export const BUSINESS_TYPES = {
+  NEG_BAR_RESTAURANTE: "Bar o restaurante",
+  NEG_CAFETERIA: "Cafetería",
+  NEG_COMERCIO: "Comercio",
+  NEG_ESTETICA: "Peluquería o centro de estética",
+  NEG_HOSTELERIA: "Hostelería y alojamiento",
+  NEG_OFICINA: "Oficina y servicios",
+  NEG_OTRO: "Otro negocio",
+} as const;
+export type BusinessTypeCode = keyof typeof BUSINESS_TYPES;
+export const isBusinessType = (t: string | null | undefined) => Boolean(t && t in BUSINESS_TYPES);
+
+export const BUSINESS_FEATURES = {
+  ACTIVITY_LICENSE: "Licencia de actividad en vigor",
+  TERRACE_LICENSE: "Licencia de terraza",
+  SMOKE_OUTLET: "Salida de humos",
+  EQUIPMENT_INCLUDED: "Mobiliario y maquinaria incluidos",
+  FITTED_OUT: "Local acondicionado, listo para abrir",
+  STREET_LEVEL: "A pie de calle",
+  SHOP_WINDOW: "Escaparate",
+  STOREROOM: "Almacén",
+  AC: "Aire acondicionado",
+  ACCESSIBLE: "Accesible",
+  STAFF: "Posibilidad de mantener el personal",
+  CLIENTELE: "Clientela consolidada",
+} as const;
 
 export const MOORING_TYPES = {
   PONTOON: "Pantalán",
@@ -137,7 +168,7 @@ export const LAND_USES = {
  * Qué campos tiene cada tipo de inmueble. El formulario del panel, los filtros y la ficha
  * muestran solo los que corresponden.
  */
-export type FieldKind = "DWELLING" | "COMMERCIAL" | "GARAGE" | "LAND" | "MOORING" | "OTHER";
+export type FieldKind = "DWELLING" | "COMMERCIAL" | "GARAGE" | "LAND" | "MOORING" | "BUSINESS" | "OTHER";
 
 /** Grupos del menú VENTA / ALQUILER (submenús y filtro «tipo de inmueble»). */
 export const PROPERTY_GROUPS = {
@@ -156,6 +187,7 @@ export const HOME_SEARCH_GROUPS = (Object.keys(PROPERTY_GROUPS) as PropertyGroup
 
 export function kindOf(l: { category?: string | null; propertyType: string }): FieldKind {
   if (l.category === "MOORING" || l.propertyType === MOORING_PROPERTY_TYPE) return "MOORING";
+  if (l.category === "BUSINESS" || isBusinessType(l.propertyType)) return "BUSINESS";
   return (Object.values(PROPERTY_GROUPS).find((g) => (g.types as readonly string[]).includes(l.propertyType))?.kind ?? "OTHER") as FieldKind;
 }
 
@@ -169,11 +201,12 @@ export const FEATURES_BY_KIND: Record<FieldKind, Record<string, string>> = {
   GARAGE: GARAGE_FEATURES,
   LAND: LAND_FEATURES,
   MOORING: MOORING_FEATURES,
+  BUSINESS: BUSINESS_FEATURES,
   OTHER: FEATURES,
 };
 
 /** Todas las etiquetas de características (para mostrarlas en fichas y filtros). */
-export const ALL_FEATURE_LABELS: Record<string, string> = { ...FEATURES, ...COMMERCIAL_FEATURES, ...GARAGE_FEATURES, ...LAND_FEATURES, ...MOORING_FEATURES };
+export const ALL_FEATURE_LABELS: Record<string, string> = { ...FEATURES, ...COMMERCIAL_FEATURES, ...GARAGE_FEATURES, ...LAND_FEATURES, ...MOORING_FEATURES, ...BUSINESS_FEATURES };
 
 /** El certificado energético es obligatorio en viviendas, locales y oficinas (no en garajes, terrenos ni amarres). */
 export const needsEnergyCertificate = (kind: FieldKind) => kind === "DWELLING" || kind === "COMMERCIAL";
@@ -268,6 +301,10 @@ export function buildSlug(l: {
   // Texto de la dirección elegido por el administrador (SEO); la referencia final la mantiene estable
   const custom = l.slugText ? slugify(l.slugText) : "";
   if (custom) return `${custom}-${l.reference.toLowerCase()}`;
+  if (l.category === "BUSINESS") {
+    const parts = ["traspaso", BUSINESS_TYPES[l.propertyType as BusinessTypeCode] ?? "negocio", l.municipality];
+    return `${slugify(parts.filter(Boolean).join(" "))}-${l.reference.toLowerCase()}`;
+  }
   if (l.category === "MOORING") {
     const parts = ["amarre", l.operation === "RENT" ? "alquiler" : "venta", l.berthLength ? `${String(l.berthLength).replace(".", "-")} m` : "", l.portName ?? "", l.municipality];
     return `${slugify(parts.filter(Boolean).join(" "))}-${l.reference.toLowerCase()}`;
@@ -284,6 +321,7 @@ export function referenceFromSlug(slug: string) {
 }
 
 export function listingPath(l: { slug: string; category?: string | null }) {
+  if (l.category === "BUSINESS") return `/traspaso/${l.slug}`;
   return l.category === "MOORING" ? `/amarre/${l.slug}` : `/inmueble/${l.slug}`;
 }
 

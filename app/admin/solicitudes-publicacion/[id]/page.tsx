@@ -7,7 +7,7 @@ import { ConvertRequestForm, DeleteRequestButton, RequestStatusForm } from "@/co
 import { Badge } from "@/components/ui/Badge";
 import { requireAdmin } from "@/lib/auth";
 import { formatDateTime } from "@/lib/utils";
-import { OPERATIONS, PROPERTY_TYPES, PUBLICATION_REQUEST_STATUSES, formatMeters, formatPrice } from "@/services/listings/catalog";
+import { BUSINESS_TYPES, OPERATIONS, PROPERTY_TYPES, PUBLICATION_REQUEST_STATUSES, formatMeters, formatPrice } from "@/services/listings/catalog";
 import { PublicationRequestError, getPublicationRequest } from "@/services/listings/publicationRequests";
 import { getProvince } from "@/services/study/geo";
 import { convertRequestAction, deleteRequestAction, requestStatusAction } from "../actions";
@@ -34,9 +34,12 @@ export default async function PublicationRequestPage({ params }: { params: Promi
   });
   const mooring = r.category === "MOORING";
   const photos = r.photos.split(",").filter(Boolean);
-  const what = mooring ? "Amarre" : (PROPERTY_TYPES[r.propertyType as keyof typeof PROPERTY_TYPES] ?? r.propertyType);
+  const business = r.category === "BUSINESS";
+  const what = mooring ? "Amarre" : business ? `Traspaso · ${BUSINESS_TYPES[r.propertyType as keyof typeof BUSINESS_TYPES] ?? r.propertyType}` : (PROPERTY_TYPES[r.propertyType as keyof typeof PROPERTY_TYPES] ?? r.propertyType);
   const op = OPERATIONS[r.operation as keyof typeof OPERATIONS];
-  const suggestedTitle = mooring
+  const suggestedTitle = business
+    ? (r.title ?? `Traspaso de ${(BUSINESS_TYPES[r.propertyType as keyof typeof BUSINESS_TYPES] ?? "negocio").toLowerCase()} en ${r.municipality}`)
+    : mooring
     ? `Amarre${r.berthLength ? ` de ${formatMeters(r.berthLength)}` : ""} en ${r.portName ?? r.municipality}`
     : `${what} en ${r.operation === "RENT" ? "alquiler" : "venta"} en ${r.municipality}`;
   const tone = r.status === "CONVERTED" ? "green" : r.status === "NEW" ? "blue" : r.status === "IN_REVIEW" ? "amber" : "neutral";
@@ -78,11 +81,13 @@ export default async function PublicationRequestPage({ params }: { params: Promi
               <dl className="mt-2">
                 <Row label="Operación" value={op} />
                 <Row label="Tipo" value={what} />
+                <Row label="Nombre del negocio" value={r.title} />
                 <Row label="Puerto" value={r.portName} />
                 <Row label="Municipio" value={`${r.municipality} (${getProvince(r.provinceCode)?.name ?? r.provinceCode})`} />
                 <Row label={mooring ? "Ubicación en el puerto" : "Zona"} value={r.zone} />
                 <Row label={mooring ? "Nº de amarre (privado)" : "Dirección (privada)"} value={r.address} />
-                <Row label="Precio indicado" value={r.price ? formatPrice(r.price, r.operation) : "Sin indicar"} />
+                <Row label={business ? "Precio del traspaso" : "Precio indicado"} value={r.price ? formatPrice(r.price, r.operation) : "Sin indicar"} />
+                <Row label="Alquiler del local" value={r.premisesRent ? `${formatPrice(r.premisesRent, "SALE")}/mes` : null} />
                 <Row label="Superficie" value={r.builtArea ? `${r.builtArea} m²` : null} />
                 <Row label="Habitaciones" value={r.bedrooms} />
                 <Row label="Baños" value={r.bathrooms} />

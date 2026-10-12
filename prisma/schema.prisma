@@ -411,8 +411,8 @@ model Listing {
   agencyId  String?
   agency    Agency?  @relation(fields: [agencyId], references: [id], onDelete: Cascade)
   status    String   @default("DRAFT") // DRAFT | REVIEW | PUBLISHED | RESERVED | SOLD | RENTED | UNPUBLISHED | ARCHIVED
-  operation String // SALE | RENT
-  category  String   @default("HOME") // HOME (vivienda o inmueble) | MOORING (amarre náutico)
+  operation String // SALE | RENT | TRANSFER (traspaso de negocio)
+  category  String   @default("HOME") // HOME (vivienda o inmueble) | MOORING (amarre náutico) | BUSINESS (negocio en traspaso)
 
   title        String
   description  String @default("")
@@ -472,6 +472,8 @@ model Listing {
   extraInfo     String? // información adicional para el comprador o arrendatario
 
   // Locales, oficinas y terrenos
+  // Negocios en traspaso (category = BUSINESS, operation = TRANSFER): price es el precio del traspaso
+  premisesRent       Int? // alquiler mensual del local (euros/mes), si lo indica el anunciante
   distribution       String? // distribución (locales y oficinas)
   landClassification String? // URBAN | DEVELOPABLE | RUSTIC (solo si está verificada)
   landUse            String? // RESIDENTIAL | INDUSTRIAL | COMMERCIAL | AGRICULTURAL | MIXED | OTHER
@@ -720,6 +722,8 @@ model PublicationRequest {
   portName     String?
   berthLength  Float?
   berthWidth   Float?
+  premisesRent Int? // traspasos: alquiler mensual del local
+  title        String? // traspasos: nombre del negocio indicado por el anunciante
   description  String  @default("")
   photos       String  @default("") // CSV de claves privadas (private/requests/…)
 

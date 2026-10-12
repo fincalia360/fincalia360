@@ -43,7 +43,7 @@ export function MobileMenu({
 
   const item = "flex min-h-11 items-center rounded-lg px-3 text-[15px] text-ink-700 hover:bg-sand-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-terracotta-500";
   return (
-    <div ref={ref} className="relative lg:hidden">
+    <div ref={ref} className="relative xl:hidden">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}

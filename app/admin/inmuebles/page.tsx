@@ -1,6 +1,6 @@
 /* eslint-disable @next/next/no-img-element -- miniaturas ya optimizadas */
 import Link from "next/link";
-import { Plus, ImageOff, Anchor } from "lucide-react";
+import { Plus, ImageOff, Anchor, Store } from "lucide-react";
 import { PageHeader } from "@/components/admin/PageHeader";
 import { Badge } from "@/components/ui/Badge";
 import { ButtonLink } from "@/components/ui/Button";
@@ -114,6 +114,9 @@ export default async function AdminListingsPage({ searchParams }: { searchParams
             <ButtonLink href="/admin/inmuebles/nuevo?tipo=amarre" variant="outline">
               <Anchor className="h-4 w-4" /> Nuevo amarre
             </ButtonLink>
+            <ButtonLink href="/admin/inmuebles/nuevo?tipo=negocio" variant="outline">
+              <Store className="h-4 w-4" /> Nuevo traspaso
+            </ButtonLink>
           </div>
         }
       />
@@ -124,6 +127,7 @@ export default async function AdminListingsPage({ searchParams }: { searchParams
             ["", "Todos"],
             ["HOME", "Inmuebles"],
             ["MOORING", "Amarres"],
+            ["BUSINESS", "Traspasos"],
           ] as const
         ).map(([k, label]) => (
           <Link
@@ -212,7 +216,7 @@ export default async function AdminListingsPage({ searchParams }: { searchParams
                       {l.title}
                     </Link>
                     <p className="text-xs text-ink-400">
-                      {l.reference} · {l.category === "MOORING" ? "Amarre · " : ""}
+                      {l.reference} · {l.category === "MOORING" ? "Amarre · " : l.category === "BUSINESS" ? "Negocio · " : ""}
                       {OPERATIONS[l.operation as keyof typeof OPERATIONS]} · {l.category === "MOORING" && l.portName ? `${l.portName}, ` : ""}
                       {l.municipality}
                     </p>
