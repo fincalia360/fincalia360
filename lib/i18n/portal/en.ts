@@ -371,6 +371,7 @@ const en: PortalDict = {
     valuate: "Value your home for free",
   },
   meta: {
+    home: { title: "Flats, houses, commercial units and moorings in Catalonia", description: "Buy or rent flats, houses, shops, offices, garages, land and moorings in Barcelona, Girona, Lleida and Tarragona. List your property or your search for free." },
     homeSale: { title: "Properties for sale in Catalonia", description: "Flats, houses, commercial premises, offices, parking spaces, land and moorings for sale in Barcelona, Girona, Lleida and Tarragona, reviewed before publication." },
     homeRent: { title: "Properties to rent in Catalonia", description: "Flats, houses, commercial premises, offices, parking spaces, land and moorings to rent in Barcelona, Girona, Lleida and Tarragona, reviewed before publication." },
     mooringSale: { title: "Moorings for sale in Catalonia", description: "Boat moorings for sale in marinas across Catalonia. Filter by marina, town, price, and your boat's length and beam." },

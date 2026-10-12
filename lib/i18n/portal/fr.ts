@@ -374,6 +374,7 @@ const fr: PortalDict = {
     valuate: "Estimez votre logement gratuitement",
   },
   meta: {
+    home: { title: "Appartements, maisons, locaux et amarrages en Catalogne", description: "Achetez ou louez appartements, maisons, locaux, bureaux, garages, terrains et amarrages à Barcelone, Gérone, Lleida et Tarragone. Publiez gratuitement votre bien." },
     homeSale: { title: "Biens à vendre en Catalogne", description: "Appartements, maisons, locaux, bureaux, parkings, terrains et anneaux d'amarrage à vendre à Barcelone, Gérone, Lleida et Tarragone, vérifiés avant publication." },
     homeRent: { title: "Biens à louer en Catalogne", description: "Appartements, maisons, locaux, bureaux, parkings, terrains et anneaux d'amarrage à louer à Barcelone, Gérone, Lleida et Tarragone, vérifiés avant publication." },
     mooringSale: { title: "Anneaux d'amarrage à vendre en Catalogne", description: "Anneaux d'amarrage à vendre dans les ports de plaisance de Catalogne. Filtrez par port, ville, prix, longueur et largeur de votre bateau." },

@@ -10,12 +10,15 @@ import { getRequestLanguage } from "@/lib/i18n/server";
 import { portalDict } from "@/lib/i18n/site";
 import { getSiteLang } from "@/lib/i18n/siteServer";
 import { valuationHomeTexts, type ValuationHomeTexts } from "@/lib/i18n/valuation/home";
+import { portalMetadata } from "@/services/listings/seo";
 
 type Props = { searchParams: Promise<{ lang?: string }> };
 
+// La portada es ahora el portal inmobiliario: título y descripción del portal para Google.
 export async function generateMetadata(): Promise<Metadata> {
-  const h = valuationHomeTexts(await getSiteLang());
-  return { title: { absolute: h.metaTitle }, description: h.metaDescription };
+  const m = portalDict(await getSiteLang()).meta.home;
+  // La portada no recibe la plantilla «… · FINCALIA360» del diseño raíz: la marca va delante
+  return { ...portalMetadata({ title: m.title, description: m.description, path: "/" }), title: { absolute: `FINCALIA360 · ${m.title}` } };
 }
 
 const STUDY = "/estudio";
@@ -109,7 +112,7 @@ export default async function LandingPage({ searchParams }: Props) {
           <div className="container-page grid items-center gap-12 lg:grid-cols-[1.05fr_0.95fr] lg:gap-14">
             <div>
               <Eyebrow>{h.heroEyebrow}</Eyebrow>
-              <h1 className="mt-4 text-[40px] font-extrabold leading-[1.05] tracking-tight text-ink-800 sm:text-6xl">{h.heroTitle}</h1>
+              <h2 className="mt-4 text-[40px] font-extrabold leading-[1.05] tracking-tight text-ink-800 sm:text-6xl">{h.heroTitle}</h2>
               <p className="mt-5 max-w-xl text-lg text-ink-500 sm:text-xl">{h.heroText}</p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <ButtonLink href={STUDY} variant="accent" size="lg" className="w-full sm:w-auto">

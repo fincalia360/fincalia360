@@ -372,6 +372,7 @@ const de: PortalDict = {
     valuate: "Immobilie kostenlos bewerten",
   },
   meta: {
+    home: { title: "Wohnungen, Häuser, Gewerbe und Liegeplätze in Katalonien", description: "Wohnungen, Häuser, Läden, Büros, Garagen, Grundstücke und Liegeplätze kaufen oder mieten in Barcelona, Girona, Lleida und Tarragona. Kostenlos inserieren." },
     homeSale: { title: "Immobilien zum Kauf in Katalonien", description: "Wohnungen, Häuser, Gewerbeflächen, Büros, Stellplätze, Grundstücke und Liegeplätze zum Kauf in Barcelona, Girona, Lleida und Tarragona, vor der Veröffentlichung geprüft." },
     homeRent: { title: "Immobilien zur Miete in Katalonien", description: "Wohnungen, Häuser, Gewerbeflächen, Büros, Stellplätze, Grundstücke und Liegeplätze zur Miete in Barcelona, Girona, Lleida und Tarragona, vor der Veröffentlichung geprüft." },
     mooringSale: { title: "Liegeplätze zum Kauf in Katalonien", description: "Bootsliegeplätze zum Kauf in Sporthäfen in Katalonien. Filtern nach Hafen, Ort, Preis sowie Länge und Breite Ihres Bootes." },

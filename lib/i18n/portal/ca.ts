@@ -372,6 +372,7 @@ const ca: PortalDict = {
     valuate: "Valora el teu habitatge gratis",
   },
   meta: {
+    home: { title: "Pisos, cases, locals i amarraments a Catalunya", description: "Compra o lloga pisos, cases, locals, oficines, garatges, terrenys i amarraments a Barcelona, Girona, Lleida i Tarragona. Publica gratis el teu immoble o la teva cerca." },
     homeSale: { title: "Immobles en venda a Catalunya", description: "Pisos, cases, locals, oficines, garatges, terrenys i amarradors en venda a Barcelona, Girona, Lleida i Tarragona, revisats abans de publicar-se." },
     homeRent: { title: "Immobles en lloguer a Catalunya", description: "Pisos, cases, locals, oficines, garatges, terrenys i amarradors en lloguer a Barcelona, Girona, Lleida i Tarragona, revisats abans de publicar-se." },
     mooringSale: { title: "Amarradors en venda a Catalunya", description: "Amarradors nàutics en venda en ports esportius de Catalunya. Filtra per port, població, preu, eslora i mànega de la teva embarcació." },

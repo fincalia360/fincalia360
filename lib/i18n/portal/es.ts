@@ -380,6 +380,7 @@ const es = {
     valuate: "Valora tu vivienda gratis",
   },
   meta: {
+    home: { title: "Pisos, casas, locales y amarres en Cataluña", description: "Compra o alquila pisos, casas, locales, oficinas, garajes, terrenos y amarres en Barcelona, Girona, Lleida y Tarragona. Publica gratis tu inmueble o tu búsqueda." },
     homeSale: { title: "Inmuebles en venta en Cataluña", description: "Pisos, casas, locales, oficinas, garajes, terrenos y amarres en venta en Barcelona, Girona, Lleida y Tarragona, revisados antes de publicarse." },
     homeRent: { title: "Inmuebles en alquiler en Cataluña", description: "Pisos, casas, locales, oficinas, garajes, terrenos y amarres en alquiler en Barcelona, Girona, Lleida y Tarragona, revisados antes de publicarse." },
     mooringSale: { title: "Amarres en venta en Cataluña", description: "Amarres náuticos en venta en puertos deportivos de Cataluña. Filtra por puerto, población, precio, eslora y manga de tu barco." },
